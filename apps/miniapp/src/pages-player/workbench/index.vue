@@ -79,6 +79,10 @@ function openOrders() {
   uni.navigateTo({ url: "/pages-player/orders/index" })
 }
 
+function openWithdrawals() {
+  uni.navigateTo({ url: "/pages-player/withdrawals/index" })
+}
+
 onShow(() => { void load() })
 </script>
 
@@ -123,6 +127,9 @@ onShow(() => { void load() })
         <button class="primary" @click="openPool">去抢单</button>
         <button class="secondary" @click="openOrders">服务订单</button>
       </view>
+      <button class="withdraw" :disabled="wallet.availableBalance <= 0" @click="openWithdrawals">
+        提现 / 查看记录
+      </button>
     </view>
 
     <OfferingPanel v-if="playerUserId" :user-id="playerUserId" />
@@ -161,6 +168,8 @@ onShow(() => { void load() })
 .primary, .secondary { height: 84rpx; line-height: 84rpx; border-radius: 26rpx; font-size: 25rpx; font-weight: 700; }
 .primary { background: #6c5ce7; color: #fff; }
 .secondary { background: rgba(255,255,255,.08); color: #fff; }
+.withdraw { margin:14rpx 0 0; width:100%; height:72rpx; line-height:72rpx; border-radius:22rpx; background:rgba(108,92,231,.14); color:#b9b0f5; font-size:21rpx; font-weight:700; }
+.withdraw[disabled] { background:rgba(255,255,255,.05); color:#5f5f69; opacity:1; }
 .principle { margin-top: 24rpx; padding: 26rpx; border-radius: 26rpx; background: #181820; color: #777784; font-size: 21rpx; line-height: 1.6; }
 .principle-title { display: block; margin-bottom: 6rpx; color: #c2c2ca; font-weight: 700; }
 </style>

@@ -65,6 +65,12 @@
           "style": {
             "navigationBarTitleText": "服务详情"
           }
+        },
+        {
+          "path": "withdrawals/index",
+          "style": {
+            "navigationBarTitleText": "提现"
+          }
         }
       ]
     }
