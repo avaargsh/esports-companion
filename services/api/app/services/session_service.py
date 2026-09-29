@@ -189,6 +189,36 @@ class SessionService:
         return len(sessions)
 
     @staticmethod
+    def revoke_user_session(
+        db: Session,
+        *,
+        user_id: uuid.UUID,
+        session_id: uuid.UUID,
+    ) -> bool:
+        now = datetime.now(timezone.utc)
+        session = db.scalar(
+            select(AuthSession)
+            .where(
+                AuthSession.id == session_id,
+                AuthSession.user_id == user_id,
+            )
+            .with_for_update()
+        )
+        if not session:
+            return False
+
+        if session.revoked_at is None:
+            session.revoked_at = now
+        session.last_used_at = now
+        SessionService._revoke_descendants(
+            db,
+            session_id=session.id,
+            now=now,
+        )
+        db.commit()
+        return True
+
+    @staticmethod
     def _revoke_descendants(
         db: Session,
         *,

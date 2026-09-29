@@ -209,3 +209,51 @@ def test_production_rejects_legacy_identity_header():
             assert response.json()["detail"] == "AUTHENTICATION_REQUIRED"
     finally:
         settings.app_env = previous
+
+def test_revoke_user_session_is_owner_scoped_and_contains_descendants():
+    Session = _session()
+    with Session() as db:
+        owner = User(openid="session-owner", nickname="session-owner")
+        other = User(openid="session-other", nickname="session-other")
+        db.add_all([owner, other])
+        db.commit()
+        db.refresh(owner)
+        db.refresh(other)
+
+        first = SessionService.create_session(
+            db,
+            user=owner,
+            provider="MOCK",
+        )
+        rotated = SessionService.rotate_refresh(
+            db,
+            refresh_token=first.refresh_token,
+        )
+        ancestor_id = SessionService.decode_access(first.access_token).session_id
+
+        denied = SessionService.revoke_user_session(
+            db,
+            user_id=other.id,
+            session_id=ancestor_id,
+        )
+        assert denied is False
+
+        current_user, _current_session, _roles = SessionService.authenticate_access(
+            db,
+            access_token=rotated.access_token,
+        )
+        assert current_user.id == owner.id
+
+        revoked = SessionService.revoke_user_session(
+            db,
+            user_id=owner.id,
+            session_id=ancestor_id,
+        )
+        assert revoked is True
+
+        with pytest.raises(ValueError, match="ACCESS_SESSION_REVOKED"):
+            SessionService.authenticate_access(
+                db,
+                access_token=rotated.access_token,
+            )
+

@@ -147,3 +147,81 @@ def test_session_management_lists_active_sessions_and_logout_all():
             )
             assert me.status_code == 401
             assert me.json()["detail"] == "ACCESS_SESSION_REVOKED"
+
+def test_revoke_one_session_keeps_current_session_active():
+    with TestClient(app) as client:
+        first = client.post(
+            "/api/v1/auth/wechat/login",
+            json={"code": "demo-player-3"},
+        ).json()
+        second = client.post(
+            "/api/v1/auth/wechat/login",
+            json={"code": "demo-player-3"},
+        ).json()
+
+        first_sessions = client.get(
+            "/api/v1/auth/sessions",
+            headers={"Authorization": f"Bearer {first['accessToken']}"},
+        )
+        assert first_sessions.status_code == 200
+        first_session_id = next(
+            row["sessionId"]
+            for row in first_sessions.json()
+            if row["current"]
+        )
+
+        revoked = client.delete(
+            f"/api/v1/auth/sessions/{first_session_id}",
+            headers={"Authorization": f"Bearer {second['accessToken']}"},
+        )
+        assert revoked.status_code == 204
+
+        first_me = client.get(
+            "/api/v1/auth/me",
+            headers={"Authorization": f"Bearer {first['accessToken']}"},
+        )
+        assert first_me.status_code == 401
+        assert first_me.json()["detail"] == "ACCESS_SESSION_REVOKED"
+
+        second_me = client.get(
+            "/api/v1/auth/me",
+            headers={"Authorization": f"Bearer {second['accessToken']}"},
+        )
+        assert second_me.status_code == 200
+
+
+def test_cannot_revoke_another_users_session():
+    with TestClient(app) as client:
+        owner = client.post(
+            "/api/v1/auth/wechat/login",
+            json={"code": "demo-customer"},
+        ).json()
+        attacker = client.post(
+            "/api/v1/auth/wechat/login",
+            json={"code": "demo-player-1"},
+        ).json()
+
+        owner_sessions = client.get(
+            "/api/v1/auth/sessions",
+            headers={"Authorization": f"Bearer {owner['accessToken']}"},
+        )
+        assert owner_sessions.status_code == 200
+        owner_session_id = next(
+            row["sessionId"]
+            for row in owner_sessions.json()
+            if row["current"]
+        )
+
+        denied = client.delete(
+            f"/api/v1/auth/sessions/{owner_session_id}",
+            headers={"Authorization": f"Bearer {attacker['accessToken']}"},
+        )
+        assert denied.status_code == 404
+        assert denied.json()["detail"] == "SESSION_NOT_FOUND"
+
+        owner_me = client.get(
+            "/api/v1/auth/me",
+            headers={"Authorization": f"Bearer {owner['accessToken']}"},
+        )
+        assert owner_me.status_code == 200
+
