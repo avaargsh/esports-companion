@@ -8,7 +8,6 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.db import SessionLocal
-from app.order_timeout_worker import run_order_timeout_worker
 from app.infrastructure import redis_client
 from app.order_timeout import run_timeout_scanner
 from app.realtime import run_outbox_publisher
