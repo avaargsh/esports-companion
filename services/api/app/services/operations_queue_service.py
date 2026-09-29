@@ -1,6 +1,6 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -28,23 +28,35 @@ def _age_seconds(now: datetime, value: datetime | None) -> int:
     return max(0, int((now - normalized).total_seconds()))
 
 
-def _category(
+def _summary(
+    db: Session,
     *,
     now: datetime,
     kind: str,
     label: str,
-    rows: list,
-    timestamp,
+    model_id,
+    timestamp_column,
+    filters: tuple,
     sla_seconds: int,
     severity: str,
 ) -> dict:
-    ages = [_age_seconds(now, timestamp(row)) for row in rows]
+    count, oldest = db.execute(
+        select(func.count(model_id), func.min(timestamp_column)).where(*filters)
+    ).one()
+    deadline = now - timedelta(seconds=sla_seconds)
+    breached = db.scalar(
+        select(func.count(model_id)).where(
+            *filters,
+            timestamp_column.is_not(None),
+            timestamp_column < deadline,
+        )
+    )
     return {
         "kind": kind,
         "label": label,
-        "count": len(rows),
-        "breachedCount": sum(age > sla_seconds for age in ages),
-        "oldestAgeSeconds": max(ages, default=0),
+        "count": count or 0,
+        "breachedCount": breached or 0,
+        "oldestAgeSeconds": _age_seconds(now, oldest),
         "slaSeconds": sla_seconds,
         "severity": severity,
     }
@@ -62,94 +74,117 @@ def build_operations_queue(
         settings.finish_confirm_timeout_seconds + settings.order_timeout_scan_seconds,
     )
 
-    outbox = list(
-        db.scalars(
-            select(OutboxEvent)
-            .where(OutboxEvent.status == "PENDING")
-            .order_by(OutboxEvent.created_at.asc())
-            .limit(limit_per_kind)
-        )
+    outbox_filters = (OutboxEvent.status == "PENDING",)
+    refund_filters = (
+        Refund.status.in_(["PENDING", "SUBMITTING", "PROCESSING"]),
     )
-    refunds = list(
-        db.scalars(
-            select(Refund)
-            .where(Refund.status.in_(["PENDING", "SUBMITTING", "PROCESSING"]))
-            .order_by(Refund.updated_at.asc())
-            .limit(limit_per_kind)
-        )
-    )
-    withdrawals = list(
-        db.scalars(
-            select(Withdrawal)
-            .where(Withdrawal.status == "PENDING")
-            .order_by(Withdrawal.created_at.asc())
-            .limit(limit_per_kind)
-        )
-    )
-    disputes = list(
-        db.scalars(
-            select(Dispute)
-            .where(Dispute.status.in_(["OPEN", "RESOLVING"]))
-            .order_by(Dispute.created_at.asc())
-            .limit(limit_per_kind)
-        )
-    )
-    finish_orders = list(
-        db.scalars(
-            select(Order)
-            .where(Order.status == "FINISH_REQUESTED")
-            .order_by(Order.finish_requested_at.asc())
-            .limit(limit_per_kind)
-        )
-    )
+    withdrawal_filters = (Withdrawal.status == "PENDING",)
+    dispute_filters = (Dispute.status.in_(["OPEN", "RESOLVING"]),)
+    finish_filters = (Order.status == "FINISH_REQUESTED",)
 
     categories = [
-        _category(
+        _summary(
+            db,
             now=effective_now,
             kind="OUTBOX",
             label="Outbox 堆积",
-            rows=outbox,
-            timestamp=lambda row: row.created_at,
+            model_id=OutboxEvent.id,
+            timestamp_column=OutboxEvent.created_at,
+            filters=outbox_filters,
             sla_seconds=OUTBOX_SLA_SECONDS,
             severity="critical",
         ),
-        _category(
+        _summary(
+            db,
             now=effective_now,
             kind="REFUND",
             label="退款处理中",
-            rows=refunds,
-            timestamp=lambda row: row.updated_at,
+            model_id=Refund.id,
+            timestamp_column=Refund.updated_at,
+            filters=refund_filters,
             sla_seconds=REFUND_SLA_SECONDS,
             severity="critical",
         ),
-        _category(
+        _summary(
+            db,
             now=effective_now,
             kind="WITHDRAWAL",
             label="提现待处理",
-            rows=withdrawals,
-            timestamp=lambda row: row.created_at,
+            model_id=Withdrawal.id,
+            timestamp_column=Withdrawal.created_at,
+            filters=withdrawal_filters,
             sla_seconds=WITHDRAWAL_SLA_SECONDS,
             severity="warning",
         ),
-        _category(
+        _summary(
+            db,
             now=effective_now,
             kind="DISPUTE",
             label="争议待处理",
-            rows=disputes,
-            timestamp=lambda row: row.created_at,
+            model_id=Dispute.id,
+            timestamp_column=Dispute.created_at,
+            filters=dispute_filters,
             sla_seconds=DISPUTE_SLA_SECONDS,
             severity="warning",
         ),
-        _category(
+        _summary(
+            db,
             now=effective_now,
             kind="FINISH_REQUESTED",
             label="完成确认超时",
-            rows=finish_orders,
-            timestamp=lambda row: row.finish_requested_at,
+            model_id=Order.id,
+            timestamp_column=Order.finish_requested_at,
+            filters=finish_filters,
             sla_seconds=finish_sla,
             severity="warning",
         ),
     ]
+
+    def overdue_rows(model, timestamp_column, filters: tuple, sla_seconds: int):
+        deadline = effective_now - timedelta(seconds=sla_seconds)
+        return list(
+            db.scalars(
+                select(model)
+                .where(
+                    *filters,
+                    timestamp_column.is_not(None),
+                    timestamp_column < deadline,
+                )
+                .order_by(timestamp_column.asc())
+                .limit(limit_per_kind)
+            )
+        )
+
+    outbox = overdue_rows(
+        OutboxEvent,
+        OutboxEvent.created_at,
+        outbox_filters,
+        OUTBOX_SLA_SECONDS,
+    )
+    refunds = overdue_rows(
+        Refund,
+        Refund.updated_at,
+        refund_filters,
+        REFUND_SLA_SECONDS,
+    )
+    withdrawals = overdue_rows(
+        Withdrawal,
+        Withdrawal.created_at,
+        withdrawal_filters,
+        WITHDRAWAL_SLA_SECONDS,
+    )
+    disputes = overdue_rows(
+        Dispute,
+        Dispute.created_at,
+        dispute_filters,
+        DISPUTE_SLA_SECONDS,
+    )
+    finish_orders = overdue_rows(
+        Order,
+        Order.finish_requested_at,
+        finish_filters,
+        finish_sla,
+    )
 
     items: list[dict] = []
 
@@ -165,9 +200,6 @@ def build_operations_queue(
         title: str,
         detail: str,
     ) -> None:
-        age = _age_seconds(effective_now, timestamp)
-        if age <= sla_seconds:
-            return
         items.append(
             {
                 "kind": kind,
@@ -175,7 +207,7 @@ def build_operations_queue(
                 "entityId": entity_id,
                 "orderId": order_id,
                 "status": status,
-                "ageSeconds": age,
+                "ageSeconds": _age_seconds(effective_now, timestamp),
                 "slaSeconds": sla_seconds,
                 "createdAt": timestamp,
                 "title": title,
