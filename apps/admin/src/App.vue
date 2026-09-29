@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from "vue"
 
 import { adminRequest } from "./api"
+import AftercarePanel from "./components/AftercarePanel.vue"
 import CatalogPanel from "./components/CatalogPanel.vue"
 
 type Player = {
@@ -48,7 +49,7 @@ type Settlement = {
   status: string
 }
 
-type Tab = "dashboard" | "players" | "skills" | "catalog" | "orders" | "settlements"
+type Tab = "dashboard" | "players" | "skills" | "catalog" | "orders" | "aftercare" | "settlements"
 
 const tab = ref<Tab>("dashboard")
 const loading = ref(true)
@@ -64,6 +65,7 @@ const nav = [
   { key: "skills" as const, label: "技能认证", icon: "证" },
   { key: "catalog" as const, label: "服务目录", icon: "目" },
   { key: "orders" as const, label: "订单管理", icon: "单" },
+  { key: "aftercare" as const, label: "争议退款", icon: "售" },
   { key: "settlements" as const, label: "结算中心", icon: "¥" }
 ]
 
@@ -292,6 +294,8 @@ onMounted(load)
       </section>
 
       <CatalogPanel v-else-if="tab === 'catalog'" />
+
+      <AftercarePanel v-else-if="tab === 'aftercare'" />
 
       <section v-else-if="tab === 'orders'" class="panel">
         <div class="panel-head">
