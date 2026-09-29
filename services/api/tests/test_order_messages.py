@@ -220,3 +220,70 @@ def test_former_assigned_player_can_read_history_but_cannot_send():
         )
         assert blocked.status_code == 403
         assert blocked.json()["detail"] == "ORDER_MESSAGE_ACCESS_DENIED"
+
+
+
+def test_terminal_order_keeps_message_history_but_rejects_new_messages():
+    with TestClient(app) as client:
+        demo, _game, sku = _bootstrap(client)
+        customer_id = demo["customerUserId"]
+        player_user_id = demo["playerUserId"]
+
+        matching = _create_matching_order(client, customer_id, sku["id"])
+        order_id = matching["id"]
+        _claim(
+            client,
+            order_id=order_id,
+            player_user_id=player_user_id,
+            version=matching["version"],
+        )
+
+        sent = client.post(
+            f"/api/v1/orders/{order_id}/messages",
+            headers={"X-User-Id": customer_id},
+            json={
+                "client_message_id": f"terminal-history-{uuid.uuid4()}",
+                "content": "这条消息需要在订单结束后继续可查。",
+            },
+        )
+        assert sent.status_code == 201
+
+        started = client.post(
+            f"/api/v1/player/orders/{order_id}/start",
+            headers={"X-User-Id": player_user_id},
+        )
+        assert started.status_code == 200
+
+        finished = client.post(
+            f"/api/v1/player/orders/{order_id}/finish",
+            headers={"X-User-Id": player_user_id},
+        )
+        assert finished.status_code == 200
+
+        confirmed = client.post(
+            f"/api/v1/orders/{order_id}/confirm",
+            headers={"X-User-Id": customer_id},
+        )
+        assert confirmed.status_code == 200
+        assert confirmed.json()["status"] == "SETTLED"
+
+        history = client.get(
+            f"/api/v1/orders/{order_id}/messages",
+            headers={"X-User-Id": customer_id},
+        )
+        assert history.status_code == 200
+        assert any(
+            item["content"] == "这条消息需要在订单结束后继续可查。"
+            for item in history.json()
+        )
+
+        blocked = client.post(
+            f"/api/v1/orders/{order_id}/messages",
+            headers={"X-User-Id": customer_id},
+            json={
+                "client_message_id": f"terminal-blocked-{uuid.uuid4()}",
+                "content": "终态不应继续发消息",
+            },
+        )
+        assert blocked.status_code == 409
+        assert blocked.json()["detail"] == "ORDER_CHAT_NOT_SENDABLE"
