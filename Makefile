@@ -1,4 +1,4 @@
-.PHONY: up down logs migrate seed test smoke verify miniapp-build miniapp-staging-build admin-build prod-build prod-up prod-down prod-logs prod-backup prod-restore-drill staging-preflight staging-build staging-up staging-down staging-logs staging-check staging-wechat-evidence
+.PHONY: up down logs migrate seed test go-test go-build go-run smoke verify miniapp-build miniapp-staging-build admin-build prod-build prod-up prod-down prod-logs prod-backup prod-restore-drill staging-preflight staging-build staging-up staging-down staging-logs staging-check staging-wechat-evidence
 
 up:
 	docker compose up --build -d
@@ -17,6 +17,15 @@ seed:
 
 test:
 	docker compose run --rm api pytest -q
+
+go-test:
+	cd services/api-go && go test -race ./...
+
+go-build:
+	cd services/api-go && go build ./cmd/api
+
+go-run:
+	cd services/api-go && go run ./cmd/api
 
 smoke:
 	python3 scripts/smoke_demo.py
