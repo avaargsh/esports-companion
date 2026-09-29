@@ -1,6 +1,7 @@
 import uuid
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import (
@@ -158,21 +159,36 @@ class OrderMessagingService:
             content=normalized_content,
             client_message_id=client_message_id,
         )
-        db.add(message)
-        db.flush()
-        db.add(
-            OutboxEvent(
-                aggregate_type="ORDER",
-                aggregate_id=str(order.id),
-                event_type="ORDER_MESSAGE_CREATED",
-                payload_json={
-                    "orderId": str(order.id),
-                    "messageId": str(message.id),
-                    "senderUserId": str(user_id),
-                    "senderRole": sender_role,
-                },
+        try:
+            db.add(message)
+            db.flush()
+            db.add(
+                OutboxEvent(
+                    aggregate_type="ORDER",
+                    aggregate_id=str(order.id),
+                    event_type="ORDER_MESSAGE_CREATED",
+                    payload_json={
+                        "orderId": str(order.id),
+                        "messageId": str(message.id),
+                        "senderUserId": str(user_id),
+                        "senderRole": sender_role,
+                    },
+                )
             )
-        )
-        db.commit()
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            existing = db.scalar(
+                select(OrderMessage).where(
+                    OrderMessage.order_id == order.id,
+                    OrderMessage.sender_user_id == user_id,
+                    OrderMessage.client_message_id == client_message_id,
+                )
+            )
+            if existing:
+                if existing.content != normalized_content:
+                    raise ValueError("CLIENT_MESSAGE_ID_REUSED")
+                return existing
+            raise
         db.refresh(message)
         return message
