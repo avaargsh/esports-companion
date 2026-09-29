@@ -76,3 +76,31 @@ def test_logout_revokes_current_session():
         )
         assert me.status_code == 401
         assert me.json()["detail"] == "ACCESS_SESSION_REVOKED"
+
+
+def test_logout_with_stale_rotated_refresh_revokes_current_session():
+    with TestClient(app) as client:
+        login = client.post(
+            "/api/v1/auth/wechat/login",
+            json={"code": "demo-customer"},
+        ).json()
+
+        refreshed = client.post(
+            "/api/v1/auth/refresh",
+            json={"refreshToken": login["refreshToken"]},
+        )
+        assert refreshed.status_code == 200
+        current = refreshed.json()
+
+        logout = client.post(
+            "/api/v1/auth/logout",
+            json={"refreshToken": login["refreshToken"]},
+        )
+        assert logout.status_code == 204
+
+        me = client.get(
+            "/api/v1/auth/me",
+            headers={"Authorization": f"Bearer {current['accessToken']}"},
+        )
+        assert me.status_code == 401
+        assert me.json()["detail"] == "ACCESS_SESSION_REVOKED"
