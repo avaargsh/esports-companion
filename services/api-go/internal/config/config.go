@@ -12,27 +12,27 @@ import (
 const devSigningKey = "dev-only-change-me-use-at-least-32-bytes"
 
 type Config struct {
-	AppEnv                string
-	ServiceName           string
-	CommitSHA             string
-	LogLevel              string
-	HTTPAddr              string
-	DatabaseURL           string
-	RedisURL              string
-	DatabaseMaxConns      int32
-	DatabaseMinConns      int32
-	RedisPoolSize         int
-	ReadinessRequireRedis bool
-	AuthProvider          string
-	PaymentProvider       string
-	RefundProvider        string
-	SessionSigningKey     string
-	AccessTokenTTLSeconds int
+	AppEnv                 string
+	ServiceName            string
+	CommitSHA              string
+	LogLevel               string
+	HTTPAddr               string
+	DatabaseURL            string
+	RedisURL               string
+	DatabaseMaxConns       int32
+	DatabaseMinConns       int32
+	RedisPoolSize          int
+	ReadinessRequireRedis  bool
+	AuthProvider           string
+	PaymentProvider        string
+	RefundProvider         string
+	SessionSigningKey      string
+	AccessTokenTTLSeconds  int
 	RefreshTokenTTLSeconds int
-	WeChatAppID           string
-	WeChatAppSecret       string
-	WeChatAuthTimeout     time.Duration
-	ShutdownTimeout       time.Duration
+	WeChatAppID            string
+	WeChatAppSecret        string
+	WeChatAuthTimeout      time.Duration
+	ShutdownTimeout        time.Duration
 }
 
 func Load() (Config, error) {
