@@ -189,6 +189,29 @@ class OrderEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class OrderMessage(Base):
+    __tablename__ = "order_messages"
+    __table_args__ = (
+        UniqueConstraint(
+            "order_id",
+            "sender_user_id",
+            "client_message_id",
+            name="uq_order_message_client_id",
+        ),
+        Index("ix_order_messages_order_created", "order_id", "created_at"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    order_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("orders.id"), index=True)
+    sender_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    sender_role: Mapped[str] = mapped_column(String(32))
+    message_type: Mapped[str] = mapped_column(String(32), default="TEXT")
+    content: Mapped[str] = mapped_column(Text)
+    client_message_id: Mapped[str] = mapped_column(String(128))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
 class PaymentTransaction(Base, TimestampMixin):
     __tablename__ = "payment_transactions"
     __table_args__ = (

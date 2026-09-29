@@ -112,10 +112,15 @@ async def run_outbox_publisher() -> None:
             channels = [f"order:{event['aggregate_id']}"]
             if event["user_id"]:
                 channels.append(f"user:{event['user_id']}")
+            message_type = (
+                "order.message_created"
+                if event["event_type"] == "ORDER_MESSAGE_CREATED"
+                else "order.status_changed"
+            )
             await manager.publish(
                 channels,
                 {
-                    "type": "order.status_changed",
+                    "type": message_type,
                     "eventId": event["id"],
                     "eventType": event["event_type"],
                     **event["payload"],

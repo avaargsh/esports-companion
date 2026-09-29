@@ -44,6 +44,17 @@ export type ServicePlayer = {
   assigned_by?: string | null
 }
 
+export type OrderMessage = {
+  id: string
+  order_id: string
+  sender_user_id: string
+  sender_role: "USER" | "PLAYER"
+  message_type: "TEXT"
+  content: string
+  client_message_id: string
+  created_at: string
+}
+
 export type Order = {
   id: string
   order_no: string

@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from "vue"
-import { onLoad } from "@dcloudio/uni-app"
+import { onLoad, onUnload } from "@dcloudio/uni-app"
 
-import { request } from "../../api/client"
+import { API_ORIGIN, request } from "../../api/client"
 import { getDemoIdentities } from "../../api/demo"
+import OrderChat from "../../components/OrderChat.vue"
 import type { Order } from "../../types/domain"
 import { orderStatusMeta } from "../../utils/order"
 
@@ -11,9 +12,18 @@ const orderId = ref("")
 const order = ref<Order | null>(null)
 const busy = ref(false)
 const playerUserId = ref("")
+const chatRefreshKey = ref(0)
+const socketConnected = ref(false)
+let socket: UniApp.SocketTask | null = null
 
 const meta = computed(() =>
   order.value ? orderStatusMeta(order.value.status) : null
+)
+
+const chatEnabled = computed(() =>
+  ["ACCEPTED", "IN_SERVICE", "FINISH_REQUESTED", "DISPUTED"].includes(
+    order.value?.status ?? ""
+  )
 )
 
 const nextAction = computed(() => {
@@ -32,6 +42,37 @@ async function load() {
     `/orders/${orderId.value}`,
     { userId: playerUserId.value }
   )
+}
+
+function connectRealtime() {
+  if (!orderId.value || !playerUserId.value) return
+  const task = uni.connectSocket({
+    url:
+      API_ORIGIN.replace(/^http/, "ws") +
+      `/ws?user_id=${encodeURIComponent(playerUserId.value)}`
+  }) as unknown as UniApp.SocketTask
+
+  socket = task
+  task.onOpen(() => {
+    socketConnected.value = true
+    task.send({
+      data: JSON.stringify({
+        type: "subscribe",
+        channels: [`order:${orderId.value}`]
+      })
+    })
+  })
+  task.onClose(() => { socketConnected.value = false })
+  task.onError(() => { socketConnected.value = false })
+  task.onMessage(message => {
+    try {
+      const payload = JSON.parse(String(message.data))
+      if (payload.type === "order.status_changed") void load()
+      if (payload.type === "order.message_created") chatRefreshKey.value += 1
+    } catch {
+      // Ignore non-JSON development messages.
+    }
+  })
 }
 
 async function act() {
@@ -63,7 +104,10 @@ onLoad(async query => {
   const identities = await getDemoIdentities()
   playerUserId.value = identities.players[0]?.userId ?? ""
   await load()
+  connectRealtime()
 })
+
+onUnload(() => socket?.close({}))
 </script>
 
 <template>
@@ -80,6 +124,19 @@ onLoad(async query => {
       <view><text>用户实付</text><b>¥{{ (order.total_amount / 100).toFixed(2) }}</b></view>
       <view><text>平台服务费</text><b>¥{{ (order.platform_fee / 100).toFixed(2) }}</b></view>
     </view>
+
+    <view class="realtime">
+      <text class="live-dot" :class="{ online: socketConnected }">●</text>
+      {{ socketConnected ? "订单实时连接已建立" : "订单实时连接中" }}
+    </view>
+
+    <OrderChat
+      v-if="chatEnabled"
+      :order-id="order.id"
+      :user-id="playerUserId"
+      :refresh-key="chatRefreshKey"
+      dark
+    />
 
     <button
       v-if="nextAction"
@@ -110,6 +167,9 @@ onLoad(async query => {
 .card view:last-child { border: 0; }
 .card text { color: #777784; }
 .card b { font-weight: 600; }
+.realtime { margin-top: 22rpx; color: #777784; font-size: 19rpx; }
+.live-dot { margin-right: 8rpx; color: #64646f; }
+.live-dot.online { color: #47d182; }
 .primary { margin-top: 26rpx; height: 88rpx; line-height: 88rpx; border-radius: 28rpx; background: #6c5ce7; color: #fff; font-size: 28rpx; font-weight: 700; }
 .notice { margin-top: 26rpx; padding: 26rpx; border-radius: 26rpx; background: #181820; color: #aaaab4; font-size: 23rpx; line-height: 1.6; }
 </style>
