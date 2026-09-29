@@ -44,10 +44,24 @@ class DisputeService:
             return existing
 
         order = db.scalar(
-            select(Order).where(Order.id == order_id).with_for_update()
+            select(Order)
+            .where(Order.id == order_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
         )
         if not order:
             raise OrderNotFound(str(order_id))
+
+        # The first lookup can race with another request using the same
+        # idempotency key. Re-check only after the order serialization point.
+        existing = db.scalar(
+            select(Dispute).where(Dispute.idempotency_key == idempotency_key)
+        )
+        if existing:
+            if existing.order_id != order_id or existing.opened_by_user_id != actor_user_id:
+                raise ValueError("IDEMPOTENCY_KEY_REUSED")
+            return existing
+
         if order.status not in DisputeService.OPENABLE_STATUSES:
             raise ValueError("ORDER_NOT_DISPUTABLE")
 
@@ -82,7 +96,23 @@ class DisputeService:
                 "heldAmount": dispute.held_amount,
             },
         )
-        db.commit()
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            existing = db.scalar(
+                select(Dispute).where(
+                    Dispute.idempotency_key == idempotency_key
+                )
+            )
+            if existing:
+                if (
+                    existing.order_id != order_id
+                    or existing.opened_by_user_id != actor_user_id
+                ):
+                    raise ValueError("IDEMPOTENCY_KEY_REUSED")
+                return existing
+            raise
         db.refresh(dispute)
         return dispute
 
