@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.domain.order_state_machine import OrderStatus
 from app.models import Order, PaymentTransaction, User
 from app.providers.payment import PaymentProvider
+from app.providers.payment_callback import VerifiedPaymentCallback
 from app.services.order_service import OrderService
 
 
@@ -44,6 +45,16 @@ class PaymentService:
 
         if order.status != OrderStatus.WAITING_PAYMENT.value:
             raise ValueError("ORDER_NOT_WAITING_PAYMENT")
+
+        existing_pending = db.scalar(
+            select(PaymentTransaction).where(
+                PaymentTransaction.order_id == order.id,
+                PaymentTransaction.provider == provider.name.upper(),
+                PaymentTransaction.status == "PENDING",
+            )
+        )
+        if existing_pending:
+            raise ValueError("PAYMENT_ATTEMPT_ALREADY_EXISTS")
 
         payer = db.get(User, order.user_id)
         if not payer:
@@ -101,6 +112,92 @@ class PaymentService:
             provider=provider,
             idempotency_key=idempotency_key,
         ).order
+
+    @staticmethod
+    def apply_verified_success(
+        db: Session,
+        *,
+        callback: VerifiedPaymentCallback,
+    ) -> PaymentPreparation:
+        order = db.scalar(
+            select(Order)
+            .where(Order.order_no == callback.out_trade_no)
+            .with_for_update()
+        )
+        if not order:
+            raise ValueError("PAYMENT_ORDER_NOT_FOUND")
+        if order.total_amount != callback.amount:
+            raise ValueError("PAYMENT_AMOUNT_MISMATCH")
+
+        existing_success = db.scalar(
+            select(PaymentTransaction).where(
+                PaymentTransaction.provider == callback.provider.upper(),
+                PaymentTransaction.provider_txn_id == callback.provider_txn_id,
+            )
+        )
+        if existing_success:
+            if existing_success.order_id != order.id:
+                raise ValueError("PAYMENT_PROVIDER_TXN_REUSED")
+            if existing_success.amount != callback.amount:
+                raise ValueError("PAYMENT_AMOUNT_MISMATCH")
+            return PaymentPreparation(
+                order=order,
+                transaction=existing_success,
+                client_payload=(existing_success.raw_payload or {}).get(
+                    "clientPayload", {}
+                ),
+                replayed=True,
+            )
+
+        pending = db.scalar(
+            select(PaymentTransaction)
+            .where(
+                PaymentTransaction.order_id == order.id,
+                PaymentTransaction.provider == callback.provider.upper(),
+                PaymentTransaction.status == "PENDING",
+            )
+            .order_by(PaymentTransaction.created_at.desc())
+            .with_for_update()
+        )
+        if not pending:
+            raise ValueError("PAYMENT_PENDING_TRANSACTION_NOT_FOUND")
+        if pending.amount != callback.amount:
+            raise ValueError("PAYMENT_AMOUNT_MISMATCH")
+
+        pending.provider_txn_id = callback.provider_txn_id
+        pending.status = "SUCCESS"
+        previous_payload = pending.raw_payload or {}
+        pending.raw_payload = {
+            **previous_payload,
+            "callback": callback.raw_event,
+            "verifiedResource": callback.resource,
+        }
+
+        if order.status == OrderStatus.WAITING_PAYMENT.value:
+            PaymentService._mark_paid(
+                db,
+                order,
+                provider_name=callback.provider,
+            )
+        elif order.status not in {
+            OrderStatus.PAID.value,
+            OrderStatus.MATCHING.value,
+            OrderStatus.ACCEPTED.value,
+            OrderStatus.IN_SERVICE.value,
+            OrderStatus.FINISH_REQUESTED.value,
+            OrderStatus.COMPLETED.value,
+            OrderStatus.SETTLED.value,
+        }:
+            raise ValueError(f"ORDER_NOT_PAYABLE:{order.status}")
+
+        db.commit()
+        db.refresh(pending)
+        return PaymentPreparation(
+            order=order,
+            transaction=pending,
+            client_payload=(pending.raw_payload or {}).get("clientPayload", {}),
+            replayed=False,
+        )
 
     @staticmethod
     def _mark_paid(

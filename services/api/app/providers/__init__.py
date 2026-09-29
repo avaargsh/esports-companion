@@ -1,5 +1,6 @@
 from .auth import AuthProvider, ExternalIdentity, MockAuthProvider, WeChatAuthProvider
 from .payment import MockPaymentProvider, PaymentIntent, PaymentProvider, WeChatPaymentProvider
+from .payment_callback import VerifiedPaymentCallback, WeChatPaymentCallbackVerifier
 
 __all__ = [
     "AuthProvider",
@@ -10,4 +11,6 @@ __all__ = [
     "PaymentIntent",
     "PaymentProvider",
     "WeChatPaymentProvider",
+    "VerifiedPaymentCallback",
+    "WeChatPaymentCallbackVerifier",
 ]

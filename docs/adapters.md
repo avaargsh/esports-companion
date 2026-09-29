@@ -101,3 +101,27 @@ WECHAT_APP_SECRET=...
 ```
 
 Unknown providers and missing WeChat credentials fail closed.
+
+
+## Verified WeChat payment callback
+
+The callback path is intentionally separate from payment creation:
+
+```text
+POST /api/v1/payments/wechat/callback
+  -> verify Wechatpay-* signature over exact raw body
+  -> enforce platform certificate serial + timestamp window
+  -> AES-256-GCM decrypt resource with APIv3 key
+  -> validate appid / mchid / amount / out_trade_no
+  -> find PENDING PaymentTransaction
+  -> replace prepay_id with provider transaction_id
+  -> status SUCCESS
+  -> order PAID -> MATCHING
+  -> OrderEvent + Outbox
+  -> reconstruct Redis order pool best-effort
+```
+
+Duplicate callbacks are idempotent through the existing
+`(provider, provider_txn_id)` uniqueness and application-level replay handling.
+
+The Mini Program success callback is never authoritative for payment state.

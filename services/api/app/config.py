@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     wechat_mch_private_key: str = ""
     wechat_notify_url: str = ""
     wechat_pay_api_base_url: str = "https://api.mch.weixin.qq.com"
+    wechat_pay_api_v3_key: str = ""
+    wechat_pay_platform_cert_serial: str = ""
+    wechat_pay_platform_certificate: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

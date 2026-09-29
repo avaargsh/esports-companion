@@ -1,6 +1,7 @@
 from app.config import settings
 from app.providers.auth import AuthProvider, MockAuthProvider, WeChatAuthProvider
 from app.providers.payment import MockPaymentProvider, PaymentProvider, WeChatPaymentProvider
+from app.providers.payment_callback import WeChatPaymentCallbackVerifier
 
 
 def get_payment_provider(name: str | None = None) -> PaymentProvider:
@@ -30,3 +31,14 @@ def get_auth_provider(name: str | None = None) -> AuthProvider:
             app_secret=settings.wechat_app_secret,
         )
     raise ValueError(f"AUTH_PROVIDER_NOT_CONFIGURED:{provider_name}")
+
+
+
+def get_wechat_callback_verifier() -> WeChatPaymentCallbackVerifier:
+    return WeChatPaymentCallbackVerifier(
+        api_v3_key=settings.wechat_pay_api_v3_key,
+        platform_cert_serial=settings.wechat_pay_platform_cert_serial,
+        platform_certificate=settings.wechat_pay_platform_certificate,
+        expected_app_id=settings.wechat_app_id,
+        expected_mch_id=settings.wechat_mch_id,
+    )
