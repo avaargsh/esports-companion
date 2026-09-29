@@ -25,11 +25,9 @@ def fetch(base: str, path: str) -> Response:
     )
     try:
         with urllib.request.urlopen(request, timeout=5) as response:
-            payload = response.read()
-            return Response(response.status, json.loads(payload))
+            return Response(response.status, json.loads(response.read()))
     except urllib.error.HTTPError as exc:
-        payload = exc.read()
-        return Response(exc.code, json.loads(payload))
+        return Response(exc.code, json.loads(exc.read()))
 
 
 def assert_same(
@@ -39,22 +37,22 @@ def assert_same(
     *,
     compare_body: bool = True,
 ) -> Response:
-    left = fetch(python_base, path)
-    right = fetch(go_base, path)
+    reference = fetch(python_base, path)
+    target = fetch(go_base, path)
 
-    if left.status != right.status:
+    if reference.status != target.status:
         raise AssertionError(
-            f"{path}: status mismatch FastAPI={left.status} Go={right.status}"
+            f"{path}: status mismatch FastAPI={reference.status} Go={target.status}"
         )
-    if compare_body and left.body != right.body:
+    if compare_body and reference.body != target.body:
         raise AssertionError(
             f"{path}: body mismatch\n"
-            f"FastAPI={json.dumps(left.body, ensure_ascii=False, sort_keys=True)}\n"
-            f"Go={json.dumps(right.body, ensure_ascii=False, sort_keys=True)}"
+            f"FastAPI={json.dumps(reference.body, ensure_ascii=False, sort_keys=True)}\n"
+            f"Go={json.dumps(target.body, ensure_ascii=False, sort_keys=True)}"
         )
 
-    print(f"PASS {path} status={left.status}")
-    return left
+    print(f"PASS {path} status={reference.status}")
+    return reference
 
 
 def main() -> int:
@@ -65,19 +63,39 @@ def main() -> int:
 
     games = assert_same(args.python_base, args.go_base, "/api/v1/games")
     for game in games.body:
+        game_id = game["id"]
         assert_same(
             args.python_base,
             args.go_base,
-            f"/api/v1/games/{game['id']}/skus",
+            f"/api/v1/games/{game_id}/skus",
         )
+        # This is the actual Mini Program discovery request shape.
+        assert_same(
+            args.python_base,
+            args.go_base,
+            f"/api/v1/players?limit=30&game_id={game_id}",
+        )
+
+    if games.body:
+        compact = games.body[0]["id"].replace("-", "")
+        assert_same(
+            args.python_base,
+            args.go_base,
+            f"/api/v1/games/{compact}/skus",
+        )
+
+    missing = "00000000-0000-0000-0000-000000000000"
+    assert_same(
+        args.python_base,
+        args.go_base,
+        f"/api/v1/games/{missing}/skus",
+    )
 
     players = assert_same(
         args.python_base,
         args.go_base,
         "/api/v1/players?limit=12",
     )
-
-    # Empty rank is intentionally a no-op in the existing FastAPI contract.
     assert_same(
         args.python_base,
         args.go_base,
@@ -91,27 +109,27 @@ def main() -> int:
             f"/api/v1/players/{player['id']}",
         )
 
-    missing = "00000000-0000-0000-0000-000000000000"
     assert_same(
         args.python_base,
         args.go_base,
         f"/api/v1/players/{missing}",
     )
 
-    # Pydantic and the Go compatibility layer may format validation detail
-    # differently; status parity is the invariant at M1.
-    assert_same(
-        args.python_base,
-        args.go_base,
+    # Validation detail formatting remains framework-specific in M1. Status
+    # parity is the invariant for invalid typed inputs.
+    for invalid_path in (
         "/api/v1/players?limit=",
-        compare_body=False,
-    )
-    assert_same(
-        args.python_base,
-        args.go_base,
+        "/api/v1/players?limit=0",
+        "/api/v1/players?limit=51",
         "/api/v1/players?game_id=",
-        compare_body=False,
-    )
+        "/api/v1/players/not-a-uuid",
+    ):
+        assert_same(
+            args.python_base,
+            args.go_base,
+            invalid_path,
+            compare_body=False,
+        )
 
     print("M1 read parity PASS")
     return 0
