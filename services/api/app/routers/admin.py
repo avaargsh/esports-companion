@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import Game, Order, PlayerProfile, PlayerSkill, Settlement, Withdrawal
+from app.models import Game, LedgerEntry, Order, PlayerProfile, PlayerSkill, Settlement, Wallet, Withdrawal
 from app.schemas import WithdrawalComplete
 from app.security import Principal, require_platform
 from app.services.withdrawal_service import WithdrawalService
@@ -203,6 +203,64 @@ def list_withdrawals(
         }
         for item in rows
     ]
+
+
+@router.get("/withdrawals/{withdrawal_id}/evidence")
+def withdrawal_evidence(
+    withdrawal_id: uuid.UUID,
+    principal: Principal = Depends(require_platform),
+    db: Session = Depends(get_db),
+):
+    item = db.get(Withdrawal, withdrawal_id)
+    if not item:
+        raise HTTPException(404, "WITHDRAWAL_NOT_FOUND")
+
+    wallet = db.get(Wallet, item.wallet_id)
+    ledger = list(
+        db.scalars(
+            select(LedgerEntry)
+            .where(
+                LedgerEntry.biz_type == "WITHDRAWAL",
+                LedgerEntry.biz_id == str(item.id),
+            )
+            .order_by(LedgerEntry.created_at, LedgerEntry.id)
+        )
+    )
+
+    return {
+        "withdrawal": {
+            "id": str(item.id),
+            "userId": str(item.user_id),
+            "amount": item.amount,
+            "status": item.status,
+            "provider": item.provider,
+            "providerTxnId": item.provider_txn_id,
+            "failureReason": item.failure_reason,
+            "createdAt": item.created_at,
+            "completedAt": item.completed_at,
+            "rejectedAt": item.rejected_at,
+        },
+        "wallet": (
+            {
+                "id": str(wallet.id),
+                "availableBalance": wallet.available_balance,
+                "frozenBalance": wallet.frozen_balance,
+                "version": wallet.version,
+            }
+            if wallet
+            else None
+        ),
+        "ledger": [
+            {
+                "id": str(entry.id),
+                "entryType": entry.entry_type,
+                "amount": entry.amount,
+                "balanceAfter": entry.balance_after,
+                "createdAt": entry.created_at,
+            }
+            for entry in ledger
+        ],
+    }
 
 
 @router.post("/withdrawals/{withdrawal_id}/complete")
