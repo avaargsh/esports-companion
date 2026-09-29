@@ -10,6 +10,7 @@ import { orderStatusMeta } from "../../utils/order"
 const orderId = ref("")
 const order = ref<Order | null>(null)
 const busy = ref(false)
+const playerUserId = ref("")
 
 const meta = computed(() =>
   order.value ? orderStatusMeta(order.value.status) : null
@@ -26,21 +27,22 @@ const nextAction = computed(() => {
 })
 
 async function load() {
-  if (!orderId.value) return
-  order.value = await request<Order>(`/orders/${orderId.value}`)
+  if (!orderId.value || !playerUserId.value) return
+  order.value = await request<Order>(
+    `/orders/${orderId.value}`,
+    { userId: playerUserId.value }
+  )
 }
 
 async function act() {
   if (!order.value || !nextAction.value || busy.value) return
   busy.value = true
   try {
-    const identities = await getDemoIdentities()
-    const userId = identities.players[0]?.userId
-    if (!userId) throw new Error("DEMO_PLAYER_NOT_FOUND")
+    if (!playerUserId.value) throw new Error("DEMO_PLAYER_NOT_FOUND")
 
     order.value = await request<Order>(
       `/player/orders/${order.value.id}/${nextAction.value.endpoint}`,
-      { method: "POST", userId }
+      { method: "POST", userId: playerUserId.value }
     )
     uni.showToast({
       title: nextAction.value.endpoint === "start" ? "服务已开始" : "已申请结束",
@@ -58,6 +60,8 @@ async function act() {
 
 onLoad(async query => {
   orderId.value = String(query?.id || "")
+  const identities = await getDemoIdentities()
+  playerUserId.value = identities.players[0]?.userId ?? ""
   await load()
 })
 </script>

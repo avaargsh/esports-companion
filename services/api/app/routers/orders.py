@@ -133,10 +133,17 @@ def prepare_payment(
 def mock_pay(
     order_id: uuid.UUID,
     idempotency_key: str = Header(alias="Idempotency-Key"),
+    user_id: uuid.UUID = Depends(current_user_id),
     db: Session = Depends(get_db),
 ):
     try:
+        from app.config import settings
+
+        if settings.app_env.lower() in {"prod", "production"}:
+            raise PermissionError("MOCK_PAYMENT_DISABLED")
         order = OrderService.get(db, order_id)
+        if order.user_id != user_id:
+            raise PermissionError("ORDER_NOT_OWNED")
         order = PaymentService.create_payment(
             db,
             order=order,
@@ -153,6 +160,8 @@ def mock_pay(
         return order
     except OrderNotFound as exc:
         raise HTTPException(404, "ORDER_NOT_FOUND") from exc
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(409, str(exc)) from exc
 

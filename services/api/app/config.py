@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     auth_provider: str = "mock"
     payment_provider: str = "mock"
 
-    session_signing_key: str = "dev-only-change-me"
+    session_signing_key: str = "dev-only-change-me-use-at-least-32-bytes"
     access_token_ttl_seconds: int = 900
     refresh_token_ttl_seconds: int = 2592000
 

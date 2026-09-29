@@ -32,6 +32,12 @@ class SessionService:
     issuer = "esports-companion"
 
     @staticmethod
+    def _as_utc(value: datetime) -> datetime:
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
+
+    @staticmethod
     def roles_for_user(db: Session, user: User) -> tuple[str, ...]:
         if user.status != "ACTIVE":
             return tuple()
@@ -102,7 +108,7 @@ class SessionService:
             raise ValueError("REFRESH_TOKEN_INVALID")
         if current.revoked_at is not None:
             raise ValueError("REFRESH_TOKEN_REVOKED")
-        if current.expires_at <= now:
+        if SessionService._as_utc(current.expires_at) <= now:
             raise ValueError("REFRESH_TOKEN_EXPIRED")
 
         user = db.get(User, current.user_id)
@@ -174,7 +180,7 @@ class SessionService:
             raise ValueError("ACCESS_SESSION_INVALID")
         if session.revoked_at is not None:
             raise ValueError("ACCESS_SESSION_REVOKED")
-        if session.expires_at <= now:
+        if SessionService._as_utc(session.expires_at) <= now:
             raise ValueError("ACCESS_SESSION_EXPIRED")
 
         user = db.get(User, claims.user_id)
@@ -242,7 +248,7 @@ class SessionService:
     def _validate_signing_key() -> None:
         if settings.app_env.lower() in {"prod", "production"}:
             if (
-                settings.session_signing_key == "dev-only-change-me"
+                settings.session_signing_key == "dev-only-change-me-use-at-least-32-bytes"
                 or len(settings.session_signing_key) < 32
             ):
                 raise ValueError("PRODUCTION_SESSION_SIGNING_KEY_REQUIRED")

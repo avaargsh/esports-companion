@@ -29,7 +29,10 @@ def test_golden_slice_end_to_end():
 
         paid = client.post(
             f"/api/v1/orders/{order_id}/mock-pay",
-            headers={"Idempotency-Key": f"e2e-{uuid.uuid4()}"},
+            headers={
+                "Idempotency-Key": f"e2e-{uuid.uuid4()}",
+                "X-User-Id": customer_id,
+            },
         )
         assert paid.status_code == 200
         matching = paid.json()
@@ -38,6 +41,7 @@ def test_golden_slice_end_to_end():
         pool = client.get(
             "/api/v1/player/order-pool",
             params={"game_id": game["id"]},
+            headers={"X-User-Id": player_id},
         )
         assert pool.status_code == 200
         assert any(item["id"] == order_id for item in pool.json())

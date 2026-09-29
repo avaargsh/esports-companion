@@ -23,7 +23,7 @@ const meta = computed(() =>
 
 async function reload() {
   if (!orderId.value) return
-  order.value = await request<Order>(`/orders/${orderId.value}`)
+  order.value = await request<Order>(`/orders/${orderId.value}`, { userId: customerUserId.value })
 }
 
 function connectRealtime() {
@@ -72,6 +72,7 @@ async function run(action: "pay" | "cancel" | "confirm") {
         `/orders/${order.value.id}/mock-pay`,
         {
           method: "POST",
+          userId: customerUserId.value,
           headers: { "Idempotency-Key": `miniapp-${order.value.id}` }
         }
       )

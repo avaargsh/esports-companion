@@ -16,7 +16,7 @@ async function loadPool() {
   if (!gameId.value) return
   loading.value = true
   try {
-    orders.value = await request<Order[]>(`/player/order-pool?game_id=${gameId.value}`)
+    orders.value = await request<Order[]>(`/player/order-pool?game_id=${gameId.value}`, { userId: playerUserId.value })
   } finally {
     loading.value = false
   }
