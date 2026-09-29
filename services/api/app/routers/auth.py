@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -158,6 +159,22 @@ def sessions(
         )
         for row in rows
     ]
+
+
+@router.delete("/sessions/{session_id}", status_code=204)
+def revoke_session(
+    session_id: uuid.UUID,
+    principal: Principal = Depends(require_session),
+    db: Session = Depends(get_db),
+):
+    revoked = SessionService.revoke_user_session(
+        db,
+        user_id=principal.user_id,
+        session_id=session_id,
+    )
+    if not revoked:
+        raise HTTPException(404, "SESSION_NOT_FOUND")
+    return None
 
 
 @router.post("/logout-all", status_code=204)
