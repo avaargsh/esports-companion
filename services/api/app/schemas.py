@@ -132,6 +132,25 @@ class ProviderOfferingOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class WithdrawalCreate(BaseModel):
+    amount: int = Field(gt=0)
+
+
+class WithdrawalOut(BaseModel):
+    id: uuid.UUID
+    user_id: uuid.UUID
+    wallet_id: uuid.UUID
+    amount: int
+    status: str
+    provider: str
+    provider_txn_id: str | None
+    failure_reason: str | None
+    created_at: object
+    completed_at: object | None
+    rejected_at: object | None
+    model_config = {"from_attributes": True}
+
+
 class PublicOfferingOut(BaseModel):
     id: uuid.UUID
     sku_id: uuid.UUID
