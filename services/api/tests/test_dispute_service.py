@@ -304,3 +304,60 @@ def test_stale_finish_cannot_overwrite_disputed_order():
 
     with SessionLocal() as db:
         assert OrderService.get(db, order_id).status == "DISPUTED"
+
+
+def test_provider_refund_id_cannot_complete_two_refunds():
+    first_order_id, first_customer_id, _first_player_user_id, platform_id = (
+        _finish_requested_order()
+    )
+    second_order_id, second_customer_id, _second_player_user_id, _platform_id = (
+        _finish_requested_order()
+    )
+
+    with SessionLocal() as db:
+        first_dispute = DisputeService.open(
+            db,
+            order_id=first_order_id,
+            actor_user_id=first_customer_id,
+            reason_code="NOT_DELIVERED",
+            description="first refund",
+            idempotency_key=f"dispute:{uuid4()}",
+        )
+        first_refund = DisputeService.approve_refund(
+            db,
+            dispute_id=first_dispute.id,
+            admin_user_id=platform_id,
+        )
+
+        second_dispute = DisputeService.open(
+            db,
+            order_id=second_order_id,
+            actor_user_id=second_customer_id,
+            reason_code="NOT_DELIVERED",
+            description="second refund",
+            idempotency_key=f"dispute:{uuid4()}",
+        )
+        second_refund = DisputeService.approve_refund(
+            db,
+            dispute_id=second_dispute.id,
+            admin_user_id=platform_id,
+        )
+
+        DisputeService.complete_refund(
+            db,
+            refund_id=first_refund.id,
+            provider_refund_id="manual:shared-refund-proof",
+            admin_user_id=platform_id,
+        )
+
+        with pytest.raises(ValueError, match="REFUND_PROVIDER_ID_REUSED"):
+            DisputeService.complete_refund(
+                db,
+                refund_id=second_refund.id,
+                provider_refund_id="manual:shared-refund-proof",
+                admin_user_id=platform_id,
+            )
+        db.rollback()
+
+        assert db.get(Refund, second_refund.id).status == "PENDING"
+        assert OrderService.get(db, second_order_id).status == "REFUNDING"
