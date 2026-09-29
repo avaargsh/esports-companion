@@ -39,13 +39,13 @@ async function selectGame(id: string) {
 async function claim(order: Order) {
   if (!playerUserId.value) return
   try {
-    await request(`/player/orders/${order.id}/claim`, {
+    const claimed = await request<Order>(`/player/orders/${order.id}/claim`, {
       method: "POST",
       userId: playerUserId.value,
       data: { expected_version: order.version }
     })
     uni.showToast({ title: "抢单成功", icon: "success" })
-    await loadPool()
+    uni.navigateTo({ url: `/pages-player/order-detail/index?id=${claimed.id}` })
   } catch (error) {
     uni.showToast({ title: error instanceof Error ? error.message : "抢单失败", icon: "none" })
     await loadPool()

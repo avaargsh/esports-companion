@@ -1,38 +1,19 @@
 {
   "pages": [
-    {
-      "path": "pages/home/index",
-      "style": { "navigationBarTitleText": "陪玩" }
-    },
-    {
-      "path": "pages/game/index",
-      "style": { "navigationBarTitleText": "选择服务" }
-    },
-    {
-      "path": "pages/order-detail/index",
-      "style": { "navigationBarTitleText": "订单详情" }
-    },
-    {
-      "path": "pages/orders/index",
-      "style": { "navigationBarTitleText": "我的订单" }
-    },
-    {
-      "path": "pages/profile/index",
-      "style": { "navigationBarTitleText": "我的" }
-    }
+    { "path": "pages/home/index", "style": { "navigationBarTitleText": "陪玩" } },
+    { "path": "pages/game/index", "style": { "navigationBarTitleText": "选择服务" } },
+    { "path": "pages/order-detail/index", "style": { "navigationBarTitleText": "订单详情" } },
+    { "path": "pages/orders/index", "style": { "navigationBarTitleText": "我的订单" } },
+    { "path": "pages/profile/index", "style": { "navigationBarTitleText": "我的" } }
   ],
   "subPackages": [
     {
       "root": "pages-player",
       "pages": [
-        {
-          "path": "workbench/index",
-          "style": { "navigationBarTitleText": "陪玩工作台" }
-        },
-        {
-          "path": "order-pool/index",
-          "style": { "navigationBarTitleText": "抢单大厅" }
-        }
+        { "path": "workbench/index", "style": { "navigationBarTitleText": "陪玩工作台" } },
+        { "path": "order-pool/index", "style": { "navigationBarTitleText": "抢单大厅" } },
+        { "path": "orders/index", "style": { "navigationBarTitleText": "服务订单" } },
+        { "path": "order-detail/index", "style": { "navigationBarTitleText": "服务详情" } }
       ]
     }
   ],

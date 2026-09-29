@@ -1,4 +1,5 @@
-export const API_ORIGIN = "http://localhost:8000"
+export const API_ORIGIN =
+  import.meta.env.VITE_API_ORIGIN || "http://localhost:8000"
 export const API_BASE_URL = API_ORIGIN + "/api/v1"
 
 type Method = "GET" | "POST" | "PATCH" | "DELETE"
@@ -9,6 +10,7 @@ export async function request<T>(
     method?: Method
     data?: unknown
     userId?: string
+    adminId?: string
     headers?: Record<string, string>
   } = {}
 ): Promise<T> {
@@ -19,6 +21,7 @@ export async function request<T>(
     header: {
       "Content-Type": "application/json",
       ...(options.userId ? { "X-User-Id": options.userId } : {}),
+      ...(options.adminId ? { "X-Admin-Id": options.adminId } : {}),
       ...(options.headers ?? {})
     }
   })

@@ -169,7 +169,9 @@ async function submitReview() {
 .money-card { margin-top: 24rpx; padding: 28rpx; border-radius: 30rpx; background: #fff; }
 .money-card view { display: flex; justify-content: space-between; padding: 16rpx 0; color: #686872; font-size: 24rpx; }
 .money-card view text:last-child { color: #15151b; font-weight: 700; }
-.primary { margin-top: 28rpx; height: 88rpx; line-height: 88rpx; border-radius: 28rpx; background: #6c5ce7; color: #fff; font-size: 28rpx; font-weight: 700; }
+.primary, .secondary { margin-top: 28rpx; height: 88rpx; line-height: 88rpx; border-radius: 28rpx; font-size: 28rpx; font-weight: 700; }
+.primary { background: #6c5ce7; color: #fff; }
+.secondary { background: #fff; color: #6c5ce7; border: 2rpx solid #6c5ce7; }
 .notice { margin-top: 28rpx; padding: 26rpx; border-radius: 26rpx; background: #f0edff; color: #6c5ce7; font-size: 24rpx; line-height: 1.6; }
 .settled-card { margin-top: 28rpx; padding: 30rpx; border-radius: 30rpx; background: #fff; }
 .settled-title { color: #22a665; font-size: 30rpx; font-weight: 800; }
