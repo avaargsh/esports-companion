@@ -30,6 +30,10 @@ const meta = computed(() =>
   order.value ? orderStatusMeta(order.value.status, "PLAYER") : null
 )
 
+const incomeCaption = computed(() =>
+  order.value?.status === "SETTLED" ? "本单已结算收入" : "本单预计收入"
+)
+
 const chatVisible = computed(() =>
   [
     "ACCEPTED",
@@ -78,6 +82,17 @@ function eventTitle(event: OrderEvent): string {
   if (eventLabels[event.event_type]) return eventLabels[event.event_type]
   if (event.to_status) return orderStatusMeta(event.to_status, "PLAYER").label
   return event.event_type.replaceAll("_", " ")
+}
+
+function actorLabel(actor: string): string {
+  const labels: Record<string,string> = {
+    USER: "用户",
+    PLAYER: "你",
+    SYSTEM: "系统",
+    PAYMENT: "支付系统",
+    PLATFORM: "平台"
+  }
+  return labels[actor] || "系统"
 }
 
 function formatTime(value: string): string {
@@ -188,7 +203,7 @@ onShow(() => {
           <text class="order-no">{{ order.order_no }}</text>
         </view>
         <view class="income"><PriceText :cents="order.player_amount" size="lg" /></view>
-        <view class="caption">本单预计 / 已结算收入</view>
+        <view class="caption">{{ incomeCaption }}</view>
         <view class="state-desc">{{ meta.description }}</view>
         <OrderProgress :status="order.status" role="PLAYER" dark />
       </view>
@@ -200,7 +215,7 @@ onShow(() => {
       </view>
 
       <view v-if="events.length" class="card timeline-card">
-        <view class="card-title">履约证据</view>
+        <view class="card-title">服务进展</view>
         <view v-for="(event,index) in events" :key="event.id" class="event">
           <view class="track">
             <view class="event-dot" :class="{ latest:index===events.length-1 }"></view>
@@ -211,14 +226,14 @@ onShow(() => {
               <text>{{ eventTitle(event) }}</text>
               <text class="time">{{ formatTime(event.created_at) }}</text>
             </view>
-            <text class="actor">{{ event.actor_type }}</text>
+            <text class="actor">{{ actorLabel(event.actor_type) }}</text>
           </view>
         </view>
       </view>
 
       <view class="realtime">
         <text class="live-dot" :class="{ online: socketConnected }">●</text>
-        {{ socketConnected ? "订单实时连接已建立" : "订单实时连接中" }}
+        {{ socketConnected ? "状态会自动更新" : "正在恢复实时更新" }}
       </view>
 
       <OrderChat
@@ -234,7 +249,7 @@ onShow(() => {
         已申请完成，正在等待用户确认；超时后由后端自动确认流程处理。
       </view>
       <view v-else-if="order.status === 'SETTLED'" class="notice success">
-        本单已完成结算，收入已进入账本。
+        本单已完成结算，收入已计入可用收益。
       </view>
       <view v-else-if="order.status === 'DISPUTED'" class="notice danger">
         订单正在售后处理中，请停止继续履约并等待平台处理。

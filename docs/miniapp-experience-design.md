@@ -57,3 +57,19 @@ infrastructure:
 
 The goal is consistent behavior on real devices, not a larger component
 catalog.
+
+
+## Language cleanup
+
+The player workspace uses product language rather than internal platform
+language:
+
+- “接单市场” instead of “LIVE MARKET”;
+- “服务进展” instead of “履约证据”;
+- “收益账户” instead of “PLAYER WALLET”;
+- role/event labels are localized for the person using the screen;
+- the order pool emphasizes expected income and service quantity rather than
+  platform fee internals.
+
+Operational evidence still exists in the backend; the Mini Program only exposes
+what helps the current action.

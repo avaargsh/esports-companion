@@ -109,7 +109,7 @@ onShow(() => { void load() })
 <template>
   <view class="page">
     <view class="balance-card">
-      <view class="eyebrow">PLAYER WALLET</view>
+      <view class="eyebrow">收益账户</view>
       <view class="balance-label">可提现余额</view>
       <view class="balance">¥{{ (wallet.availableBalance / 100).toFixed(2) }}</view>
       <view class="balance-meta">

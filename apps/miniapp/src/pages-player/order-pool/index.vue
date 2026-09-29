@@ -14,7 +14,7 @@ const profile=ref<Player|null>(null)
 const playerUserId=ref("")
 const loading=ref(false)
 const claimingId=ref("")
-const totalIncome=computed(()=>orders.value.reduce((s,i)=>s+i.player_amount,0))
+const bestIncome=computed(()=>orders.value.reduce((max,i)=>Math.max(max,i.player_amount),0))
 const canClaim=computed(()=>profile.value?.verification_status==="APPROVED"&&profile.value?.service_status==="AVAILABLE")
 const claimBlockReason=computed(()=>{
   if(!profile.value)return "正在同步陪玩身份"
@@ -71,7 +71,7 @@ onPullDownRefresh(async()=>{await loadPool();uni.stopPullDownRefresh()})
   <view class="page">
     <view class="heading">
       <view>
-        <text class="eyebrow">LIVE MARKET</text>
+        <text class="eyebrow">接单市场</text>
         <text class="title">抢单大厅</text>
       </view>
       <view class="live"><text class="pulse"></text>{{ canClaim ? "可接单" : "暂停" }}</view>
@@ -84,7 +84,7 @@ onPullDownRefresh(async()=>{await loadPool();uni.stopPullDownRefresh()})
 
     <view class="overview">
       <view><b>{{ orders.length }}</b><text>可抢订单</text></view>
-      <view><b>¥{{ (totalIncome/100).toFixed(0) }}</b><text>合计预估收入</text></view>
+      <view><b>¥{{ (bestIncome/100).toFixed(0) }}</b><text>最高单笔收入</text></view>
     </view>
 
     <scroll-view scroll-x class="filter" :show-scrollbar="false">
@@ -123,8 +123,8 @@ onPullDownRefresh(async()=>{await loadPool();uni.stopPullDownRefresh()})
           </view>
         </view>
         <view class="amount-row">
+          <text>服务数量 × {{ order.quantity || 1 }}</text>
           <text>订单总额 ¥{{ (order.total_amount/100).toFixed(2) }}</text>
-          <text>平台服务费 ¥{{ (order.platform_fee/100).toFixed(2) }}</text>
         </view>
         <button class="claim" :disabled="!canClaim||!!claimingId" @click="claim(order)">
           {{ claimingId===order.id ? "正在抢单…" : canClaim ? "立即抢单" : "暂不可接单" }}

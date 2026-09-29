@@ -51,7 +51,7 @@ onShow(()=>{void load()})
   <view class="page">
     <view class="work-head">
       <view>
-        <text class="eyebrow">PLAYER DESK</text>
+        <text class="eyebrow">陪玩中心</text>
         <text class="title">{{ profile?.display_name || "陪玩工作台" }}</text>
       </view>
       <view class="availability" :class="{off:!online,disabled:!verified}" @click="toggleStatus">

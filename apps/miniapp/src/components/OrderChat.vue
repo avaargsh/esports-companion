@@ -25,6 +25,20 @@ const loading = ref(false)
 const sending = ref(false)
 const error = ref("")
 
+function friendlyError(message: string): string {
+  if (message.includes("ORDER_MESSAGE_READ_ONLY")) return "订单已结束，当前会话仅可查看"
+  if (message.includes("FORBIDDEN") || message.includes("NOT_PARTICIPANT")) return "当前账号无法查看这笔订单的沟通记录"
+  if (message.includes("NETWORK") || message.includes("timeout")) return "网络不稳定，请稍后重试"
+  return "消息暂时不可用，请稍后重试"
+}
+
+function formatTime(value: string): string {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ""
+  const pad = (n: number) => String(n).padStart(2, "0")
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
 async function load() {
   if (!props.orderId || !props.userId) return
   loading.value = true
@@ -35,7 +49,7 @@ async function load() {
       { userId: props.userId }
     )
   } catch (reason) {
-    error.value = reason instanceof Error ? reason.message : "MESSAGE_LOAD_FAILED"
+    error.value = friendlyError(reason instanceof Error ? reason.message : "")
   } finally {
     loading.value = false
   }
@@ -61,7 +75,7 @@ async function send() {
     content.value = ""
     await load()
   } catch (reason) {
-    error.value = reason instanceof Error ? reason.message : "MESSAGE_SEND_FAILED"
+    error.value = friendlyError(reason instanceof Error ? reason.message : "")
   } finally {
     sending.value = false
   }
@@ -106,9 +120,12 @@ watch(
         :class="{ mine: message.sender_user_id === userId }"
       >
         <view class="message-meta">
-          {{ message.sender_user_id === userId
-            ? "我"
-            : message.sender_role === "PLAYER" ? "大神" : "老板" }}
+          <text>
+            {{ message.sender_user_id === userId
+              ? "我"
+              : message.sender_role === "PLAYER" ? "大神" : "用户" }}
+          </text>
+          <text>{{ formatTime(message.created_at) }}</text>
         </view>
         <view class="bubble">{{ message.content }}</view>
       </view>
@@ -136,7 +153,7 @@ watch(
 
 <style scoped>
 .chat{margin-top:16rpx;padding:25rpx;border:1rpx solid rgba(20,20,30,.035);border-radius:29rpx;background:#fff;color:var(--ink);box-shadow:var(--shadow-card)}.chat.dark{border-color:rgba(255,255,255,.05);background:#191920;color:#fff;box-shadow:none}.chat-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18rpx}.chat-title{font-size:24rpx;font-weight:780}.chat-hint{margin-top:6rpx;color:var(--muted);font-size:17rpx;line-height:1.5}.chat-count{min-width:38rpx;height:38rpx;padding:0 8rpx;line-height:38rpx;border-radius:999rpx;background:var(--brand-soft);color:var(--brand);text-align:center;font-size:15rpx;font-weight:700}.dark .chat-count{background:rgba(103,87,230,.14);color:#aa9df8}
-.message-list{height:350rpx;margin-top:18rpx;padding:5rpx 0}.message-row{display:flex;flex-direction:column;align-items:flex-start;margin:13rpx 0}.message-row.mine{align-items:flex-end}.message-meta{margin-bottom:5rpx;color:#9998a2;font-size:15rpx}.bubble{max-width:82%;padding:14rpx 18rpx;border-radius:19rpx 19rpx 19rpx 6rpx;background:#f2f2f6;font-size:20rpx;line-height:1.55;word-break:break-word}.mine .bubble{border-radius:19rpx 19rpx 6rpx 19rpx;background:#6757e6;color:#fff}.dark .bubble{background:#24242d;color:#e3e1e8}.dark .mine .bubble{background:#6757e6;color:#fff}
+.message-list{height:350rpx;margin-top:18rpx;padding:5rpx 0}.message-row{display:flex;flex-direction:column;align-items:flex-start;margin:13rpx 0}.message-row.mine{align-items:flex-end}.message-meta{display:flex;align-items:center;gap:10rpx;margin-bottom:5rpx;color:#9998a2;font-size:15rpx}.bubble{max-width:82%;padding:14rpx 18rpx;border-radius:19rpx 19rpx 19rpx 6rpx;background:#f2f2f6;font-size:20rpx;line-height:1.55;word-break:break-word}.mine .bubble{border-radius:19rpx 19rpx 6rpx 19rpx;background:#6757e6;color:#fff}.dark .bubble{background:#24242d;color:#e3e1e8}.dark .mine .bubble{background:#6757e6;color:#fff}
 .chat-empty,.chat-error,.read-only{margin-top:18rpx;padding:20rpx;border-radius:18rpx;text-align:center;font-size:18rpx}.chat-empty,.read-only{background:#f7f7fa;color:var(--muted)}.dark .chat-empty,.dark .read-only{background:#23232b;color:#777582}.chat-error{background:var(--danger-soft);color:var(--danger)}
 .composer{display:flex;align-items:flex-end;gap:10rpx;margin-top:17rpx}.composer textarea{flex:1;min-height:66rpx;max-height:170rpx;padding:15rpx 18rpx;border-radius:19rpx;background:#f7f7fa;font-size:20rpx}.dark .composer textarea{background:#23232c;color:#fff}.send{width:116rpx;height:66rpx;margin:0;line-height:66rpx;border-radius:19rpx;background:#6757e6;color:#fff;font-size:19rpx;font-weight:740}.send[disabled]{opacity:.4}
 </style>

@@ -108,7 +108,7 @@ async function applyPlayer(){
     >
       <view class="role-top">
         <view class="role-icon">P</view>
-        <text class="role-badge">PLAYER</text>
+        <text class="role-badge">陪玩身份</text>
       </view>
       <text class="role-label">陪玩工作台</text>
       <text class="role-desc">{{ playerName ? playerName+" · 接单、履约与收益" : "进入陪玩工作台" }}</text>
