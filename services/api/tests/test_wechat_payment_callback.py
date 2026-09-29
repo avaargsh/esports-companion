@@ -1,4 +1,5 @@
 import base64
+from dataclasses import replace
 import json
 import time
 from datetime import datetime, timedelta, timezone
@@ -189,6 +190,18 @@ def test_verified_callback_completes_pending_transaction_idempotently():
             raw_event={"id": "event-1"},
             resource={"transaction_id": "wx-txn-1"},
         )
+        with pytest.raises(ValueError, match="PAYMENT_CURRENCY_MISMATCH"):
+            PaymentService.apply_verified_success(
+                db,
+                callback=replace(callback, currency="USD"),
+            )
+
+        with pytest.raises(ValueError, match="PAYMENT_PAYER_MISMATCH"):
+            PaymentService.apply_verified_success(
+                db,
+                callback=replace(callback, payer_subject="openid-other"),
+            )
+
         first = PaymentService.apply_verified_success(
             db,
             callback=callback,

@@ -27,6 +27,17 @@ class PaymentService:
         provider: PaymentProvider,
         idempotency_key: str,
     ) -> PaymentPreparation:
+        # Serialize payment creation with cancellation and other payment attempts.
+        # The checks below must happen after the row lock; otherwise two requests
+        # with different idempotency keys can both observe "no pending payment"
+        # and both create provider-side payment state.
+        locked_order = db.scalar(
+            select(Order).where(Order.id == order.id).with_for_update()
+        )
+        if not locked_order:
+            raise ValueError("PAYMENT_ORDER_NOT_FOUND")
+        order = locked_order
+
         existing = db.scalar(
             select(PaymentTransaction).where(
                 PaymentTransaction.idempotency_key == idempotency_key
@@ -128,6 +139,14 @@ class PaymentService:
             raise ValueError("PAYMENT_ORDER_NOT_FOUND")
         if order.total_amount != callback.amount:
             raise ValueError("PAYMENT_AMOUNT_MISMATCH")
+        if callback.currency.upper() != "CNY":
+            raise ValueError("PAYMENT_CURRENCY_MISMATCH")
+
+        payer = db.get(User, order.user_id)
+        if not payer or not payer.openid:
+            raise ValueError("PAYMENT_PAYER_NOT_FOUND")
+        if callback.payer_subject != payer.openid:
+            raise ValueError("PAYMENT_PAYER_MISMATCH")
 
         existing_success = db.scalar(
             select(PaymentTransaction).where(
