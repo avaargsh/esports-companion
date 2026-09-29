@@ -11,6 +11,7 @@ from app.db import SessionLocal
 from app.infrastructure import redis_client
 from app.order_timeout import run_timeout_scanner
 from app.realtime import run_outbox_publisher
+from app.refund_reconcile import run_refund_reconcile_worker
 from app.routers.admin import router as admin_router
 from app.routers.admin_catalog import router as admin_catalog_router
 from app.routers.auth import router as auth_router
@@ -35,6 +36,7 @@ async def lifespan(app: FastAPI):
     tasks = [
         asyncio.create_task(run_outbox_publisher()),
         asyncio.create_task(run_timeout_scanner()),
+        asyncio.create_task(run_refund_reconcile_worker()),
     ]
     try:
         yield

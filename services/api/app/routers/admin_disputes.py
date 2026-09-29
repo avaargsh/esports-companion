@@ -88,6 +88,25 @@ def submit_refund(
         raise HTTPException(409, str(exc)) from exc
 
 
+@router.post("/refunds/{refund_id}/reconcile", response_model=RefundOut)
+def reconcile_refund(
+    refund_id: uuid.UUID,
+    principal: Principal = Depends(require_platform),
+    db: Session = Depends(get_db),
+):
+    try:
+        return RefundService.reconcile(
+            db,
+            refund_id=refund_id,
+            provider=get_refund_provider(),
+            actor_user_id=principal.user_id,
+        )
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
 @router.get("/refunds", response_model=list[RefundOut])
 def list_refunds(
     principal: Principal = Depends(require_platform),

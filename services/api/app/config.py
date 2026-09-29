@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     assignment_start_timeout_seconds: int = 600
     order_timeout_scan_seconds: int = 30
     order_timeout_batch_size: int = 50
+    refund_reconcile_scan_seconds: int = 60
+    refund_reconcile_batch_size: int = 20
 
     wechat_app_id: str = ""
     wechat_app_secret: str = ""

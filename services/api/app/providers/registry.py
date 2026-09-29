@@ -58,6 +58,8 @@ def get_refund_provider(name: str | None = None) -> RefundProvider:
             private_key=settings.wechat_mch_private_key,
             notify_url=settings.wechat_refund_notify_url,
             api_base_url=settings.wechat_pay_api_base_url,
+            platform_cert_serial=settings.wechat_pay_platform_cert_serial,
+            platform_certificate=settings.wechat_pay_platform_certificate,
         )
     raise ValueError(f"REFUND_PROVIDER_NOT_CONFIGURED:{provider_name}")
 

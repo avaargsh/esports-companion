@@ -82,6 +82,75 @@ class RefundService:
         db.refresh(refund)
         return refund
 
+
+    @staticmethod
+    def reconcile(
+        db: Session,
+        *,
+        refund_id: uuid.UUID,
+        provider: RefundProvider,
+        actor_user_id: uuid.UUID | None = None,
+        min_age_seconds: int = 0,
+    ) -> Refund:
+        refund = db.scalar(
+            select(Refund)
+            .where(Refund.id == refund_id)
+            .with_for_update()
+        )
+        if not refund:
+            raise LookupError("REFUND_NOT_FOUND")
+        if refund.status == "COMPLETED":
+            return refund
+        if refund.provider not in {provider.name.upper(), "MANUAL"}:
+            raise ValueError("REFUND_PROVIDER_MISMATCH")
+        if not refund.out_refund_no:
+            raise ValueError("REFUND_OUT_REFUND_NO_MISSING")
+
+        if min_age_seconds > 0:
+            from datetime import datetime, timedelta, timezone
+
+            updated_at = refund.updated_at
+            if updated_at.tzinfo is None:
+                updated_at = updated_at.replace(tzinfo=timezone.utc)
+            if updated_at > datetime.now(timezone.utc) - timedelta(seconds=min_age_seconds):
+                return refund
+
+        intent = provider.query_refund(refund=refund)
+        if intent.provider.upper() != provider.name.upper():
+            raise ValueError("REFUND_PROVIDER_MISMATCH")
+        if (
+            refund.provider_refund_id
+            and intent.provider_refund_id
+            and refund.provider_refund_id != intent.provider_refund_id
+        ):
+            raise ValueError("REFUND_PROVIDER_ID_MISMATCH")
+
+        refund.provider = intent.provider.upper()
+        if intent.provider_refund_id:
+            refund.provider_refund_id = intent.provider_refund_id
+        refund.raw_payload = {
+            **(refund.raw_payload or {}),
+            "query": intent.raw_payload,
+        }
+
+        if intent.status == "SUCCESS":
+            return DisputeService.complete_refund(
+                db,
+                refund_id=refund.id,
+                provider_refund_id=intent.provider_refund_id or "",
+                admin_user_id=actor_user_id,
+            )
+
+        refund.status = intent.status
+        refund.failure_reason = (
+            f"PROVIDER_REFUND_{intent.status}"
+            if intent.status in {"CLOSED", "ABNORMAL"}
+            else None
+        )
+        db.commit()
+        db.refresh(refund)
+        return refund
+
     @staticmethod
     def apply_wechat_callback(
         db: Session,
