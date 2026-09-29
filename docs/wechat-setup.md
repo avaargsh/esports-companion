@@ -25,6 +25,26 @@ wx.login()
 Only the auth adapter should know about `openid`, `unionid` and `session_key`.
 Order, wallet, dispatch and review modules should continue using the internal `user_id`.
 
+The Mini Program production client uses `VITE_AUTH_MODE=wechat`. It persists
+only the application's access/refresh token pair, never the WeChat
+`session_key`. Authenticated HTTP calls use a Bearer access token. Access
+tokens are refreshed with refresh-token rotation; a 401 triggers at most one
+refresh-and-replay of the original request.
+
+Realtime uses the same application identity:
+
+```text
+wx.login -> app session
+              |
+              +-> HTTP Authorization: Bearer <access>
+              |
+              +-> WSS /ws
+                  Authorization: Bearer <access>
+```
+
+The development-only `X-User-Id` and `/ws?user_id=...` compatibility paths
+remain available only when the backend is not a secure deployment.
+
 ## Payment
 
 Development:

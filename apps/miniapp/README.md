@@ -38,3 +38,39 @@ Customer: Home -> Game -> Create -> Mock Pay
 Player: Workbench -> Order Pool -> Claim -> Start -> Finish
 Customer: Order Detail -> Confirm -> Settlement -> Review
 ```
+
+
+## WeChat staging / production auth
+
+Local development defaults to:
+
+```text
+VITE_AUTH_MODE=demo
+```
+
+This keeps the seeded `X-User-Id` development workflow.
+
+For a secure staging or production Mini Program build, use the real API origin
+and WeChat session mode:
+
+```bash
+VITE_AUTH_MODE=wechat \
+VITE_API_ORIGIN=https://api-staging.example.com \
+npm run build:mp-weixin
+```
+
+In `wechat` mode the Mini Program:
+
+1. calls `uni.login({ provider: "weixin" })`;
+2. exchanges the code through `POST /api/v1/auth/wechat/login`;
+3. persists the application access/refresh token pair in Mini Program storage;
+4. sends authenticated API requests with `Authorization: Bearer ...`;
+5. rotates the refresh token when the access token is near expiry or an
+   authenticated request returns 401;
+6. authenticates `/ws` using the same Bearer access token.
+
+Legacy `X-User-Id`, `X-Admin-Id`, and `/ws?user_id=...` are never sent by
+the client in `wechat` mode.
+
+The released Mini Program must configure the HTTPS request domain and WSS
+socket domain in the WeChat platform.
