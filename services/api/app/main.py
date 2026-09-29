@@ -6,7 +6,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 
-from app.db import SessionLocal
 from app.health import router as health_router
 from app.observability import RequestLoggingMiddleware, configure_logging
 from app.order_timeout import run_timeout_scanner
