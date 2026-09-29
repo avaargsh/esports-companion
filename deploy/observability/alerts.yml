@@ -94,3 +94,13 @@ groups:
         annotations:
           summary: dispute has remained unresolved for more than 24 hours
           runbook: docs/alert-runbook.md#dispute-aging
+
+
+      - alert: EsportsCompanionFinishRequestOverdue
+        expr: esports_finish_requests_overdue > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: finish request remained pending beyond the configured auto-confirm timeout
+          runbook: docs/alert-runbook.md#finish-request-overdue
