@@ -7,8 +7,19 @@
     "jsx": "preserve",
     "resolveJsonModule": true,
     "esModuleInterop": true,
-    "lib": ["ES2022", "DOM"],
-    "types": ["vite/client"]
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
+    "types": [
+      "vite/client",
+      "node"
+    ]
   },
-  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.vue", "vite.config.ts"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.d.ts",
+    "src/**/*.vue",
+    "vite.config.ts"
+  ]
 }
