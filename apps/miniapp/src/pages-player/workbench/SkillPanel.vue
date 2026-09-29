@@ -80,7 +80,7 @@ watch(() => props.userId, () => { void load() }, { immediate: true })
 
     <view v-for="skill in skills" :key="skill.id" class="skill-row">
       <view class="skill-main">
-        <view class="skill-name">{{ gameNames.get(skill.game_id) || "Game" }} · {{ skill.rank || "-" }}</view>
+        <view class="skill-name">{{ gameNames.get(skill.game_id) || "游戏" }} · {{ skill.rank || "-" }}</view>
         <view class="skill-meta">
           <text :class="['status', skill.verification_status.toLowerCase()]">
             {{ skill.verification_status === "APPROVED" ? "已认证" : skill.verification_status === "PENDING" ? "审核中" : "未通过" }}
@@ -103,28 +103,14 @@ watch(() => props.userId, () => { void load() }, { immediate: true })
       <input v-model="evidenceUrl" maxlength="512" placeholder="段位证明图片 URL" />
       <textarea v-model="description" maxlength="500" placeholder="补充说明（选填）" />
       <button class="submit" :loading="busy" :disabled="!rank.trim() || !evidenceUrl.trim()" @click="submit">
-        提交 / 重新认证
+        提交认证
       </button>
     </view>
   </view>
 </template>
 
 <style scoped>
-.skill-card { margin-top: 24rpx; padding: 28rpx; border-radius: 28rpx; background: #181820; color: #fff; }
-.head { display: flex; justify-content: space-between; gap: 20rpx; padding-bottom: 20rpx; }
-.title { font-size: 28rpx; font-weight: 700; }
-.desc { margin-top: 7rpx; color: #777784; font-size: 20rpx; line-height: 1.5; }
-.count { color: #65e39b; font-size: 20rpx; white-space: nowrap; }
-.skill-row { padding: 20rpx 0; border-top: 1rpx solid rgba(255,255,255,.06); }
-.skill-name { font-size: 24rpx; font-weight: 650; }
-.skill-meta { margin-top: 8rpx; color: #777784; font-size: 19rpx; }
-.status.approved { color: #65e39b; }
-.status.pending { color: #f2bd5a; }
-.status.rejected { color: #ff9292; }
-.form { display: grid; gap: 14rpx; padding-top: 22rpx; border-top: 1rpx solid rgba(255,255,255,.06); }
-.picker, input, textarea { width: 100%; padding: 20rpx; border-radius: 18rpx; background: #25252e; color: #fff; box-sizing: border-box; font-size: 21rpx; }
-textarea { height: 120rpx; }
-.submit { margin: 0; height: 72rpx; line-height: 72rpx; border-radius: 20rpx; background: #6c5ce7; color: #fff; font-size: 22rpx; }
-.submit[disabled] { opacity: .45; }
-.error { margin-bottom: 14rpx; color: #ff9292; font-size: 19rpx; }
+.skill-card{margin-top:16rpx;padding:25rpx;border:1rpx solid rgba(255,255,255,.05);border-radius:27rpx;background:#191920;color:#fff}.head{display:flex;justify-content:space-between;gap:18rpx;padding-bottom:18rpx}.title{font-size:24rpx;font-weight:780}.desc{margin-top:6rpx;color:#777582;font-size:17rpx;line-height:1.45}.count{flex:none;padding:6rpx 10rpx;border-radius:999rpx;background:rgba(39,187,111,.1);color:#5ed28e;font-size:16rpx;font-weight:700}
+.skill-row{padding:17rpx 0;border-top:1rpx solid rgba(255,255,255,.05)}.skill-name{font-size:21rpx;font-weight:700}.skill-meta{margin-top:6rpx;color:#706e7a;font-size:16rpx}.status.approved{color:#5ed28e}.status.pending{color:#d9aa59}.status.rejected{color:#dc7779}
+.form{display:grid;gap:11rpx;padding-top:19rpx;border-top:1rpx solid rgba(255,255,255,.05)}.picker,input,textarea{width:100%;padding:18rpx;border:1rpx solid rgba(255,255,255,.03);border-radius:18rpx;background:#23232c;color:#fff;font-size:19rpx}.picker{color:#d6d3df}textarea{height:112rpx}.submit{height:70rpx;margin:2rpx 0 0;line-height:70rpx;border-radius:20rpx;background:#6757e6;color:#fff;font-size:20rpx;font-weight:750}.submit[disabled]{opacity:.4}.error{margin-bottom:12rpx;color:#dc7779;font-size:17rpx}
 </style>

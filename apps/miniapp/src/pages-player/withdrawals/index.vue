@@ -109,7 +109,7 @@ onShow(() => { void load() })
 <template>
   <view class="page">
     <view class="balance-card">
-      <view class="eyebrow">PLAYER WALLET</view>
+      <view class="eyebrow">收益账户</view>
       <view class="balance-label">可提现余额</view>
       <view class="balance">¥{{ (wallet.availableBalance / 100).toFixed(2) }}</view>
       <view class="balance-meta">
@@ -122,7 +122,7 @@ onShow(() => { void load() })
       <view class="form-head">
         <view>
           <view class="title">申请提现</view>
-          <view class="hint">v0.4 采用平台人工审核 / 人工打款，申请后金额会立即冻结。</view>
+          <view class="hint">提交后由平台审核并打款，处理中金额会暂时冻结。</view>
         </view>
         <text class="all" @click="withdrawAll">全部提现</text>
       </view>
@@ -176,33 +176,6 @@ onShow(() => { void load() })
 </template>
 
 <style scoped>
-.page { min-height:100vh; padding:28rpx; background:#0f0f15; color:#fff; box-sizing:border-box; }
-.balance-card { padding:38rpx; border-radius:36rpx; background:linear-gradient(145deg,#27233a,#17171f); }
-.eyebrow { color:#8579d8; font-size:17rpx; font-weight:800; letter-spacing:3rpx; }
-.balance-label { margin-top:28rpx; color:#9b9ba6; font-size:21rpx; }
-.balance { margin-top:8rpx; font-size:62rpx; font-weight:850; }
-.balance-meta { display:flex; justify-content:space-between; gap:16rpx; margin-top:30rpx; padding-top:24rpx; border-top:1rpx solid rgba(255,255,255,.08); color:#858590; font-size:19rpx; }
-.form-card,.history { margin-top:22rpx; padding:30rpx; border-radius:30rpx; background:#181820; }
-.form-head,.history-head { display:flex; align-items:flex-start; justify-content:space-between; gap:20rpx; }
-.title { font-size:27rpx; font-weight:800; }
-.hint { margin-top:8rpx; color:#777783; font-size:19rpx; line-height:1.55; }
-.all { flex:none; color:#9b8cff; font-size:20rpx; font-weight:700; }
-.amount-input { display:flex; align-items:center; margin-top:26rpx; padding:20rpx 24rpx; border-radius:24rpx; background:#22222b; }
-.amount-input text { color:#bbb7d7; font-size:34rpx; font-weight:800; }
-.amount-input input { flex:1; margin-left:14rpx; color:#fff; font-size:42rpx; font-weight:800; }
-.error { margin-top:10rpx; color:#dc7779; font-size:18rpx; }
-.submit { margin:22rpx 0 0; height:82rpx; line-height:82rpx; border-radius:24rpx; background:#6c5ce7; color:#fff; font-size:24rpx; font-weight:750; }
-.submit[disabled] { background:#2a2932; color:#666671; opacity:1; }
-.rules { display:grid; gap:8rpx; margin-top:24rpx; color:#6f6f7a; font-size:18rpx; line-height:1.5; }
-.history-head text { color:#777783; font-size:19rpx; }
-.item { display:flex; align-items:center; justify-content:space-between; gap:18rpx; padding:24rpx 0; border-top:1rpx solid rgba(255,255,255,.06); }
-.item:first-of-type { margin-top:16rpx; }
-.item-amount { font-size:27rpx; font-weight:800; }
-.item-time { margin-top:6rpx; color:#6f6f7a; font-size:17rpx; }
-.reason { margin-top:6rpx; color:#b86e70; font-size:17rpx; }
-.status { flex:none; padding:9rpx 14rpx; border-radius:999rpx; background:#2a2932; color:#aaaab4; font-size:18rpx; }
-.status.pending { background:rgba(245,158,11,.12); color:#e0ad58; }
-.status.completed { background:rgba(34,197,94,.12); color:#62d38c; }
-.status.rejected { background:rgba(239,68,68,.10); color:#d8787a; }
-.empty { padding:60rpx 0 30rpx; color:#6f6f7a; text-align:center; font-size:20rpx; }
+.page{min-height:100vh;padding:28rpx;background:#101016;color:#fff}.balance-card{position:relative;overflow:hidden;padding:32rpx;border:1rpx solid rgba(255,255,255,.05);border-radius:34rpx;background:linear-gradient(145deg,#1b1a23,#2b263f)}.eyebrow{color:#77728d;font-size:15rpx;font-weight:800;letter-spacing:2.5rpx}.balance-label{margin-top:24rpx;color:#8d8a98;font-size:18rpx}.balance{margin-top:5rpx;font-size:55rpx;font-weight:850;letter-spacing:-1rpx}.balance-meta{display:flex;justify-content:space-between;gap:15rpx;margin-top:24rpx;padding-top:19rpx;border-top:1rpx solid rgba(255,255,255,.06);color:#777582;font-size:16rpx}
+.form-card,.history{margin-top:16rpx;padding:25rpx;border:1rpx solid rgba(255,255,255,.05);border-radius:28rpx;background:#191920}.form-head,.history-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18rpx}.title{font-size:24rpx;font-weight:780}.hint{margin-top:6rpx;color:#777582;font-size:17rpx;line-height:1.5}.all{flex:none;color:#a99cf7;font-size:18rpx;font-weight:700}.amount-input{display:flex;align-items:center;margin-top:22rpx;padding:17rpx 20rpx;border-radius:21rpx;background:#23232c}.amount-input text{color:#aaa5ca;font-size:30rpx;font-weight:800}.amount-input input{flex:1;margin-left:11rpx;color:#fff;font-size:38rpx;font-weight:820}.error{margin-top:9rpx;color:#dc7779;font-size:16rpx}.submit{height:76rpx;margin:18rpx 0 0;line-height:76rpx;border-radius:22rpx;background:#6757e6;color:#fff;font-size:21rpx;font-weight:760}.submit[disabled]{background:#292832;color:#666471;opacity:1}.rules{display:grid;gap:6rpx;margin-top:19rpx;color:#696773;font-size:16rpx;line-height:1.5}.history-head text{color:#777582;font-size:17rpx}.item{display:flex;align-items:center;justify-content:space-between;gap:16rpx;padding:20rpx 0;border-top:1rpx solid rgba(255,255,255,.05)}.item:first-of-type{margin-top:13rpx}.item-amount{font-size:24rpx;font-weight:780}.item-time{margin-top:5rpx;color:#696773;font-size:15rpx}.reason{margin-top:5rpx;color:#b56c70;font-size:15rpx}.status{flex:none;padding:7rpx 11rpx;border-radius:999rpx;background:#26252e;color:#9997a2;font-size:16rpx}.status.pending{background:rgba(211,148,38,.1);color:#d9aa59}.status.completed{background:rgba(39,187,111,.1);color:#5ed28e}.status.rejected{background:rgba(239,68,68,.09);color:#dc7779}.empty{padding:54rpx 0 24rpx;color:#6d6b77;text-align:center;font-size:18rpx}
 </style>
