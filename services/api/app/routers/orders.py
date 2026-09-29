@@ -7,8 +7,14 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.domain.order_state_machine import OrderStatus
 from app.infrastructure import redis_client
-from app.models import Order, OrderAssignment, PlayerProfile, User
-from app.schemas import OrderCreate, OrderDetailOut, OrderOut, PaymentPrepareOut
+from app.models import Order, OrderAssignment, OrderEvent, PlayerProfile, User
+from app.schemas import (
+    OrderCreate,
+    OrderDetailOut,
+    OrderEventOut,
+    OrderOut,
+    PaymentPrepareOut,
+)
 from app.providers.registry import get_payment_provider
 from app.services.completion_service import CompletionService
 from app.services.order_service import OrderNotFound, OrderService
@@ -31,6 +37,34 @@ def _available_actions(order: Order) -> list[str]:
     }:
         return ["OPEN_DISPUTE"]
     return []
+
+
+def _principal_can_access_order(
+    db: Session,
+    *,
+    order: Order,
+    principal: Principal,
+) -> bool:
+    if order.user_id == principal.user_id or "PLATFORM" in principal.roles:
+        return True
+
+    if "PLAYER" not in principal.roles:
+        return False
+
+    player = db.scalar(
+        select(PlayerProfile).where(PlayerProfile.user_id == principal.user_id)
+    )
+    if not player:
+        return False
+
+    assignment = db.scalar(
+        select(OrderAssignment).where(
+            OrderAssignment.order_id == order.id,
+            OrderAssignment.player_id == player.id,
+            OrderAssignment.status == "ACTIVE",
+        )
+    )
+    return assignment is not None
 
 
 def _order_detail(db: Session, order: Order) -> dict:
@@ -105,28 +139,33 @@ def get_order(
 ):
     try:
         order = OrderService.get(db, order_id)
-        if order.user_id == principal.user_id or "PLATFORM" in principal.roles:
-            return _order_detail(db, order)
+        if not _principal_can_access_order(db, order=order, principal=principal):
+            raise PermissionError("ORDER_ACCESS_DENIED")
+        return _order_detail(db, order)
+    except OrderNotFound as exc:
+        raise HTTPException(404, "ORDER_NOT_FOUND") from exc
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
 
-        if "PLAYER" in principal.roles:
-            from app.models import OrderAssignment, PlayerProfile
 
-            player = db.scalar(
-                select(PlayerProfile).where(
-                    PlayerProfile.user_id == principal.user_id
-                )
+@router.get("/{order_id}/events", response_model=list[OrderEventOut])
+def list_order_events(
+    order_id: uuid.UUID,
+    principal: Principal = Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    try:
+        order = OrderService.get(db, order_id)
+        if not _principal_can_access_order(db, order=order, principal=principal):
+            raise PermissionError("ORDER_ACCESS_DENIED")
+
+        return list(
+            db.scalars(
+                select(OrderEvent)
+                .where(OrderEvent.order_id == order.id)
+                .order_by(OrderEvent.created_at, OrderEvent.id)
             )
-            if player:
-                assignment = db.scalar(
-                    select(OrderAssignment).where(
-                        OrderAssignment.order_id == order.id,
-                        OrderAssignment.player_id == player.id,
-                        OrderAssignment.status == "ACTIVE",
-                    )
-                )
-                if assignment:
-                    return _order_detail(db, order)
-        raise PermissionError("ORDER_ACCESS_DENIED")
+        )
     except OrderNotFound as exc:
         raise HTTPException(404, "ORDER_NOT_FOUND") from exc
     except PermissionError as exc:

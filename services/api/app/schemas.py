@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from decimal import Decimal
 
 from pydantic import BaseModel, Field
@@ -59,6 +60,16 @@ class OrderServicePlayerOut(BaseModel):
 class OrderDetailOut(OrderOut):
     service_player: OrderServicePlayerOut | None = None
     available_actions: list[str] = Field(default_factory=list)
+
+
+class OrderEventOut(BaseModel):
+    id: uuid.UUID
+    event_type: str
+    from_status: str | None
+    to_status: str | None
+    actor_type: str
+    created_at: datetime
+    model_config = {"from_attributes": True}
 
 
 class PlayerApply(BaseModel):
