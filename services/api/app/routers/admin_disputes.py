@@ -80,7 +80,6 @@ def submit_refund(
             db,
             refund_id=refund_id,
             provider=get_refund_provider(),
-            actor_user_id=principal.user_id,
         )
     except LookupError as exc:
         raise HTTPException(404, str(exc)) from exc
@@ -99,7 +98,6 @@ def reconcile_refund(
             db,
             refund_id=refund_id,
             provider=get_refund_provider(),
-            actor_user_id=principal.user_id,
         )
     except LookupError as exc:
         raise HTTPException(404, str(exc)) from exc
@@ -129,6 +127,11 @@ def complete_refund(
     db: Session = Depends(get_db),
 ):
     try:
+        refund = db.get(Refund, refund_id)
+        if not refund:
+            raise LookupError("REFUND_NOT_FOUND")
+        if refund.provider != "MANUAL":
+            raise ValueError("PROVIDER_REFUND_MUST_BE_RECONCILED")
         return DisputeService.complete_refund(
             db,
             refund_id=refund_id,

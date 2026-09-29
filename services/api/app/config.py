@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     order_timeout_scan_seconds: int = 30
     order_timeout_batch_size: int = 50
     refund_reconcile_scan_seconds: int = 60
+    refund_reconcile_min_age_seconds: int = 30
     refund_reconcile_batch_size: int = 20
 
     wechat_app_id: str = ""

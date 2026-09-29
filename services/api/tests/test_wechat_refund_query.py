@@ -55,6 +55,12 @@ def test_wechat_refund_query_verifies_signed_response():
             "transaction_id": "420000001",
             "out_trade_no": "ORD_TEST",
             "status": "SUCCESS",
+            "amount": {
+                "total": 3000,
+                "refund": 3000,
+                "payer_total": 3000,
+                "payer_refund": 3000,
+            },
         }
         body = json.dumps(payload, separators=(",", ":")).encode()
         timestamp = str(int(time.time()))
