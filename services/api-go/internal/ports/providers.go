@@ -47,9 +47,9 @@ type PaymentProvider interface {
 }
 
 type RefundIntent struct {
-	Provider       string
+	Provider         string
 	ProviderRefundID string
-	Status         string
+	Status           string
 }
 
 type RefundProvider interface {
