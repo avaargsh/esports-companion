@@ -47,7 +47,14 @@ def test_mock_wechat_login_contract_and_refresh_rotation():
             json={"refreshToken": body["refreshToken"]},
         )
         assert old_refresh.status_code == 401
-        assert old_refresh.json()["detail"] == "REFRESH_TOKEN_REVOKED"
+        assert old_refresh.json()["detail"] == "REFRESH_TOKEN_REUSED"
+
+        rotated_access = client.get(
+            "/api/v1/auth/me",
+            headers={"Authorization": f"Bearer {next_tokens['accessToken']}"},
+        )
+        assert rotated_access.status_code == 401
+        assert rotated_access.json()["detail"] == "ACCESS_SESSION_REVOKED"
 
 
 def test_logout_revokes_current_session():
