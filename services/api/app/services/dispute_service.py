@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.domain.order_state_machine import OrderStatus
@@ -215,6 +216,20 @@ class DisputeService:
             return refund
         if refund.status not in {"PENDING", "SUBMITTING", "PROCESSING"}:
             raise ValueError("REFUND_NOT_COMPLETABLE")
+        if not provider_refund_id or not provider_refund_id.strip():
+            raise ValueError("REFUND_PROVIDER_ID_REQUIRED")
+        provider_refund_id = provider_refund_id.strip()
+        provider_name = refund.provider
+
+        reused = db.scalar(
+            select(Refund.id).where(
+                Refund.provider == provider_name,
+                Refund.provider_refund_id == provider_refund_id,
+                Refund.id != refund.id,
+            )
+        )
+        if reused:
+            raise ValueError("REFUND_PROVIDER_ID_REUSED")
 
         dispute = db.scalar(
             select(Dispute)
@@ -256,7 +271,20 @@ class DisputeService:
                 "amount": refund.amount,
             },
         )
-        db.commit()
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            reused = db.scalar(
+                select(Refund.id).where(
+                    Refund.provider == provider_name,
+                    Refund.provider_refund_id == provider_refund_id,
+                    Refund.id != refund_id,
+                )
+            )
+            if reused:
+                raise ValueError("REFUND_PROVIDER_ID_REUSED")
+            raise
         db.refresh(refund)
         return refund
 
