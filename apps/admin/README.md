@@ -10,7 +10,7 @@ Current queues:
 - Catalog management
 - Order lookup with OrderEvent + chat evidence drawer
 - Dispute/refund workbench linked to the same evidence view
-- Withdrawal review with mandatory external payout reference
+- Withdrawal review with mandatory external payout reference and Wallet/Ledger reconciliation drawer
 - Settlement inspection
 
 ## Local demo mode
