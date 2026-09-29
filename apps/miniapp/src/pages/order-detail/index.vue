@@ -17,6 +17,7 @@ import { orderStatusMeta } from "../../utils/order"
 const orderId = ref("")
 const order = ref<Order | null>(null)
 const events = ref<OrderEvent[]>([])
+const eventsExpanded = ref(false)
 const customerUserId = ref("")
 const socketConnected = ref(false)
 const loading = ref(true)
@@ -30,6 +31,12 @@ let socket: UniApp.SocketTask | null = null
 
 const meta = computed(() =>
   order.value ? orderStatusMeta(order.value.status, "CUSTOMER") : null
+)
+
+const visibleEvents = computed(() =>
+  eventsExpanded.value || events.value.length <= 4
+    ? events.value
+    : events.value.slice(-4)
 )
 
 const chatVisible = computed(() =>
@@ -327,12 +334,12 @@ function openServicePlayer() {
     <view v-if="loading" class="loading">正在同步订单状态…</view>
 
     <template v-else-if="order && meta">
-      <view class="realtime" :class="{ offline: !socketConnected }">
+      <view v-if="!socketConnected" class="realtime offline">
         <view class="realtime-copy">
           <text class="dot"></text>
-          <text>{{ socketConnected ? "订单状态实时更新中" : "实时连接已断开，可手动刷新" }}</text>
+          <text>自动更新暂时中断，可手动刷新</text>
         </view>
-        <text v-if="!socketConnected" class="refresh" @click="reload">刷新</text>
+        <text class="refresh" @click="reload">刷新</text>
       </view>
 
       <view class="status-card">
@@ -371,9 +378,9 @@ function openServicePlayer() {
       </view>
 
       <view class="section-card">
-        <view class="section-title">订单金额</view>
+        <view class="section-title">费用明细</view>
         <view class="row">
-          <text>订单金额</text>
+          <text>合计</text>
           <PriceText :cents="order.total_amount" size="md" />
         </view>
         <view v-if="order.unit_price" class="row">
@@ -387,12 +394,17 @@ function openServicePlayer() {
       </view>
 
       <view v-if="events.length" class="section-card">
-        <view class="section-title">订单进展</view>
+        <view class="section-title-row">
+          <view class="section-title">订单进展</view>
+          <text v-if="events.length > 4" class="section-action" @click="eventsExpanded = !eventsExpanded">
+            {{ eventsExpanded ? "收起" : "查看全部 " + events.length + " 条" }}
+          </text>
+        </view>
         <view class="timeline">
-          <view v-for="(event, index) in events" :key="event.id" class="event">
+          <view v-for="(event, index) in visibleEvents" :key="event.id" class="event">
             <view class="track">
-              <view class="event-dot" :class="{ latest: index === events.length - 1 }"></view>
-              <view v-if="index < events.length - 1" class="event-line"></view>
+              <view class="event-dot" :class="{ latest: index === visibleEvents.length - 1 }"></view>
+              <view v-if="index < visibleEvents.length - 1" class="event-line"></view>
             </view>
             <view class="event-copy">
               <view class="event-head">
@@ -493,7 +505,7 @@ function openServicePlayer() {
 .status-top{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:20rpx}.no{color:#7f7c8c;font-size:15rpx}
 .status{position:relative;z-index:1;margin-top:27rpx;font-size:39rpx;font-weight:850;letter-spacing:-1rpx}.status-desc{position:relative;z-index:1;display:block;margin:8rpx 0 31rpx;color:#aaa7b7;font-size:19rpx;line-height:1.55}
 .section-card{margin-top:16rpx;padding:27rpx;border:1rpx solid rgba(20,20,30,.035);border-radius:29rpx;background:#fff;box-shadow:var(--shadow-card)}
-.section-title{padding-bottom:13rpx;color:var(--ink);font-size:24rpx;font-weight:790}.provider-card{cursor:pointer}.provider-row{display:flex;align-items:center;gap:17rpx;padding-top:5rpx}.provider-avatar{width:82rpx;height:82rpx;flex:none;border-radius:24rpx}.provider-avatar.fallback{display:flex;align-items:center;justify-content:center;background:linear-gradient(145deg,#23212e,#6757e6);color:#fff;font-size:28rpx;font-weight:850}.provider-copy{flex:1;min-width:0}.provider-name{font-size:25rpx;font-weight:780}.provider-meta{margin-top:6rpx;color:var(--muted);font-size:18rpx}.chevron{color:#bbb9c3;font-size:31rpx}
+.section-title{padding-bottom:13rpx;color:var(--ink);font-size:24rpx;font-weight:790}.section-title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:18rpx}.section-action{padding:2rpx 0 13rpx;color:var(--brand);font-size:17rpx;font-weight:700}.provider-card{cursor:pointer}.provider-row{display:flex;align-items:center;gap:17rpx;padding-top:5rpx}.provider-avatar{width:82rpx;height:82rpx;flex:none;border-radius:24rpx}.provider-avatar.fallback{display:flex;align-items:center;justify-content:center;background:linear-gradient(145deg,#23212e,#6757e6);color:#fff;font-size:28rpx;font-weight:850}.provider-copy{flex:1;min-width:0}.provider-name{font-size:25rpx;font-weight:780}.provider-meta{margin-top:6rpx;color:var(--muted);font-size:18rpx}.chevron{color:#bbb9c3;font-size:31rpx}
 .row{display:flex;align-items:center;justify-content:space-between;gap:20rpx;padding:17rpx 0;border-bottom:1rpx solid #f0eff4;color:#75757f;font-size:20rpx}.row:last-child{border:0}.value{color:var(--ink-2);font-weight:700}
 .timeline{padding-top:3rpx}.event{display:flex;gap:16rpx;min-height:72rpx}.track{width:20rpx;flex:none;display:flex;flex-direction:column;align-items:center}.event-dot{width:12rpx;height:12rpx;border-radius:50%;background:#c7c6cf}.event-dot.latest{background:var(--brand);box-shadow:0 0 0 7rpx var(--brand-soft)}.event-line{width:2rpx;flex:1;margin-top:5rpx;background:#e7e6ec}.event-copy{flex:1;min-width:0;padding-bottom:21rpx}.event-head{display:flex;justify-content:space-between;gap:14rpx}.event-title{color:var(--ink);font-size:20rpx;font-weight:730}.event-time{flex:none;color:#aaa9b2;font-size:16rpx}.event-actor{display:block;margin-top:4rpx;color:#9998a2;font-size:16rpx}
 .notice{margin-top:15rpx;padding:21rpx 23rpx;border-radius:22rpx;background:var(--brand-soft);color:#6254b7;font-size:18rpx;line-height:1.55}.notice.designated{background:var(--warning-soft);color:#976315}.notice-title{display:block;margin-bottom:4rpx;font-weight:780}

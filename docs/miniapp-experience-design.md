@@ -73,3 +73,18 @@ language:
 
 Operational evidence still exists in the backend; the Mini Program only exposes
 what helps the current action.
+
+
+## Attention budget
+
+Order detail pages reserve visual emphasis for the current state and the next
+action:
+
+- healthy realtime connectivity is silent;
+- connectivity problems appear as a small recoverable warning;
+- only the latest four order events are shown by default;
+- full audit/event history is one tap away;
+- financial sections use customer/player language rather than duplicating
+  backend object names.
+
+The backend retains complete evidence. The UI reveals detail progressively.

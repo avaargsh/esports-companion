@@ -19,6 +19,7 @@ import {
 const orderId = ref("")
 const order = ref<Order | null>(null)
 const events = ref<OrderEvent[]>([])
+const eventsExpanded = ref(false)
 const busy = ref(false)
 const loading = ref(true)
 const playerUserId = ref("")
@@ -32,6 +33,12 @@ const meta = computed(() =>
 
 const incomeCaption = computed(() =>
   order.value?.status === "SETTLED" ? "本单已结算收入" : "本单预计收入"
+)
+
+const visibleEvents = computed(() =>
+  eventsExpanded.value || events.value.length <= 4
+    ? events.value
+    : events.value.slice(-4)
 )
 
 const chatVisible = computed(() =>
@@ -215,11 +222,16 @@ onShow(() => {
       </view>
 
       <view v-if="events.length" class="card timeline-card">
-        <view class="card-title">服务进展</view>
-        <view v-for="(event,index) in events" :key="event.id" class="event">
+        <view class="card-title-row">
+          <view class="card-title">服务进展</view>
+          <text v-if="events.length > 4" class="card-action" @click="eventsExpanded = !eventsExpanded">
+            {{ eventsExpanded ? "收起" : "全部 " + events.length + " 条" }}
+          </text>
+        </view>
+        <view v-for="(event,index) in visibleEvents" :key="event.id" class="event">
           <view class="track">
-            <view class="event-dot" :class="{ latest:index===events.length-1 }"></view>
-            <view v-if="index < events.length-1" class="event-line"></view>
+            <view class="event-dot" :class="{ latest:index===visibleEvents.length-1 }"></view>
+            <view v-if="index < visibleEvents.length-1" class="event-line"></view>
           </view>
           <view class="event-copy">
             <view class="event-head">
@@ -231,9 +243,9 @@ onShow(() => {
         </view>
       </view>
 
-      <view class="realtime">
-        <text class="live-dot" :class="{ online: socketConnected }">●</text>
-        {{ socketConnected ? "状态会自动更新" : "正在恢复实时更新" }}
+      <view v-if="!socketConnected" class="realtime offline">
+        <text class="live-dot">●</text>
+        自动更新暂时中断，页面重新进入后会继续同步
       </view>
 
       <OrderChat
@@ -281,7 +293,7 @@ onShow(() => {
 .card>view:last-child { border:0; }
 .card text { color:#777784; }
 .value { color:#d2d2da !important; font-weight:650; }
-.card-title { color:#d7d7df !important; font-size:23rpx !important; font-weight:750; }
+.card-title { color:#d7d7df !important; font-size:23rpx !important; font-weight:750; }.card-title-row{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:18rpx!important;border-bottom:0!important;padding-bottom:15rpx!important}.card-action{flex:none;color:#9589df!important;font-size:16rpx!important;font-weight:700}
 .event { display:flex; gap:16rpx; min-height:72rpx; }
 .track { width:20rpx; display:flex; flex-direction:column; align-items:center; }
 .event-dot { width:12rpx; height:12rpx; border-radius:50%; background:#555561; }
@@ -292,9 +304,8 @@ onShow(() => {
 .event-head>text:first-child { color:#c8c8d0; font-size:20rpx; }
 .time { flex:none; color:#62626e !important; font-size:17rpx !important; }
 .actor { display:block; margin-top:5rpx; color:#646470 !important; font-size:17rpx !important; }
-.realtime { margin-top:22rpx; color:#777784; font-size:19rpx; }
-.live-dot { margin-right:8rpx; color:#64646f; }
-.live-dot.online { color:#47d182; }
+.realtime { margin-top:18rpx; padding:14rpx 16rpx; border-radius:18rpx; background:rgba(211,148,38,.09); color:#b7955a; font-size:17rpx; }
+.live-dot { margin-right:8rpx; color:currentColor; }
 .notice { margin-top:22rpx; padding:26rpx; border-radius:26rpx; background:#221f31; color:#b3accf; font-size:21rpx; line-height:1.6; }
 .notice.success { background:rgba(34,197,94,.10); color:#64cf8e; }
 .notice.danger { background:rgba(239,68,68,.10); color:#dc7779; }
