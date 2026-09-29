@@ -5,6 +5,7 @@ import { onShow } from "@dcloudio/uni-app"
 import { request } from "../../api/client"
 import { getDemoIdentities } from "../../api/demo"
 import type { Wallet } from "../../types/domain"
+import OfferingPanel from "./OfferingPanel.vue"
 
 type Player = {
   id: string
@@ -95,6 +96,8 @@ onShow(() => { void load() })
         <button class="secondary" @click="openOrders">服务订单</button>
       </view>
     </view>
+
+    <OfferingPanel v-if="playerUserId" :user-id="playerUserId" />
 
     <view class="principle">
       <text class="principle-title">工作台只放履约信息</text>
