@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import LedgerEntry, Wallet, Withdrawal
@@ -93,6 +94,20 @@ class WithdrawalService:
         if withdrawal.status != "PENDING":
             raise ValueError("WITHDRAWAL_NOT_PENDING")
 
+        if not provider_txn_id or not provider_txn_id.strip():
+            raise ValueError("WITHDRAWAL_PAYOUT_REFERENCE_REQUIRED")
+        provider_txn_id = provider_txn_id.strip()
+
+        reused = db.scalar(
+            select(Withdrawal.id).where(
+                Withdrawal.provider == withdrawal.provider,
+                Withdrawal.provider_txn_id == provider_txn_id,
+                Withdrawal.id != withdrawal.id,
+            )
+        )
+        if reused:
+            raise ValueError("WITHDRAWAL_PAYOUT_REFERENCE_REUSED")
+
         wallet = db.scalar(
             select(Wallet)
             .where(Wallet.id == withdrawal.wallet_id)
@@ -117,7 +132,20 @@ class WithdrawalService:
                 balance_after=wallet.available_balance,
             )
         )
-        db.commit()
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            reused = db.scalar(
+                select(Withdrawal.id).where(
+                    Withdrawal.provider == withdrawal.provider,
+                    Withdrawal.provider_txn_id == provider_txn_id,
+                    Withdrawal.id != withdrawal.id,
+                )
+            )
+            if reused:
+                raise ValueError("WITHDRAWAL_PAYOUT_REFERENCE_REUSED")
+            raise
         db.refresh(withdrawal)
         return withdrawal
 

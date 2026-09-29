@@ -1,4 +1,5 @@
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import User
@@ -29,9 +30,20 @@ class AuthService:
                 status="ACTIVE",
             )
             db.add(user)
-            db.commit()
-            db.refresh(user)
-            created = True
+            try:
+                db.commit()
+                db.refresh(user)
+                created = True
+            except IntegrityError:
+                # Another login for the same provider identity may win the
+                # unique(openid) race between our SELECT and INSERT.
+                db.rollback()
+                user = db.scalar(
+                    select(User).where(User.openid == identity.subject)
+                )
+                if not user:
+                    raise
+                created = False
         else:
             changed = False
             if identity.union_id and user.unionid != identity.union_id:
