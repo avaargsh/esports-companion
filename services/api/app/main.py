@@ -1,5 +1,7 @@
 from fastapi import FastAPI
+from redis.exceptions import RedisError
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.db import SessionLocal
 from app.infrastructure import redis_client
@@ -25,12 +27,12 @@ def health():
         with SessionLocal() as db:
             db.execute(text("select 1"))
             db_ok = True
-    except Exception:
-        pass
+    except SQLAlchemyError:
+        db_ok = False
     try:
         redis_ok = bool(redis_client.ping())
-    except Exception:
-        pass
+    except RedisError:
+        redis_ok = False
     return {
         "status": "ok" if db_ok and redis_ok else "degraded",
         "postgres": db_ok,
