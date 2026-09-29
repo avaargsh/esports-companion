@@ -57,10 +57,10 @@ jobs:
       - run: npm run type-check
       - run: npm run build:mp-weixin
       - name: Build secure WeChat client mode
-        env:
-          VITE_AUTH_MODE: wechat
-          VITE_API_ORIGIN: https://api-staging.example.test
-        run: npm run build:mp-weixin
+        run: |
+          cp .env.staging.example .env.staging
+          sed -i 's#api-staging.example.com#api-staging.example.test#' .env.staging
+          npm run build:mp-weixin:staging
 
   admin:
     runs-on: ubuntu-latest

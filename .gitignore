@@ -20,3 +20,6 @@ dist/
 /deploy/secrets-staging/*
 !/deploy/secrets-staging/README.md
 .env.staging
+
+# Mini Program secure build environment
+/apps/miniapp/.env.staging

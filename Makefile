@@ -1,4 +1,4 @@
-.PHONY: up down logs migrate seed test smoke verify miniapp-build admin-build prod-build prod-up prod-down prod-logs prod-backup prod-restore-drill staging-preflight staging-build staging-up staging-down staging-logs staging-check staging-wechat-evidence
+.PHONY: up down logs migrate seed test smoke verify miniapp-build miniapp-staging-build admin-build prod-build prod-up prod-down prod-logs prod-backup prod-restore-drill staging-preflight staging-build staging-up staging-down staging-logs staging-check staging-wechat-evidence
 
 up:
 	docker compose up --build -d
@@ -26,6 +26,10 @@ verify: test miniapp-build admin-build
 
 miniapp-build:
 	cd apps/miniapp && npm install --no-audit --no-fund && npm run build:mp-weixin
+
+miniapp-staging-build:
+	@test -f apps/miniapp/.env.staging || (echo "copy apps/miniapp/.env.staging.example to apps/miniapp/.env.staging and set the real staging API origin" && exit 64)
+	cd apps/miniapp && npm install --no-audit --no-fund && npm run build:mp-weixin:staging
 
 admin-build:
 	cd apps/admin && npm install --no-audit --no-fund && npm run build

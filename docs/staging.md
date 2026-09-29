@@ -74,6 +74,17 @@ This verifies:
 - `/api/v1/dev/bootstrap` is not exposed;
 - public ingress does not expose `/metrics`.
 
+## Build the staging Mini Program
+
+```bash
+cp apps/miniapp/.env.staging.example apps/miniapp/.env.staging
+# edit the real HTTPS API origin
+make miniapp-staging-build
+```
+
+The staging build always uses `VITE_AUTH_MODE=wechat`; it cannot silently
+fall back to seeded demo identity.
+
 ## Real WeChat acceptance
 
 Repository CI cannot prove real WeChat integration without operator-controlled

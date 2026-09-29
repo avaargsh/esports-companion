@@ -112,14 +112,22 @@ Withdrawals currently use a MANUAL payout boundary. Submitting a withdrawal free
 See [Runtime Modes](../../docs/runtime-modes.md) for dev/staging/production switches.
 
 
-## Staging build example
+## Staging build
+
+Prepare once:
 
 ```bash
-VITE_AUTH_MODE=wechat \
-VITE_API_ORIGIN=https://api-staging.example.com \
-npm run build:mp-weixin
+cp apps/miniapp/.env.staging.example apps/miniapp/.env.staging
+# edit VITE_API_ORIGIN to the real staging HTTPS origin
 ```
 
-Import `dist/build/mp-weixin` into WeChat DevTools using the staging Mini
-Program AppID. Configure the request and socket domains before testing real
-login/payment.
+Then build from the repository root:
+
+```bash
+make miniapp-staging-build
+```
+
+This runs UniApp in Vite `staging` mode with `VITE_AUTH_MODE=wechat`.
+Import `apps/miniapp/dist/build/mp-weixin` into WeChat DevTools using the
+staging Mini Program AppID. Configure the request and socket domains before
+testing real login/payment.
