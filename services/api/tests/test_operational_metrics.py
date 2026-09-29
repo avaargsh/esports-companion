@@ -5,6 +5,9 @@ from uuid import uuid4
 from app.db import SessionLocal
 from app.metrics import (
     DISPUTES_OPEN,
+    FINISH_REQUESTS_OLDEST_SECONDS,
+    FINISH_REQUESTS_OVERDUE,
+    FINISH_REQUESTS_PENDING,
     OPERATIONAL_METRICS_SCAN_SUCCESS,
     OUTBOX_OLDEST_PENDING_SECONDS,
     OUTBOX_PENDING,
@@ -68,6 +71,23 @@ def test_operational_metrics_are_derived_from_postgres():
         db.add(order)
         db.flush()
 
+        finish_order = Order(
+            order_no=f"ORD_FINISH_METRICS_{suffix.upper()}",
+            user_id=user.id,
+            game_id=game.id,
+            sku_id=sku.id,
+            status="FINISH_REQUESTED",
+            quantity=1,
+            unit_price=100,
+            total_amount=100,
+            player_amount=80,
+            platform_fee=20,
+            remark="finish request metrics fixture",
+            finish_requested_at=now - timedelta(hours=1),
+        )
+        db.add(finish_order)
+        db.flush()
+
         dispute = Dispute(
             order_id=order.id,
             status="OPEN",
@@ -118,3 +138,6 @@ def test_operational_metrics_are_derived_from_postgres():
     assert REFUNDS_INFLIGHT._value.get() >= 1
     assert WITHDRAWALS_PENDING._value.get() >= 1
     assert DISPUTES_OPEN._value.get() >= 1
+    assert FINISH_REQUESTS_PENDING._value.get() >= 1
+    assert FINISH_REQUESTS_OVERDUE._value.get() >= 1
+    assert FINISH_REQUESTS_OLDEST_SECONDS._value.get() >= 3600
