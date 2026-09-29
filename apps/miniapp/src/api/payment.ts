@@ -36,6 +36,7 @@ function asWeChatPayload(value: Record<string, unknown>): WeChatClientPayload {
 function requestWeChatPayment(payload: WeChatClientPayload): Promise<void> {
   return new Promise((resolve, reject) => {
     uni.requestPayment({
+      provider: "wxpay",
       timeStamp: payload.timeStamp,
       nonceStr: payload.nonceStr,
       package: payload.package,
