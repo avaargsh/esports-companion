@@ -19,7 +19,8 @@ Use this before exposing a production deployment to real users or money.
 - [ ] Mini Program request/socket domains are configured in WeChat.
 - [ ] Payment and refund callback URLs are public HTTPS endpoints.
 - [ ] Reverse proxy forwards the original request body unchanged to callback endpoints.
-- [ ] Ingress applies request-size limits and rate limits, especially auth/payment/admin endpoints.
+- [ ] `ingress` CI is green and Nginx request-size/rate/connection limits have been reviewed for expected traffic.
+- [ ] If a TLS proxy/LB sits in front, Nginx real-IP trust is restricted to known proxy/LB CIDRs.
 
 ## Data and money
 

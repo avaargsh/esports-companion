@@ -12,7 +12,8 @@ The production stack:
 - never enables Uvicorn reload;
 - runs Alembic migrations but never seeds demo identities;
 - keeps PostgreSQL and Redis off host ports;
-- binds the API to `127.0.0.1:8000` by default;
+- does not publish FastAPI directly; Nginx ingress is the only published application service;
+- binds ingress to `127.0.0.1:8080` by default;
 - mounts sensitive application values through Docker secrets;
 - uses a read-only API root filesystem and drops Linux capabilities;
 - uses `/readyz` for container health.
@@ -37,7 +38,7 @@ make prod-logs
 
 The reference Compose file does not terminate TLS. Put Caddy, Nginx, Traefik,
 a cloud load balancer, or Kubernetes ingress in front of
-`127.0.0.1:8000` and expose only HTTPS publicly.
+`127.0.0.1:8080` and expose only HTTPS publicly. The embedded Nginx layer adds request/connection rate limiting before traffic reaches FastAPI.
 
 ## Stop
 
@@ -50,3 +51,6 @@ make prod-down
 The single-node reference runs `alembic upgrade head` before the API starts.
 For multiple API replicas, move migrations to a single deployment job rather
 than allowing every replica to run migrations concurrently.
+
+
+See [Ingress Rate Limiting](ingress-rate-limit.md) for the reference limits and trusted-proxy considerations.

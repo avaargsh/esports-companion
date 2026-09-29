@@ -44,6 +44,37 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  ingress:
+    image: nginx:1.27-alpine
+    ports:
+      - "${INGRESS_BIND_ADDRESS:-127.0.0.1}:${INGRESS_PORT:-8080}:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+    volumes:
+      - ../nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ../nginx/proxy_params_esports:/etc/nginx/proxy_params_esports:ro
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - -q
+        - -O
+        - /dev/null
+        - http://127.0.0.1:8080/readyz
+      interval: 10s
+      timeout: 3s
+      retries: 12
+
   api:
     build:
       context: ../../services/api
@@ -66,8 +97,8 @@ services:
       - wechat_mch_private_key
       - wechat_pay_api_v3_key
       - wechat_platform_certificate
-    ports:
-      - "${API_BIND_ADDRESS:-127.0.0.1}:8000:8000"
+    expose:
+      - "8000"
     depends_on:
       postgres:
         condition: service_healthy

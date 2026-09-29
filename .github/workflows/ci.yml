@@ -203,3 +203,11 @@ jobs:
       - name: Show restored API logs on failure
         if: failure()
         run: cat /tmp/restore-api.log || true
+
+
+  ingress:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Nginx config and rate limits
+        run: ./scripts/test_ingress.sh
