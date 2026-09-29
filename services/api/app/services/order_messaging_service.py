@@ -1,6 +1,7 @@
 import uuid
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import (
@@ -173,6 +174,21 @@ class OrderMessagingService:
                 },
             )
         )
-        db.commit()
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            existing = db.scalar(
+                select(OrderMessage).where(
+                    OrderMessage.order_id == order.id,
+                    OrderMessage.sender_user_id == user_id,
+                    OrderMessage.client_message_id == client_message_id,
+                )
+            )
+            if existing:
+                if existing.content != normalized_content:
+                    raise ValueError("CLIENT_MESSAGE_ID_REUSED")
+                return existing
+            raise
         db.refresh(message)
         return message
