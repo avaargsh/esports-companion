@@ -8,9 +8,18 @@ from app.db import get_db
 from app.models import Game, LedgerEntry, Order, PlayerProfile, PlayerSkill, Settlement, Wallet, Withdrawal
 from app.schemas import WithdrawalComplete
 from app.security import Principal, require_platform
+from app.services.operations_queue_service import build_operations_queue
 from app.services.withdrawal_service import WithdrawalService
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
+
+
+@router.get("/operations/queue")
+def operations_queue(
+    principal: Principal = Depends(require_platform),
+    db: Session = Depends(get_db),
+):
+    return build_operations_queue(db)
 
 
 @router.get("/players")

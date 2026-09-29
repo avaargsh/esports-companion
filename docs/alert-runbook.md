@@ -79,3 +79,14 @@ may be stale; do not assume a zero gauge is healthy until scanning recovers.
 3. Resolve through provider-release or customer-refund paths only.
 4. Treat the default 24-hour threshold as a reference policy, not a universal
    customer-support SLA.
+
+
+## Finish request overdue
+
+**Alert:** `EsportsCompanionFinishRequestOverdue`
+
+1. Open the Admin operations queue and inspect the affected order Evidence.
+2. Verify `finish_requested_at`, current order state and recent OrderEvent history.
+3. Check the timeout worker logs and whether the scheduler loop is running.
+4. Confirm there is no open dispute before any completion action.
+5. Do not mutate the order row manually; restore the existing auto-confirm path or use the supported domain action.

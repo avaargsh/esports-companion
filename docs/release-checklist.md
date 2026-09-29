@@ -56,7 +56,8 @@ Use this before exposing a production deployment to real users or money.
 - [ ] User, player and platform role revocation has been verified.
 - [ ] Mini Program release build uses `VITE_AUTH_MODE=wechat` and the intended HTTPS API origin.
 - [ ] Admin release build uses `VITE_ADMIN_AUTH_MODE=bearer`; no operator token is embedded in the build.
-- [ ] A PLATFORM operator session can load disputes, refunds, withdrawals and settlements.
+- [ ] A PLATFORM operator session can load the operations SLA queue, disputes, refunds, withdrawals and settlements.
+- [ ] FINISH_REQUESTED aging appears in both Prometheus metrics/alerts and the Admin operations queue.
 - [ ] A low-value withdrawal has been requested, frozen, manually paid/rejected and reconciled against Ledger.
 - [ ] Discovery shows only approved/available players with active Offerings, and designated booking bypasses the public order pool.
 

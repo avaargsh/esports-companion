@@ -4,6 +4,8 @@ Vue 3 internal operations console for the marketplace.
 
 Current queues:
 
+- SLA-driven operations landing page for Outbox / Refund / Withdrawal / Dispute / FINISH_REQUESTED aging
+
 - Dashboard / transaction overview
 - Player application review
 - Skill/evidence review

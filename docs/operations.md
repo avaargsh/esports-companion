@@ -139,3 +139,30 @@ Each withdrawal links to a read-only reconciliation drawer that combines:
 - only the Ledger entries whose `biz_type=WITHDRAWAL` and `biz_id` matches the withdrawal.
 
 This view is for reconciliation and incident analysis. Operators still must not edit wallet balances or ledger rows directly.
+
+
+## SLA-driven operations queue
+
+The Admin landing page is an exception queue derived from PostgreSQL durable state.
+It does not scrape Prometheus to decide business state.
+
+Reference categories:
+
+- transactional Outbox pending longer than 60 seconds;
+- Refund in PENDING / SUBMITTING / PROCESSING longer than 15 minutes;
+- Withdrawal PENDING longer than 1 hour;
+- Dispute OPEN / RESOLVING longer than 24 hours;
+- Order FINISH_REQUESTED older than the configured auto-confirm timeout plus scan grace.
+
+The first four thresholds intentionally mirror the reference Prometheus alert rules.
+The FINISH_REQUESTED threshold is derived from the runtime configuration:
+
+```text
+FINISH_CONFIRM_TIMEOUT_SECONDS + ORDER_TIMEOUT_SCAN_SECONDS
+```
+
+The queue returns workload summaries for all active items and lists only SLA breaches.
+Operators can jump from a queue item directly to Order Evidence or Withdrawal Evidence.
+
+Prometheus remains the alerting surface; the Admin queue is the human work surface.
+Neither is a source of business truth.
