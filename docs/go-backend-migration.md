@@ -129,8 +129,10 @@ Port first:
 
 - catalog;
 - marketplace discovery;
-- provider offerings;
+- public provider offerings embedded in marketplace reads;
 - read-only admin evidence.
+
+Authenticated `/api/v1/player/offerings` remains in M2 because it depends on the PLAYER principal/session contract.
 
 Why first: low write risk and easy response-level parity testing.
 
