@@ -65,3 +65,12 @@ class PlayerOut(BaseModel):
 
 class ClaimRequest(BaseModel):
     expected_version: int = Field(ge=0)
+
+
+class PaymentPrepareOut(BaseModel):
+    order_id: uuid.UUID
+    order_status: str
+    provider: str
+    payment_status: str
+    client_payload: dict
+    replayed: bool

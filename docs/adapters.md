@@ -11,7 +11,7 @@ Order
   -> PaymentService
        -> PaymentProvider
             -> MockPaymentProvider
-            -> WeChatPaymentProvider (next)
+            -> WeChatPaymentProvider
 ```
 
 `PaymentProvider` creates provider-side payment intent/result data.
@@ -32,9 +32,33 @@ v0.1/v0.2 baseline includes `MockPaymentProvider`.
 
 It is synchronous and returns `SUCCESS`, which keeps the local Golden Slice credential-free.
 
-## Next production adapter
+## WeChat payment adapter
 
-A WeChat provider should normally return a pending payment/client payload when payment is created. Durable success must be established from the verified server callback, not from the Mini Program client success callback.
+`WeChatPaymentProvider` implements the JSAPI/Mini Program prepayment boundary:
+
+```text
+PaymentService.prepare_payment
+  -> WeChat unified order
+  -> prepay_id
+  -> timeStamp / nonceStr / package / signType / paySign
+  -> Mini Program requestPayment()
+```
+
+The resulting `PaymentTransaction` remains `PENDING`, and the marketplace
+order remains `WAITING_PAYMENT`. Client payment success is intentionally not
+treated as durable truth. The next dependency is verified payment callback
+processing, which alone may move the order into `PAID -> MATCHING`.
+
+The generic endpoint is:
+
+```http
+POST /api/v1/orders/{order_id}/payments
+Idempotency-Key: ...
+```
+
+It uses the configured `PAYMENT_PROVIDER` and returns the provider-specific
+client payload without exposing provider implementation details to the order
+domain.
 
 
 ## Authentication boundary

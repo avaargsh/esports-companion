@@ -8,7 +8,7 @@ from app.db import get_db
 from app.domain.order_state_machine import OrderStatus
 from app.infrastructure import redis_client
 from app.models import Order
-from app.schemas import OrderCreate, OrderOut
+from app.schemas import OrderCreate, OrderOut, PaymentPrepareOut
 from app.providers.registry import get_payment_provider
 from app.services.order_service import OrderNotFound, OrderService
 from app.services.payment_service import PaymentService
@@ -61,6 +61,47 @@ def get_order(order_id: uuid.UUID, db: Session = Depends(get_db)):
         return OrderService.get(db, order_id)
     except OrderNotFound as exc:
         raise HTTPException(404, "ORDER_NOT_FOUND") from exc
+
+
+@router.post("/{order_id}/payments", response_model=PaymentPrepareOut)
+def prepare_payment(
+    order_id: uuid.UUID,
+    idempotency_key: str = Header(alias="Idempotency-Key"),
+    user_id: uuid.UUID = Depends(demo_user_id),
+    db: Session = Depends(get_db),
+):
+    try:
+        order = OrderService.get(db, order_id)
+        if order.user_id != user_id:
+            raise PermissionError("ORDER_NOT_OWNED")
+
+        provider = get_payment_provider()
+        preparation = PaymentService.prepare_payment(
+            db,
+            order=order,
+            provider=provider,
+            idempotency_key=idempotency_key,
+        )
+        return PaymentPrepareOut(
+            order_id=order.id,
+            order_status=order.status,
+            provider=preparation.transaction.provider,
+            payment_status=preparation.transaction.status,
+            client_payload=preparation.client_payload,
+            replayed=preparation.replayed,
+        )
+    except OrderNotFound as exc:
+        raise HTTPException(404, "ORDER_NOT_FOUND") from exc
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
+    except ValueError as exc:
+        message = str(exc)
+        if (
+            message.startswith("PAYMENT_PROVIDER_NOT_CONFIGURED")
+            or message.startswith("WECHAT_PAYMENT_CREDENTIALS_MISSING")
+        ):
+            raise HTTPException(503, message) from exc
+        raise HTTPException(409, message) from exc
 
 
 @router.post("/{order_id}/mock-pay", response_model=OrderOut)

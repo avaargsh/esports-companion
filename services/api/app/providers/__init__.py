@@ -1,5 +1,5 @@
 from .auth import AuthProvider, ExternalIdentity, MockAuthProvider, WeChatAuthProvider
-from .payment import MockPaymentProvider, PaymentIntent, PaymentProvider
+from .payment import MockPaymentProvider, PaymentIntent, PaymentProvider, WeChatPaymentProvider
 
 __all__ = [
     "AuthProvider",
@@ -9,4 +9,5 @@ __all__ = [
     "MockPaymentProvider",
     "PaymentIntent",
     "PaymentProvider",
+    "WeChatPaymentProvider",
 ]
