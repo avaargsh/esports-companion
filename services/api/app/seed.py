@@ -18,9 +18,16 @@ def main():
     with SessionLocal() as db:
         platform = db.scalar(select(User).where(User.role == "PLATFORM"))
         if not platform:
-            platform = User(nickname="Platform", role="PLATFORM", status="ACTIVE")
+            platform = User(
+                openid="mock:platform",
+                nickname="Platform",
+                role="PLATFORM",
+                status="ACTIVE",
+            )
             db.add(platform)
             db.flush()
+        elif not platform.openid:
+            platform.openid = "mock:platform"
 
         customer = db.scalar(select(User).where(User.nickname == "Demo Customer"))
         if not customer:

@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -9,12 +9,9 @@ from app.db import get_db
 from app.models import Review
 from app.services.dispatch_service import DispatchService
 from app.services.order_service import OrderNotFound, OrderService
+from app.security import current_user_id
 
 router = APIRouter(prefix="/api/v1/orders", tags=["reviews"])
-
-
-def demo_user_id(x_user_id: uuid.UUID = Header(alias="X-User-Id")) -> uuid.UUID:
-    return x_user_id
 
 
 class ReviewCreate(BaseModel):
@@ -26,7 +23,7 @@ class ReviewCreate(BaseModel):
 def create_review(
     order_id: uuid.UUID,
     body: ReviewCreate,
-    user_id: uuid.UUID = Depends(demo_user_id),
+    user_id: uuid.UUID = Depends(current_user_id),
     db: Session = Depends(get_db),
 ):
     try:

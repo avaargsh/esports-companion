@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -15,12 +15,9 @@ from app.services.dispatch_service import (
     PlayerNotEligible,
 )
 from app.services.order_service import OrderNotFound, OrderService
+from app.security import Principal, current_user_id, require_player
 
 router = APIRouter(prefix="/api/v1/player", tags=["player"])
-
-
-def demo_user_id(x_user_id: uuid.UUID = Header(alias="X-User-Id")) -> uuid.UUID:
-    return x_user_id
 
 
 def get_player(db: Session, user_id: uuid.UUID) -> PlayerProfile:
@@ -33,7 +30,7 @@ def get_player(db: Session, user_id: uuid.UUID) -> PlayerProfile:
 @router.post("/apply", response_model=PlayerOut, status_code=201)
 def apply(
     body: PlayerApply,
-    user_id: uuid.UUID = Depends(demo_user_id),
+    user_id: uuid.UUID = Depends(current_user_id),
     db: Session = Depends(get_db),
 ):
     existing = db.scalar(select(PlayerProfile).where(PlayerProfile.user_id == user_id))
@@ -54,7 +51,7 @@ def apply(
 
 @router.get("/profile", response_model=PlayerOut)
 def profile(
-    user_id: uuid.UUID = Depends(demo_user_id),
+    user_id: uuid.UUID = Depends(current_user_id),
     db: Session = Depends(get_db),
 ):
     return get_player(db, user_id)
@@ -64,7 +61,7 @@ def profile(
 @router.put("/profile", response_model=PlayerOut)
 def update_profile(
     body: PlayerUpdate,
-    user_id: uuid.UUID = Depends(demo_user_id),
+    user_id: uuid.UUID = Depends(current_user_id),
     db: Session = Depends(get_db),
 ):
     player = get_player(db, user_id)
@@ -87,6 +84,7 @@ def update_profile(
 def order_pool(
     game_id: uuid.UUID,
     limit: int = 20,
+    principal: Principal = Depends(require_player),
     db: Session = Depends(get_db),
 ):
     try:
@@ -124,9 +122,10 @@ def order_pool(
 
 @router.get("/orders", response_model=list[OrderOut])
 def player_orders(
-    user_id: uuid.UUID = Depends(demo_user_id),
+    principal: Principal = Depends(require_player),
     db: Session = Depends(get_db),
 ):
+    user_id = principal.user_id
     player = get_player(db, user_id)
     return list(
         db.scalars(
@@ -145,10 +144,10 @@ def player_orders(
 def claim(
     order_id: uuid.UUID,
     body: ClaimRequest,
-    user_id: uuid.UUID = Depends(demo_user_id),
+    principal: Principal = Depends(require_player),
     db: Session = Depends(get_db),
 ):
-    player = get_player(db, user_id)
+    player = get_player(db, principal.user_id)
     try:
         order = DispatchService.claim(
             db,
@@ -170,10 +169,10 @@ def claim(
 @router.post("/orders/{order_id}/start", response_model=OrderOut)
 def start(
     order_id: uuid.UUID,
-    user_id: uuid.UUID = Depends(demo_user_id),
+    principal: Principal = Depends(require_player),
     db: Session = Depends(get_db),
 ):
-    player = get_player(db, user_id)
+    player = get_player(db, principal.user_id)
     try:
         order = OrderService.get(db, order_id)
         return DispatchService.start(db, order=order, player_id=player.id)
@@ -190,10 +189,10 @@ def start(
 @router.post("/orders/{order_id}/finish", response_model=OrderOut)
 def finish(
     order_id: uuid.UUID,
-    user_id: uuid.UUID = Depends(demo_user_id),
+    principal: Principal = Depends(require_player),
     db: Session = Depends(get_db),
 ):
-    player = get_player(db, user_id)
+    player = get_player(db, principal.user_id)
     try:
         order = OrderService.get(db, order_id)
         return DispatchService.finish(db, order=order, player_id=player.id)

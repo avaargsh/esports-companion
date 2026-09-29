@@ -13,17 +13,14 @@ from app.providers.registry import get_payment_provider
 from app.services.order_service import OrderNotFound, OrderService
 from app.services.payment_service import PaymentService
 from app.services.settlement_service import SettlementService
+from app.security import Principal, current_principal, current_user_id
 
 router = APIRouter(prefix="/api/v1/orders", tags=["orders"])
 
 
-def demo_user_id(x_user_id: uuid.UUID = Header(alias="X-User-Id")) -> uuid.UUID:
-    return x_user_id
-
-
 @router.get("", response_model=list[OrderOut])
 def list_orders(
-    user_id: uuid.UUID = Depends(demo_user_id),
+    user_id: uuid.UUID = Depends(current_user_id),
     limit: int = Query(default=50, ge=1, le=100),
     db: Session = Depends(get_db),
 ):
@@ -40,7 +37,7 @@ def list_orders(
 @router.post("", response_model=OrderOut, status_code=201)
 def create_order(
     body: OrderCreate,
-    user_id: uuid.UUID = Depends(demo_user_id),
+    user_id: uuid.UUID = Depends(current_user_id),
     db: Session = Depends(get_db),
 ):
     try:
@@ -56,18 +53,46 @@ def create_order(
 
 
 @router.get("/{order_id}", response_model=OrderOut)
-def get_order(order_id: uuid.UUID, db: Session = Depends(get_db)):
+def get_order(
+    order_id: uuid.UUID,
+    principal: Principal = Depends(current_principal),
+    db: Session = Depends(get_db),
+):
     try:
-        return OrderService.get(db, order_id)
+        order = OrderService.get(db, order_id)
+        if order.user_id == principal.user_id or "PLATFORM" in principal.roles:
+            return order
+
+        if "PLAYER" in principal.roles:
+            from app.models import OrderAssignment, PlayerProfile
+
+            player = db.scalar(
+                select(PlayerProfile).where(
+                    PlayerProfile.user_id == principal.user_id
+                )
+            )
+            if player:
+                assignment = db.scalar(
+                    select(OrderAssignment).where(
+                        OrderAssignment.order_id == order.id,
+                        OrderAssignment.player_id == player.id,
+                        OrderAssignment.status == "ACTIVE",
+                    )
+                )
+                if assignment:
+                    return order
+        raise PermissionError("ORDER_ACCESS_DENIED")
     except OrderNotFound as exc:
         raise HTTPException(404, "ORDER_NOT_FOUND") from exc
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
 
 
 @router.post("/{order_id}/payments", response_model=PaymentPrepareOut)
 def prepare_payment(
     order_id: uuid.UUID,
     idempotency_key: str = Header(alias="Idempotency-Key"),
-    user_id: uuid.UUID = Depends(demo_user_id),
+    user_id: uuid.UUID = Depends(current_user_id),
     db: Session = Depends(get_db),
 ):
     try:
@@ -135,7 +160,7 @@ def mock_pay(
 @router.post("/{order_id}/cancel", response_model=OrderOut)
 def cancel(
     order_id: uuid.UUID,
-    user_id: uuid.UUID = Depends(demo_user_id),
+    user_id: uuid.UUID = Depends(current_user_id),
     db: Session = Depends(get_db),
 ):
     try:
@@ -157,7 +182,7 @@ def cancel(
 @router.post("/{order_id}/confirm", response_model=OrderOut)
 def confirm(
     order_id: uuid.UUID,
-    user_id: uuid.UUID = Depends(demo_user_id),
+    user_id: uuid.UUID = Depends(current_user_id),
     db: Session = Depends(get_db),
 ):
     try:

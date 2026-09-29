@@ -1,22 +1,19 @@
 import uuid
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.models import LedgerEntry, Wallet
+from app.security import current_user_id
 
 router = APIRouter(prefix="/api/v1/wallet", tags=["wallet"])
 
 
-def demo_user_id(x_user_id: uuid.UUID = Header(alias="X-User-Id")) -> uuid.UUID:
-    return x_user_id
-
-
 @router.get("")
 def get_wallet(
-    user_id: uuid.UUID = Depends(demo_user_id),
+    user_id: uuid.UUID = Depends(current_user_id),
     db: Session = Depends(get_db),
 ):
     wallet = db.scalar(select(Wallet).where(Wallet.user_id == user_id))
@@ -32,7 +29,7 @@ def get_wallet(
 
 @router.get("/ledger")
 def ledger(
-    user_id: uuid.UUID = Depends(demo_user_id),
+    user_id: uuid.UUID = Depends(current_user_id),
     db: Session = Depends(get_db),
 ):
     wallet = db.scalar(select(Wallet).where(Wallet.user_id == user_id))

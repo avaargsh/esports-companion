@@ -50,6 +50,12 @@ class MockAuthProvider:
             nickname="Demo Player 3",
             provider_session_key="mock-session:player:3",
         ),
+        "demo-platform": ExternalIdentity(
+            provider="MOCK",
+            subject="mock:platform",
+            nickname="Platform",
+            provider_session_key="mock-session:platform",
+        ),
     }
 
     def exchange_code(self, code: str) -> ExternalIdentity:

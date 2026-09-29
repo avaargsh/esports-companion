@@ -8,6 +8,10 @@ class Settings(BaseSettings):
     auth_provider: str = "mock"
     payment_provider: str = "mock"
 
+    session_signing_key: str = "dev-only-change-me"
+    access_token_ttl_seconds: int = 900
+    refresh_token_ttl_seconds: int = 2592000
+
     wechat_app_id: str = ""
     wechat_app_secret: str = ""
     wechat_mch_id: str = ""
