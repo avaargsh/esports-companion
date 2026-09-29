@@ -80,12 +80,18 @@ def _authorized_channels(
             if not order:
                 rejected.append(channel)
                 continue
+
+            if order.user_id == user_id or "PLATFORM" in roles:
+                accepted.append(channel)
+                continue
+
             try:
                 OrderMessagingService.participant_role(
                     db,
                     order=order,
                     user_id=user_id,
                     roles=roles,
+                    require_active_assignment=True,
                 )
                 accepted.append(channel)
             except PermissionError:
@@ -106,7 +112,11 @@ async def websocket_endpoint(websocket: WebSocket):
         return
 
     user_id, roles = identity
-    await manager.connect(websocket)
+    await manager.connect(
+        websocket,
+        user_id=user_id,
+        roles=roles,
+    )
     try:
         while True:
             message = await websocket.receive_json()

@@ -73,17 +73,38 @@ class OrderMessagingService:
         roles: tuple[str, ...],
         limit: int = 100,
     ) -> list[OrderMessage]:
-        OrderMessagingService.participant_role(
-            db,
-            order=order,
-            user_id=user_id,
-            roles=roles,
-        )
+        stmt = select(OrderMessage).where(OrderMessage.order_id == order.id)
+
+        if "PLATFORM" in roles or order.user_id == user_id:
+            pass
+        elif "PLAYER" in roles:
+            player = OrderMessagingService._player_profile(db, user_id)
+            if not player:
+                raise PermissionError("ORDER_MESSAGE_ACCESS_DENIED")
+
+            assignment = db.scalar(
+                select(OrderAssignment)
+                .where(
+                    OrderAssignment.order_id == order.id,
+                    OrderAssignment.player_id == player.id,
+                )
+                .order_by(OrderAssignment.created_at.desc())
+            )
+            if not assignment:
+                raise PermissionError("ORDER_MESSAGE_ACCESS_DENIED")
+
+            participation_started_at = assignment.accepted_at or assignment.created_at
+            stmt = stmt.where(OrderMessage.created_at >= participation_started_at)
+            if assignment.status != "ACTIVE":
+                if not assignment.released_at:
+                    raise PermissionError("ORDER_MESSAGE_ACCESS_DENIED")
+                stmt = stmt.where(OrderMessage.created_at <= assignment.released_at)
+        else:
+            raise PermissionError("ORDER_MESSAGE_ACCESS_DENIED")
+
         rows = list(
             db.scalars(
-                select(OrderMessage)
-                .where(OrderMessage.order_id == order.id)
-                .order_by(OrderMessage.created_at.desc(), OrderMessage.id.desc())
+                stmt.order_by(OrderMessage.created_at.desc(), OrderMessage.id.desc())
                 .limit(limit)
             )
         )
