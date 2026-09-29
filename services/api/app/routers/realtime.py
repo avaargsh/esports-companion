@@ -31,7 +31,7 @@ def _authenticate_websocket(
             return None
         return user.id, roles
 
-    if not settings.is_production:
+    if not settings.is_secure_deployment:
         raw_user_id = websocket.query_params.get("user_id")
         if raw_user_id:
             try:

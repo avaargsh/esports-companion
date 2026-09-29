@@ -66,3 +66,18 @@ def test_secret_file_overrides_environment_value(tmp_path):
         session_signing_key_file=str(secret),
     )
     assert settings.session_signing_key == "s" * 48
+
+
+
+def test_staging_is_a_secure_wechat_deployment():
+    settings = _production_settings(app_env="staging")
+    assert settings.is_production is False
+    assert settings.is_secure_deployment is True
+
+
+def test_staging_rejects_mock_providers():
+    with pytest.raises(
+        ValidationError,
+        match="STAGING_CONFIG_INVALID:AUTH_PROVIDER_MUST_BE_WECHAT",
+    ):
+        _production_settings(app_env="staging", auth_provider="mock")

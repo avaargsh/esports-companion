@@ -1,4 +1,4 @@
-.PHONY: up down logs migrate seed test smoke verify miniapp-build admin-build prod-build prod-up prod-down prod-logs prod-backup prod-restore-drill
+.PHONY: up down logs migrate seed test smoke verify miniapp-build admin-build prod-build prod-up prod-down prod-logs prod-backup prod-restore-drill staging-preflight staging-build staging-up staging-down staging-logs staging-check
 
 up:
 	docker compose up --build -d
@@ -50,3 +50,23 @@ prod-backup:
 prod-restore-drill:
 	@test -n "$(BACKUP)" || (echo "usage: make prod-restore-drill BACKUP=backups/file.dump" && exit 64)
 	./scripts/prod_restore_drill.sh "$(BACKUP)"
+
+
+staging-preflight:
+	python3 scripts/staging_preflight.py
+
+staging-build: staging-preflight
+	docker compose --env-file .env.staging -f deploy/compose/production.yml build api
+
+staging-up: staging-preflight
+	docker compose --env-file .env.staging -f deploy/compose/production.yml up -d --build
+
+staging-down:
+	docker compose --env-file .env.staging -f deploy/compose/production.yml down
+
+staging-logs:
+	docker compose --env-file .env.staging -f deploy/compose/production.yml logs -f api ingress
+
+staging-check:
+	@test -n "$(BASE_URL)" || (echo "usage: make staging-check BASE_URL=https://api-staging.example.com" && exit 64)
+	python3 scripts/check_secure_staging.py --base-url "$(BASE_URL)"

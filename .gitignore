@@ -15,3 +15,8 @@ dist/
 
 # local database backups
 /backups/
+
+# local staging credentials
+/deploy/secrets-staging/*
+!/deploy/secrets-staging/README.md
+.env.staging

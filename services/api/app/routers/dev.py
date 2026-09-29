@@ -11,7 +11,7 @@ router = APIRouter(prefix="/api/v1/dev", tags=["dev"])
 
 
 def _ensure_demo_mode() -> None:
-    if settings.app_env.lower() in {"prod", "production"}:
+    if settings.is_secure_deployment:
         raise HTTPException(404, "NOT_FOUND")
 
 

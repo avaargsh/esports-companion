@@ -23,7 +23,7 @@ class Principal:
 
 
 def _legacy_headers_allowed() -> bool:
-    return settings.app_env.lower() not in {"prod", "production"}
+    return not settings.is_secure_deployment
 
 
 def current_principal(

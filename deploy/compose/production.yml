@@ -1,4 +1,4 @@
-name: esports-companion-production
+name: ${COMPOSE_PROJECT_NAME:-esports-companion-production}
 
 services:
   postgres:
@@ -81,9 +81,9 @@ services:
       args:
         INSTALL_DEV: "false"
     env_file:
-      - ../../.env.production
+      - ${RUNTIME_ENV_FILE:-../../.env.production}
     environment:
-      APP_ENV: production
+      APP_ENV: ${APP_ENV:-production}
       SESSION_SIGNING_KEY_FILE: /run/secrets/session_signing_key
       WECHAT_APP_SECRET_FILE: /run/secrets/wechat_app_secret
       WECHAT_MCH_PRIVATE_KEY_FILE: /run/secrets/wechat_mch_private_key
@@ -135,17 +135,17 @@ services:
 
 secrets:
   postgres_password:
-    file: ../secrets/postgres_password
+    file: ${RUNTIME_SECRETS_DIR:-../secrets}/postgres_password
   session_signing_key:
-    file: ../secrets/session_signing_key
+    file: ${RUNTIME_SECRETS_DIR:-../secrets}/session_signing_key
   wechat_app_secret:
-    file: ../secrets/wechat_app_secret
+    file: ${RUNTIME_SECRETS_DIR:-../secrets}/wechat_app_secret
   wechat_mch_private_key:
-    file: ../secrets/wechat_mch_private_key
+    file: ${RUNTIME_SECRETS_DIR:-../secrets}/wechat_mch_private_key
   wechat_pay_api_v3_key:
-    file: ../secrets/wechat_pay_api_v3_key
+    file: ${RUNTIME_SECRETS_DIR:-../secrets}/wechat_pay_api_v3_key
   wechat_platform_certificate:
-    file: ../secrets/wechat_platform_certificate
+    file: ${RUNTIME_SECRETS_DIR:-../secrets}/wechat_platform_certificate
 
 volumes:
   postgres_data:

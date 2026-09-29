@@ -1,0 +1,97 @@
+# Staging
+
+Staging is intentionally treated as a **secure deployment**, not as an extended
+development environment.
+
+That means `APP_ENV=staging` enforces the same security boundary as
+production for:
+
+- WeChat AuthProvider;
+- WeChat PaymentProvider;
+- non-default session signing key;
+- HTTPS payment/refund callbacks;
+- HTTPS CORS origins;
+- no `/api/v1/dev/*` routes;
+- no legacy `X-User-Id` / `X-Admin-Id` identity;
+- no mock payment;
+- no WebSocket `?user_id=` identity shortcut.
+
+Staging remains distinguishable from production in logs/traces through
+`deployment.environment.name=staging`.
+
+## Prepare
+
+```bash
+cp .env.staging.example .env.staging
+mkdir -p deploy/secrets-staging
+```
+
+Populate the dedicated staging secrets described in
+`deploy/secrets-staging/README.md`.
+
+Do not reuse production merchant/application secrets merely to make staging
+easier.
+
+Edit:
+
+- staging Mini Program AppID;
+- staging merchant identifiers;
+- callback domains;
+- admin origin;
+- release commit SHA.
+
+Then run:
+
+```bash
+make staging-preflight
+```
+
+The preflight deliberately rejects placeholder values and malformed secret
+material before Docker starts.
+
+## Start
+
+```bash
+make staging-up
+make staging-logs
+```
+
+The staging stack reuses the hardened production Compose definition, but has a
+separate Compose project name, environment file, port and secret directory.
+
+## External endpoint boundary check
+
+After TLS/DNS is configured:
+
+```bash
+make staging-check BASE_URL=https://api-staging.example.com
+```
+
+This verifies:
+
+- `/livez` returns 200;
+- `/readyz` returns 200;
+- `/api/v1/dev/bootstrap` is not exposed;
+- public ingress does not expose `/metrics`.
+
+## Real WeChat acceptance
+
+Repository CI cannot prove real WeChat integration without operator-controlled
+credentials and a real Mini Program user. The next gate is therefore manual
+but evidence-driven:
+
+```text
+real wx.login code
+ -> WeChat code2Session
+ -> internal session
+ -> low-value JSAPI payment
+ -> signed payment callback
+ -> service lifecycle
+ -> dispute/refund
+ -> signed refund callback or reconciliation query
+ -> REFUNDED
+```
+
+Record provider transaction IDs, merchant order/refund IDs, order events and
+timestamps. Do not record AppSecret, APIv3 key, private key, session_key,
+access tokens or refresh tokens in the evidence bundle.

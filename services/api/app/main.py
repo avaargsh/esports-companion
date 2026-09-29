@@ -87,7 +87,7 @@ app.include_router(admin_router)
 app.include_router(admin_disputes_router)
 app.include_router(admin_catalog_router)
 app.include_router(auth_router)
-if not settings.is_production:
+if not settings.is_secure_deployment:
     app.include_router(dev_router)
 app.include_router(realtime_router)
 app.include_router(health_router)

@@ -6,6 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 _PRODUCTION_ENVS = {"prod", "production"}
+_SECURE_DEPLOYMENT_ENVS = {"staging", *_PRODUCTION_ENVS}
 _DEV_SIGNING_KEY = "dev-only-change-me-use-at-least-32-bytes"
 
 
@@ -69,6 +70,10 @@ class Settings(BaseSettings):
         return self.app_env.strip().lower() in _PRODUCTION_ENVS
 
     @property
+    def is_secure_deployment(self) -> bool:
+        return self.app_env.strip().lower() in _SECURE_DEPLOYMENT_ENVS
+
+    @property
     def cors_origins(self) -> list[str]:
         return [
             item.strip()
@@ -111,8 +116,8 @@ class Settings(BaseSettings):
             ):
                 raise ValueError("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT_INVALID")
 
-        if self.is_production:
-            self._validate_production()
+        if self.is_secure_deployment:
+            self._validate_secure_deployment()
         return self
 
     def _load_secret_file(self, value_field: str, file_field: str) -> None:
@@ -130,7 +135,7 @@ class Settings(BaseSettings):
             raise ValueError(f"SECRET_FILE_EMPTY:{file_field}:{file_path}")
         setattr(self, value_field, value)
 
-    def _validate_production(self) -> None:
+    def _validate_secure_deployment(self) -> None:
         errors: list[str] = []
 
         if self.auth_provider.strip().lower() != "wechat":
@@ -183,7 +188,12 @@ class Settings(BaseSettings):
                 break
 
         if errors:
-            raise ValueError("PRODUCTION_CONFIG_INVALID:" + ",".join(errors))
+            prefix = (
+                "PRODUCTION_CONFIG_INVALID"
+                if self.is_production
+                else "STAGING_CONFIG_INVALID"
+            )
+            raise ValueError(prefix + ":" + ",".join(errors))
 
     @staticmethod
     def _is_public_https(value: str) -> bool:

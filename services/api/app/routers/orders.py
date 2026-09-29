@@ -184,7 +184,7 @@ def mock_pay(
     try:
         from app.config import settings
 
-        if settings.app_env.lower() in {"prod", "production"}:
+        if settings.is_secure_deployment:
             raise PermissionError("MOCK_PAYMENT_DISABLED")
         order = OrderService.get(db, order_id)
         if order.user_id != user_id:

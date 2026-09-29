@@ -246,7 +246,7 @@ class SessionService:
 
     @staticmethod
     def _validate_signing_key() -> None:
-        if settings.app_env.lower() in {"prod", "production"}:
+        if settings.is_secure_deployment:
             if (
                 settings.session_signing_key == "dev-only-change-me-use-at-least-32-bytes"
                 or len(settings.session_signing_key) < 32

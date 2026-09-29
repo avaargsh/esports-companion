@@ -49,6 +49,8 @@ Use this before exposing a production deployment to real users or money.
 
 - [ ] CI API, HTTP Smoke, MiniApp, Admin and API Image jobs are green.
 - [ ] `make smoke` passes in the staging/demo environment.
+- [ ] `make staging-preflight` passes with dedicated staging secrets.
+- [ ] `make staging-check BASE_URL=...` proves dev routes and public metrics are closed.
 - [ ] WeChat login works with a real Mini Program account in staging.
 - [ ] A low-value real payment and real refund have been exercised end to end.
 - [ ] User, player and platform role revocation has been verified.
