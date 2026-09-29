@@ -61,6 +61,17 @@ class OrderDetailOut(OrderOut):
     available_actions: list[str] = Field(default_factory=list)
 
 
+class OrderEventOut(BaseModel):
+    id: uuid.UUID
+    event_type: str
+    from_status: str | None
+    to_status: str | None
+    actor_type: str
+    created_at: str
+
+    model_config = {"from_attributes": True}
+
+
 class PlayerApply(BaseModel):
     display_name: str = Field(min_length=1, max_length=80)
     bio: str = Field(default="", max_length=500)
