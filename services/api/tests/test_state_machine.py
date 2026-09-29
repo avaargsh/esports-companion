@@ -16,3 +16,12 @@ def test_completed_can_only_move_to_settled():
     ensure_transition("COMPLETED", "SETTLED")
     with pytest.raises(InvalidOrderTransition):
         ensure_transition("COMPLETED", "IN_SERVICE")
+
+
+def test_paid_orders_use_dispute_and_accepted_can_be_requeued():
+    ensure_transition("ACCEPTED", "MATCHING")
+    ensure_transition("MATCHING", "DISPUTED")
+    with pytest.raises(InvalidOrderTransition):
+        ensure_transition("MATCHING", "CANCELLED")
+    with pytest.raises(InvalidOrderTransition):
+        ensure_transition("MATCHING", "REFUNDING")

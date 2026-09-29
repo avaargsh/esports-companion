@@ -46,6 +46,21 @@ class OrderOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class OrderServicePlayerOut(BaseModel):
+    id: uuid.UUID
+    display_name: str
+    avatar_url: str | None = None
+    rating: float
+    service_status: str
+    binding: str
+    assigned_by: str | None = None
+
+
+class OrderDetailOut(OrderOut):
+    service_player: OrderServicePlayerOut | None = None
+    available_actions: list[str] = Field(default_factory=list)
+
+
 class PlayerApply(BaseModel):
     display_name: str = Field(min_length=1, max_length=80)
     bio: str = Field(default="", max_length=500)

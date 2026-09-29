@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     refresh_token_ttl_seconds: int = 2592000
 
     finish_confirm_timeout_seconds: int = 1800
+    assignment_start_timeout_seconds: int = 600
     order_timeout_scan_seconds: int = 30
     order_timeout_batch_size: int = 50
 

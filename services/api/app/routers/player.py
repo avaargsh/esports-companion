@@ -88,11 +88,6 @@ def order_pool(
     db: Session = Depends(get_db),
 ):
     player_profile = get_player(db, principal.user_id)
-    active_sku_ids = select(ProviderOffering.sku_id).where(
-        ProviderOffering.player_id == player_profile.id,
-        ProviderOffering.status == "ACTIVE",
-    )
-
     page_limit = max(1, min(limit, 100))
     try:
         ids = redis_client.zrange(
@@ -108,11 +103,17 @@ def order_pool(
     if ids:
         parsed_ids = [uuid.UUID(value) for value in ids]
         redis_orders = db.scalars(
-            select(Order).where(
+            select(Order)
+            .join(
+                ProviderOffering,
+                ProviderOffering.sku_id == Order.sku_id,
+            )
+            .where(
                 Order.id.in_(parsed_ids),
                 Order.game_id == game_id,
                 Order.status == "MATCHING",
-                Order.sku_id.in_(active_sku_ids),
+                ProviderOffering.player_id == player_profile.id,
+                ProviderOffering.status == "ACTIVE",
             )
         ).all()
         by_id = {str(order.id): order for order in redis_orders}
@@ -122,10 +123,15 @@ def order_pool(
     if remaining > 0:
         fallback = (
             select(Order)
+            .join(
+                ProviderOffering,
+                ProviderOffering.sku_id == Order.sku_id,
+            )
             .where(
                 Order.game_id == game_id,
                 Order.status == "MATCHING",
-                Order.sku_id.in_(active_sku_ids),
+                ProviderOffering.player_id == player_profile.id,
+                ProviderOffering.status == "ACTIVE",
             )
             .order_by(Order.created_at)
             .limit(remaining)
