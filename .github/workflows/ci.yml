@@ -28,6 +28,7 @@ jobs:
     env:
       DATABASE_URL: postgresql+psycopg://esports:esports@localhost:5432/esports_test
       REDIS_URL: redis://localhost:6379/0
+      APP_ENV: test
     defaults:
       run:
         working-directory: services/api
@@ -38,5 +39,6 @@ jobs:
           python-version: "3.12"
       - run: pip install -e ".[dev]"
       - run: alembic upgrade head
+      - run: python -m app.seed
       - run: ruff check app tests
       - run: pytest -q
