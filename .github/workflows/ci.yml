@@ -211,3 +211,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate Nginx config and rate limits
         run: ./scripts/test_ingress.sh
+
+
+  metrics-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Prometheus scrape config
+        run: |
+          docker run --rm             -v "$PWD/deploy/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro"             prom/prometheus:v3.15.0             promtool check config /etc/prometheus/prometheus.yml
