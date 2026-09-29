@@ -2,7 +2,8 @@
 import { computed, ref } from "vue"
 import { onLoad, onUnload } from "@dcloudio/uni-app"
 
-import { API_ORIGIN, request } from "../../api/client"
+import { request } from "../../api/client"
+import { connectOrderRealtime } from "../../api/realtime"
 import { getDemoIdentities } from "../../api/demo"
 import OrderChat from "../../components/OrderChat.vue"
 import type { Order } from "../../types/domain"
@@ -57,13 +58,12 @@ async function load() {
   )
 }
 
-function connectRealtime() {
+async function connectRealtime() {
   if (!orderId.value || !playerUserId.value) return
-  const task = uni.connectSocket({
-    url:
-      API_ORIGIN.replace(/^http/, "ws") +
-      `/ws?user_id=${encodeURIComponent(playerUserId.value)}`
-  }) as unknown as UniApp.SocketTask
+  const task = await connectOrderRealtime({
+    orderId: orderId.value,
+    demoUserId: playerUserId.value
+  })
 
   socket = task
   task.onOpen(() => {
@@ -117,7 +117,7 @@ onLoad(async query => {
   const identities = await getDemoIdentities()
   playerUserId.value = identities.players[0]?.userId ?? ""
   await load()
-  connectRealtime()
+  await connectRealtime()
 })
 
 onUnload(() => socket?.close({}))
