@@ -163,3 +163,42 @@ def test_completed_withdrawal_rejects_conflicting_payout_reference():
                 withdrawal_id=item.id,
                 provider_txn_id="manual:proof-b",
             )
+
+
+def test_withdrawal_payout_reference_cannot_complete_two_withdrawals():
+    user_id, wallet_id = _create_player_wallet(10000)
+
+    with SessionLocal() as db:
+        first = WithdrawalService.request(
+            db,
+            user_id=user_id,
+            amount=2000,
+            idempotency_key=f"wd:{uuid.uuid4()}",
+        )
+        second = WithdrawalService.request(
+            db,
+            user_id=user_id,
+            amount=3000,
+            idempotency_key=f"wd:{uuid.uuid4()}",
+        )
+
+        WithdrawalService.complete(
+            db,
+            withdrawal_id=first.id,
+            provider_txn_id="manual:shared-proof",
+        )
+
+        with pytest.raises(ValueError, match="WITHDRAWAL_PAYOUT_REFERENCE_REUSED"):
+            WithdrawalService.complete(
+                db,
+                withdrawal_id=second.id,
+                provider_txn_id="manual:shared-proof",
+            )
+        db.rollback()
+
+        second_row = db.get(Withdrawal, second.id)
+        wallet = db.get(Wallet, wallet_id)
+        assert second_row.status == "PENDING"
+        assert second_row.provider_txn_id is None
+        assert wallet.available_balance == 5000
+        assert wallet.frozen_balance == 3000
