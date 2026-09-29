@@ -83,6 +83,12 @@ class WithdrawalService:
         if not withdrawal:
             raise LookupError("WITHDRAWAL_NOT_FOUND")
         if withdrawal.status == "COMPLETED":
+            if (
+                provider_txn_id
+                and withdrawal.provider_txn_id
+                and withdrawal.provider_txn_id != provider_txn_id
+            ):
+                raise ValueError("WITHDRAWAL_PAYOUT_REFERENCE_MISMATCH")
             return withdrawal
         if withdrawal.status != "PENDING":
             raise ValueError("WITHDRAWAL_NOT_PENDING")
