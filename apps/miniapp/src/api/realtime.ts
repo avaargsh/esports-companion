@@ -1,14 +1,14 @@
 import { ensureSession } from "./auth"
 import { API_ORIGIN, isWeChatAuthMode } from "./config"
 
-export async function connectOrderRealtime(
-  *,
+export async function connectOrderRealtime({
   orderId,
   demoUserId
 }: {
   orderId: string
   demoUserId: string
 }): Promise<UniApp.SocketTask> {
+  if (!orderId) throw new Error("ORDER_ID_REQUIRED")
   const baseUrl = API_ORIGIN.replace(/^http/, "ws") + "/ws"
 
   let url = baseUrl
