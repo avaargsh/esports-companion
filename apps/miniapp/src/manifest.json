@@ -1,0 +1,14 @@
+{
+  "name": "esports-companion",
+  "appid": "__UNI__ESPORTS_COMPANION",
+  "description": "Esports companion marketplace starter",
+  "versionName": "0.1.0",
+  "versionCode": "100",
+  "mp-weixin": {
+    "appid": "",
+    "setting": {
+      "urlCheck": false
+    },
+    "usingComponents": true
+  }
+}

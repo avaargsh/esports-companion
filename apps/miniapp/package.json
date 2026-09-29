@@ -1,0 +1,20 @@
+{
+  "name": "@esports-companion/miniapp",
+  "private": true,
+  "scripts": {
+    "dev:mp-weixin": "uni -p mp-weixin",
+    "build:mp-weixin": "uni build -p mp-weixin"
+  },
+  "dependencies": {
+    "@dcloudio/uni-app": "latest",
+    "@dcloudio/uni-components": "latest",
+    "@dcloudio/uni-mp-weixin": "latest",
+    "pinia": "latest",
+    "vue": "latest"
+  },
+  "devDependencies": {
+    "@dcloudio/vite-plugin-uni": "latest",
+    "typescript": "latest",
+    "vite": "latest"
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "pages": [
+    {
+      "path": "pages/home/index",
+      "style": {
+        "navigationBarTitleText": "陪玩"
+      }
+    },
+    {
+      "path": "pages/orders/index",
+      "style": {
+        "navigationBarTitleText": "我的订单"
+      }
+    },
+    {
+      "path": "pages/profile/index",
+      "style": {
+        "navigationBarTitleText": "我的"
+      }
+    }
+  ],
+  "subPackages": [
+    {
+      "root": "pages-player",
+      "pages": [
+        {
+          "path": "workbench/index",
+          "style": {
+            "navigationBarTitleText": "陪玩工作台"
+          }
+        },
+        {
+          "path": "order-pool/index",
+          "style": {
+            "navigationBarTitleText": "抢单大厅"
+          }
+        }
+      ]
+    }
+  ],
+  "tabBar": {
+    "color": "#92929d",
+    "selectedColor": "#6c5ce7",
+    "backgroundColor": "#ffffff",
+    "list": [
+      {
+        "pagePath": "pages/home/index",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/orders/index",
+        "text": "订单"
+      },
+      {
+        "pagePath": "pages/profile/index",
+        "text": "我的"
+      }
+    ]
+  }
+}
