@@ -1,4 +1,4 @@
-.PHONY: up down logs migrate seed test miniapp-build admin-build
+.PHONY: up down logs migrate seed test miniapp-build admin-build prod-build prod-up prod-down prod-logs
 
 up:
 	docker compose up --build -d
@@ -24,3 +24,16 @@ miniapp-build:
 
 admin-build:
 	cd apps/admin && npm install --no-audit --no-fund && npm run build
+
+
+prod-build:
+	docker compose --env-file .env.production -f deploy/compose/production.yml build api
+
+prod-up:
+	docker compose --env-file .env.production -f deploy/compose/production.yml up -d --build
+
+prod-down:
+	docker compose --env-file .env.production -f deploy/compose/production.yml down
+
+prod-logs:
+	docker compose --env-file .env.production -f deploy/compose/production.yml logs -f api

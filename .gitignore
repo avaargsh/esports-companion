@@ -7,3 +7,8 @@ __pycache__/
 .DS_Store
 node_modules/
 dist/
+
+# local production secrets
+/deploy/secrets/*
+!/deploy/secrets/README.md
+.env.production

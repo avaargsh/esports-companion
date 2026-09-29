@@ -21,7 +21,9 @@ class Settings(BaseSettings):
     readiness_require_redis: bool = True
 
     database_url: str = "postgresql+psycopg://esports:esports@postgres:5432/esports"
+    database_url_file: str = ""
     redis_url: str = "redis://redis:6379/0"
+    redis_url_file: str = ""
     auth_provider: str = "mock"
     payment_provider: str = "mock"
     refund_provider: str = "manual"
@@ -71,6 +73,8 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def resolve_secrets_and_validate(self):
+        self._load_secret_file("database_url", "database_url_file")
+        self._load_secret_file("redis_url", "redis_url_file")
         self._load_secret_file("session_signing_key", "session_signing_key_file")
         self._load_secret_file("wechat_app_secret", "wechat_app_secret_file")
         self._load_secret_file(
