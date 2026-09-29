@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from app.domain.order_state_machine import OrderStatus, ensure_transition
+from app.metrics import observe_order_transition
 from app.models import (
     Game,
     Order,
@@ -139,6 +140,11 @@ class OrderService:
             actor_type,
             actor_id,
             payload or {},
+        )
+        observe_order_transition(
+            from_status=previous,
+            to_status=target.value,
+            event_type=event_type,
         )
         return order
 

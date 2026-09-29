@@ -37,6 +37,8 @@ Use this before exposing a production deployment to real users or money.
 
 - [ ] `/livez` and `/readyz` wired into the runtime/load balancer.
 - [ ] Structured API logs are collected centrally.
+- [ ] `/metrics` is scraped only from the private service network and is not public through ingress.
+- [ ] OTLP trace export is configured to an approved Collector/backend, or tracing is explicitly disabled by operational decision.
 - [ ] `COMMIT_SHA` is populated for each release.
 - [ ] Alerts exist for API 5xx, readiness failures, callback failures, stuck outbox events, stuck refunds and database capacity.
 - [ ] Time synchronization is healthy; WeChat signature verification depends on timestamp windows.

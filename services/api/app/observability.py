@@ -4,9 +4,14 @@ import time
 import uuid
 
 from fastapi import Request
+from opentelemetry import propagate, trace
+from opentelemetry.trace import SpanKind, Status, StatusCode
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.config import settings
+from app.metrics import HTTP_INFLIGHT, observe_http, stable_route
+
+tracer = trace.get_tracer("esports_companion.http")
 
 
 class JsonFormatter(logging.Formatter):
@@ -26,6 +31,8 @@ class JsonFormatter(logging.Formatter):
             "path",
             "status_code",
             "latency_ms",
+            "trace_id",
+            "span_id",
             "traceparent",
         ):
             value = getattr(record, field, None)
@@ -45,41 +52,93 @@ def configure_logging() -> None:
     root.addHandler(handler)
 
 
+def _trace_ids(span) -> tuple[str | None, str | None]:
+    context = span.get_span_context()
+    if not context.is_valid:
+        return None, None
+    return f"{context.trace_id:032x}", f"{context.span_id:016x}"
+
+
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         request_id = request.headers.get("X-Request-Id") or uuid.uuid4().hex
         request.state.request_id = request_id
+        method = request.method
         started = time.perf_counter()
         logger = logging.getLogger("http.request")
+        HTTP_INFLIGHT.labels(method=method).inc()
 
-        try:
-            response = await call_next(request)
-        except Exception:
-            latency_ms = round((time.perf_counter() - started) * 1000, 2)
-            logger.exception(
-                "request failed",
+        parent_context = propagate.extract(carrier=request.headers)
+        with tracer.start_as_current_span(
+            f"HTTP {method}",
+            context=parent_context,
+            kind=SpanKind.SERVER,
+        ) as span:
+            try:
+                response = await call_next(request)
+            except Exception:
+                duration_seconds = time.perf_counter() - started
+                route = stable_route(request.scope)
+                trace_id, span_id = _trace_ids(span)
+                observe_http(
+                    method=method,
+                    route=route,
+                    status_code=500,
+                    duration_seconds=duration_seconds,
+                    trace_id=trace_id,
+                )
+                span.update_name(f"{method} {route}")
+                span.set_attribute("http.request.method", method)
+                span.set_attribute("http.route", route)
+                span.set_attribute("http.response.status_code", 500)
+                span.set_status(Status(StatusCode.ERROR))
+                logger.exception(
+                    "request failed",
+                    extra={
+                        "request_id": request_id,
+                        "method": method,
+                        "path": route,
+                        "status_code": 500,
+                        "latency_ms": round(duration_seconds * 1000, 2),
+                        "trace_id": trace_id,
+                        "span_id": span_id,
+                        "traceparent": request.headers.get("traceparent"),
+                    },
+                )
+                raise
+            finally:
+                HTTP_INFLIGHT.labels(method=method).dec()
+
+            duration_seconds = time.perf_counter() - started
+            route = stable_route(request.scope)
+            trace_id, span_id = _trace_ids(span)
+            observe_http(
+                method=method,
+                route=route,
+                status_code=response.status_code,
+                duration_seconds=duration_seconds,
+                trace_id=trace_id,
+            )
+
+            span.update_name(f"{method} {route}")
+            span.set_attribute("http.request.method", method)
+            span.set_attribute("http.route", route)
+            span.set_attribute("http.response.status_code", response.status_code)
+            if response.status_code >= 500:
+                span.set_status(Status(StatusCode.ERROR))
+
+            response.headers["X-Request-Id"] = request_id
+            logger.info(
+                "request completed",
                 extra={
                     "request_id": request_id,
-                    "method": request.method,
-                    "path": request.url.path,
-                    "status_code": 500,
-                    "latency_ms": latency_ms,
+                    "method": method,
+                    "path": route,
+                    "status_code": response.status_code,
+                    "latency_ms": round(duration_seconds * 1000, 2),
+                    "trace_id": trace_id,
+                    "span_id": span_id,
                     "traceparent": request.headers.get("traceparent"),
                 },
             )
-            raise
-
-        latency_ms = round((time.perf_counter() - started) * 1000, 2)
-        response.headers["X-Request-Id"] = request_id
-        logger.info(
-            "request completed",
-            extra={
-                "request_id": request_id,
-                "method": request.method,
-                "path": request.url.path,
-                "status_code": response.status_code,
-                "latency_ms": latency_ms,
-                "traceparent": request.headers.get("traceparent"),
-            },
-        )
-        return response
+            return response

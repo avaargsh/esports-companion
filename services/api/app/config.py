@@ -19,6 +19,10 @@ class Settings(BaseSettings):
         "http://localhost:5173,http://127.0.0.1:5173"
     )
     readiness_require_redis: bool = True
+    otel_enabled: bool = False
+    otel_exporter_otlp_traces_endpoint: str = ""
+    otel_trace_sample_ratio: float = 0.10
+    otel_export_timeout_seconds: float = 5.0
 
     database_url: str = "postgresql+psycopg://esports:esports@postgres:5432/esports"
     database_url_file: str = ""
@@ -94,6 +98,17 @@ class Settings(BaseSettings):
             raise ValueError("ACCESS_TOKEN_TTL_MUST_BE_POSITIVE")
         if self.refresh_token_ttl_seconds <= self.access_token_ttl_seconds:
             raise ValueError("REFRESH_TOKEN_TTL_MUST_EXCEED_ACCESS_TOKEN_TTL")
+        if not 0.0 <= self.otel_trace_sample_ratio <= 1.0:
+            raise ValueError("OTEL_TRACE_SAMPLE_RATIO_OUT_OF_RANGE")
+        if self.otel_export_timeout_seconds <= 0:
+            raise ValueError("OTEL_EXPORT_TIMEOUT_MUST_BE_POSITIVE")
+        if self.otel_enabled:
+            parsed_otel = urlparse(self.otel_exporter_otlp_traces_endpoint)
+            if (
+                parsed_otel.scheme not in {"http", "https"}
+                or not parsed_otel.netloc
+            ):
+                raise ValueError("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT_INVALID")
 
         if self.is_production:
             self._validate_production()

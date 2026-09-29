@@ -7,7 +7,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 
 from app.health import router as health_router
+from app.metrics import router as metrics_router
 from app.observability import RequestLoggingMiddleware, configure_logging
+from app.telemetry import configure_tracing
 from app.order_timeout import run_timeout_scanner
 from app.realtime import run_outbox_publisher
 from app.refund_reconcile import run_refund_reconcile_worker
@@ -49,6 +51,7 @@ async def lifespan(app: FastAPI):
 
 
 configure_logging()
+configure_tracing()
 
 app = FastAPI(
     title="esports-companion API",
@@ -86,4 +89,5 @@ if not settings.is_production:
     app.include_router(dev_router)
 app.include_router(realtime_router)
 app.include_router(health_router)
+app.include_router(metrics_router)
 app.add_middleware(RequestLoggingMiddleware)

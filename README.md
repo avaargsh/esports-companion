@@ -29,6 +29,7 @@ Customer
 - **Money controls** — settlement ledger, withdrawals, dispute hold, refund lifecycle
 - **Transactional outbox + WebSocket**
 - **Production reference** — fail-fast config, file-backed secrets, health probes, structured logs, hardened non-root container/Compose
+- **Prometheus + OpenTelemetry** — low-cardinality HTTP/domain metrics and optional OTLP trace export
 
 ## Core invariants
 
@@ -151,7 +152,7 @@ Production Compose:
 - uses a read-only API filesystem;
 - binds API to localhost by default for a TLS reverse proxy.
 
-See [Production Readiness](docs/production-readiness.md) and [Production Compose](docs/production-compose.md).
+See [Production Readiness](docs/production-readiness.md), [Production Compose](docs/production-compose.md), and [Metrics and OpenTelemetry](docs/observability.md).
 
 ## Repository layout
 

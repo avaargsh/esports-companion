@@ -110,7 +110,7 @@ services:
       - |
         export DATABASE_URL="postgresql+psycopg://esports:$$(cat /run/secrets/postgres_password)@postgres:5432/esports"
         alembic upgrade head
-        exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers "${UVICORN_WORKERS:-2}"
+        exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers "${UVICORN_WORKERS:-1}"
     healthcheck:
       test:
         - CMD
