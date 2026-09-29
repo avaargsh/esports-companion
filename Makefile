@@ -1,4 +1,4 @@
-.PHONY: up down logs migrate seed test smoke verify miniapp-build admin-build prod-build prod-up prod-down prod-logs prod-backup prod-restore-drill staging-preflight staging-build staging-up staging-down staging-logs staging-check
+.PHONY: up down logs migrate seed test smoke verify miniapp-build admin-build prod-build prod-up prod-down prod-logs prod-backup prod-restore-drill staging-preflight staging-build staging-up staging-down staging-logs staging-check staging-wechat-evidence
 
 up:
 	docker compose up --build -d
@@ -70,3 +70,8 @@ staging-logs:
 staging-check:
 	@test -n "$(BASE_URL)" || (echo "usage: make staging-check BASE_URL=https://api-staging.example.com" && exit 64)
 	python3 scripts/check_secure_staging.py --base-url "$(BASE_URL)"
+
+
+staging-wechat-evidence:
+	@test -n "$(ORDER_ID)" || (echo "usage: make staging-wechat-evidence ORDER_ID=<uuid> EXPECT=payment|refund" && exit 64)
+	@docker compose --env-file .env.staging -f deploy/compose/production.yml exec -T api 		python -m app.tools.wechat_acceptance --order-id "$(ORDER_ID)" --expect "$(or $(EXPECT),payment)"

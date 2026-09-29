@@ -56,6 +56,11 @@ jobs:
       - run: npm install
       - run: npm run type-check
       - run: npm run build:mp-weixin
+      - name: Build secure WeChat client mode
+        env:
+          VITE_AUTH_MODE: wechat
+          VITE_API_ORIGIN: https://api-staging.example.test
+        run: npm run build:mp-weixin
 
   admin:
     runs-on: ubuntu-latest

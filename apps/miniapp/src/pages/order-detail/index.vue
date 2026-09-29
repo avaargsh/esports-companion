@@ -3,6 +3,7 @@ import { computed, ref } from "vue"
 import { onLoad, onUnload } from "@dcloudio/uni-app"
 
 import { request } from "../../api/client"
+import { startOrderPayment } from "../../api/payment"
 import { connectOrderRealtime } from "../../api/realtime"
 import { getDemoIdentities } from "../../api/demo"
 import OrderChat from "../../components/OrderChat.vue"
@@ -173,6 +174,21 @@ onLoad(async query => {
 
 onUnload(() => socket?.close({}))
 
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+async function waitForPaymentConfirmation() {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    if (attempt > 0) await sleep(750)
+    await reload()
+    if (order.value && order.value.status !== "WAITING_PAYMENT") {
+      return true
+    }
+  }
+  return false
+}
+
 async function runPrimary() {
   const current = order.value
   const action = primaryAction.value
@@ -192,12 +208,18 @@ async function runPrimary() {
   busy.value = true
   try {
     if (action.kind === "pay") {
-      order.value = await request<Order>(`/orders/${current.id}/mock-pay`, {
-        method: "POST",
-        userId: customerUserId.value,
-        headers: { "Idempotency-Key": `miniapp-${current.id}` }
-      })
-      uni.showToast({ title: "支付成功", icon: "success" })
+      const result = await startOrderPayment(current.id, customerUserId.value)
+      if (result.mode === "mock") {
+        order.value = result.order
+        uni.showToast({ title: "支付成功", icon: "success" })
+      } else {
+        const confirmed = result.alreadyConfirmed || await waitForPaymentConfirmation()
+        uni.showToast({
+          title: confirmed ? "支付已确认" : "支付结果确认中，请稍后刷新",
+          icon: confirmed ? "success" : "none",
+          duration: confirmed ? 1500 : 2600
+        })
+      }
     }
 
     if (action.kind === "confirm") {
@@ -209,8 +231,9 @@ async function runPrimary() {
     }
     await reload()
   } catch (error) {
+    const message = error instanceof Error ? error.message : "操作失败，请刷新后重试"
     uni.showToast({
-      title: error instanceof Error ? error.message : "操作失败，请刷新后重试",
+      title: message === "PAYMENT_CANCELLED" ? "已取消支付" : message,
       icon: "none"
     })
     await reload()

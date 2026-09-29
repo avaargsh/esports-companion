@@ -34,7 +34,7 @@ Demo mode auto-discovers seeded Customer / Player identities. No WeChat AppID or
 ## Demo flow
 
 ```text
-Customer: Home -> Game -> Create -> Mock Pay
+Customer: Home -> Game -> Create -> Pay
 Player: Workbench -> Order Pool -> Claim -> Start -> Finish
 Customer: Order Detail -> Confirm -> Settlement -> Review
 ```
@@ -67,7 +67,15 @@ In `wechat` mode the Mini Program:
 4. sends authenticated API requests with `Authorization: Bearer ...`;
 5. rotates the refresh token when the access token is near expiry or an
    authenticated request returns 401;
-6. authenticates `/ws` using the same Bearer access token.
+6. authenticates `/ws` using the same Bearer access token;
+7. prepares JSAPI payment through `POST /orders/{id}/payments`;
+8. invokes `wx.requestPayment` with server-signed parameters;
+9. waits for the verified WeChat callback to move the order out of
+   `WAITING_PAYMENT`.
+
+The client-side `requestPayment.success` callback is **not** treated as durable
+payment truth. The UI only shows “payment confirmed” after canonical order state
+has changed on the server.
 
 Legacy `X-User-Id`, `X-Admin-Id`, and `/ws?user_id=...` are never sent by
 the client in `wechat` mode.
@@ -102,3 +110,16 @@ Workbench
 Withdrawals currently use a MANUAL payout boundary. Submitting a withdrawal freezes available balance; the platform operator only marks it complete after an actual external payout.
 
 See [Runtime Modes](../../docs/runtime-modes.md) for dev/staging/production switches.
+
+
+## Staging build example
+
+```bash
+VITE_AUTH_MODE=wechat \
+VITE_API_ORIGIN=https://api-staging.example.com \
+npm run build:mp-weixin
+```
+
+Import `dist/build/mp-weixin` into WeChat DevTools using the staging Mini
+Program AppID. Configure the request and socket domains before testing real
+login/payment.

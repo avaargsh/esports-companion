@@ -95,3 +95,45 @@ real wx.login code
 Record provider transaction IDs, merchant order/refund IDs, order events and
 timestamps. Do not record AppSecret, APIv3 key, private key, session_key,
 access tokens or refresh tokens in the evidence bundle.
+
+
+## Payment client gate
+
+The Mini Program secure build now uses the real JSAPI client path:
+
+```text
+POST /orders/{id}/payments
+ -> signed JSAPI parameters
+ -> wx.requestPayment
+ -> verified payment callback
+ -> PaymentTransaction SUCCESS
+ -> PAYMENT_SUCCESS
+ -> MATCHING / designated assignment
+```
+
+A successful `wx.requestPayment` callback is only a client UX signal. The
+order remains `WAITING_PAYMENT` until the backend receives and verifies the
+provider callback.
+
+## Acceptance evidence
+
+After a real low-value payment completes:
+
+```bash
+make staging-wechat-evidence \
+  ORDER_ID=<order-uuid> \
+  EXPECT=payment > payment-evidence.json
+```
+
+After the same acceptance order is taken through dispute/refund:
+
+```bash
+make staging-wechat-evidence \
+  ORDER_ID=<order-uuid> \
+  EXPECT=refund > refund-evidence.json
+```
+
+The evidence exporter intentionally omits raw callback payloads, AppSecret,
+APIv3 keys, private keys, `session_key`, application tokens and JSAPI
+`paySign`. It records only identifiers/status/timestamps needed to prove the
+transaction path.

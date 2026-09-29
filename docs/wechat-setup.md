@@ -69,7 +69,10 @@ Create payment
   -> PAID -> MATCHING
 ```
 
-The client-side payment success callback must not be treated as durable payment truth.
+The Mini Program now invokes `wx.requestPayment` with the server-signed JSAPI
+payload. Its client-side success callback is not durable payment truth: the UI
+polls canonical order state and only confirms payment after the verified WeChat
+callback has advanced the order.
 
 ## Required production configuration
 
