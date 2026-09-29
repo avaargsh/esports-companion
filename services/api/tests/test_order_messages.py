@@ -1,12 +1,16 @@
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
+import threading
 
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.db import SessionLocal
 from app.main import app
-from app.models import OrderAssignment, OrderMessage, PlayerProfile
+from app.services.order_messaging_service import OrderMessagingService
+from app.services.order_service import OrderService
+from app.models import OrderAssignment, OrderMessage, OutboxEvent, PlayerProfile
 
 
 def _bootstrap(client: TestClient):
@@ -386,3 +390,63 @@ def test_terminal_order_keeps_message_history_but_rejects_new_messages():
         )
         assert blocked.status_code == 409
         assert blocked.json()["detail"] == "ORDER_CHAT_NOT_SENDABLE"
+
+
+def test_concurrent_message_send_replays_single_message():
+    with TestClient(app) as client:
+        demo, _game, sku = _bootstrap(client)
+        customer_id = demo["customerUserId"]
+        player_user_id = demo["playerUserId"]
+        matching = _create_matching_order(client, customer_id, sku["id"])
+        order_id = matching["id"]
+        _claim(
+            client,
+            order_id=order_id,
+            player_user_id=player_user_id,
+            version=matching["version"],
+        )
+
+    order_uuid = uuid.UUID(order_id)
+    user_uuid = uuid.UUID(customer_id)
+    client_message_id = f"concurrent-{uuid.uuid4()}"
+    barrier = threading.Barrier(2)
+
+    def send_once():
+        with SessionLocal() as db:
+            order = OrderService.get(db, order_uuid)
+            barrier.wait(timeout=5)
+            message = OrderMessagingService.create_message(
+                db,
+                order=order,
+                user_id=user_uuid,
+                roles=("USER",),
+                client_message_id=client_message_id,
+                content="并发消息",
+            )
+            return message.id
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        ids = [
+            future.result(timeout=10)
+            for future in [pool.submit(send_once), pool.submit(send_once)]
+        ]
+
+    assert ids[0] == ids[1]
+    with SessionLocal() as db:
+        assert db.scalar(
+            select(func.count())
+            .select_from(OrderMessage)
+            .where(
+                OrderMessage.order_id == order_uuid,
+                OrderMessage.sender_user_id == user_uuid,
+                OrderMessage.client_message_id == client_message_id,
+            )
+        ) == 1
+        assert db.scalar(
+            select(func.count())
+            .select_from(OutboxEvent)
+            .where(
+                OutboxEvent.aggregate_id == str(order_uuid),
+                OutboxEvent.event_type == "ORDER_MESSAGE_CREATED",
+            )
+        ) >= 1
