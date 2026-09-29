@@ -112,6 +112,23 @@ class ClaimRequest(BaseModel):
     expected_version: int = Field(ge=0)
 
 
+class OrderMessageCreate(BaseModel):
+    client_message_id: str = Field(min_length=1, max_length=128)
+    content: str = Field(min_length=1, max_length=1000)
+
+
+class OrderMessageOut(BaseModel):
+    id: uuid.UUID
+    order_id: uuid.UUID
+    sender_user_id: uuid.UUID
+    sender_role: str
+    message_type: str
+    content: str
+    client_message_id: str
+    created_at: object
+    model_config = {"from_attributes": True}
+
+
 class PaymentPrepareOut(BaseModel):
     order_id: uuid.UUID
     order_status: str

@@ -4,6 +4,7 @@ import { onLoad, onUnload } from "@dcloudio/uni-app"
 
 import { API_ORIGIN, request } from "../../api/client"
 import { getDemoIdentities } from "../../api/demo"
+import OrderChat from "../../components/OrderChat.vue"
 import type { Order } from "../../types/domain"
 import { orderStatusMeta } from "../../utils/order"
 
@@ -16,10 +17,17 @@ const rating = ref(5)
 const review = ref("")
 const reviewed = ref(false)
 const aftercareReason = ref("")
+const chatRefreshKey = ref(0)
 let socket: UniApp.SocketTask | null = null
 
 const meta = computed(() =>
   order.value ? orderStatusMeta(order.value.status) : null
+)
+
+const chatEnabled = computed(() =>
+  ["ACCEPTED", "IN_SERVICE", "FINISH_REQUESTED", "DISPUTED"].includes(
+    order.value?.status ?? ""
+  )
 )
 
 async function reload() {
@@ -29,7 +37,9 @@ async function reload() {
 
 function connectRealtime() {
   const task = uni.connectSocket({
-    url: API_ORIGIN.replace(/^http/, "ws") + "/ws"
+    url:
+      API_ORIGIN.replace(/^http/, "ws") +
+      `/ws?user_id=${encodeURIComponent(customerUserId.value)}`
   }) as unknown as UniApp.SocketTask
 
   socket = task
@@ -48,6 +58,7 @@ function connectRealtime() {
     try {
       const payload = JSON.parse(String(message.data))
       if (payload.type === "order.status_changed") void reload()
+      if (payload.type === "order.message_created") chatRefreshKey.value += 1
     } catch {
       // Ignore development messages that are not JSON.
     }
@@ -241,6 +252,13 @@ async function submitReview() {
     >
       确认服务完成
     </button>
+
+    <OrderChat
+      v-if="chatEnabled"
+      :order-id="order.id"
+      :user-id="customerUserId"
+      :refresh-key="chatRefreshKey"
+    />
 
     <view
       v-if="order.available_actions?.includes('REQUEST_REFUND') || order.available_actions?.includes('OPEN_DISPUTE')"

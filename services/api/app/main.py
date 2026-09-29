@@ -19,6 +19,7 @@ from app.routers.dev import router as dev_router
 from app.routers.disputes import router as disputes_router
 from app.routers.admin_disputes import router as admin_disputes_router
 from app.routers.orders import router as orders_router
+from app.routers.messages import router as messages_router
 from app.routers.payments import router as payments_router
 from app.routers.player import router as player_router
 from app.routers.offerings import router as offerings_router
@@ -68,6 +69,7 @@ app.add_middleware(
 app.include_router(catalog_router)
 app.include_router(marketplace_router)
 app.include_router(orders_router)
+app.include_router(messages_router)
 app.include_router(disputes_router)
 app.include_router(payments_router)
 app.include_router(refunds_router)
