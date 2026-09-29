@@ -89,6 +89,10 @@ async function selectGame(id: string) {
   await refresh()
 }
 
+function backToWorkbench() {
+  uni.navigateBack()
+}
+
 async function claim(order: Order) {
   if (!playerUserId.value || claimingId.value) return
   if (!canClaim.value) {
@@ -136,7 +140,7 @@ onPullDownRefresh(async () => {
 
     <view v-if="claimBlockReason" class="guard" :class="{ ok: canClaim }">
       <text>{{ canClaim ? "当前可接单" : claimBlockReason }}</text>
-      <text class="guard-link" @click="uni.navigateBack()">返回工作台 ›</text>
+      <text class="guard-link" @click="backToWorkbench">返回工作台 ›</text>
     </view>
 
     <view class="overview">
