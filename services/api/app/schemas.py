@@ -206,6 +206,10 @@ class WithdrawalCreate(BaseModel):
     amount: int = Field(gt=0)
 
 
+class WithdrawalComplete(BaseModel):
+    provider_txn_id: str = Field(min_length=1, max_length=128)
+
+
 class WithdrawalOut(BaseModel):
     id: uuid.UUID
     user_id: uuid.UUID
