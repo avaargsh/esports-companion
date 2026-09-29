@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -39,24 +40,14 @@ func NewHTTP(reg prometheus.Registerer) *HTTP {
 func (m *HTTP) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		started := time.Now()
-		recorder := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
-		next.ServeHTTP(recorder, r)
+		ww := chimiddleware.NewWrapResponseWriter(w, r.ProtoMajor)
+		next.ServeHTTP(ww, r)
 
 		route := chi.RouteContext(r.Context()).RoutePattern()
 		if route == "" {
 			route = "unmatched"
 		}
-		m.requests.WithLabelValues(route, r.Method, strconv.Itoa(recorder.status)).Inc()
+		m.requests.WithLabelValues(route, r.Method, strconv.Itoa(ww.Status())).Inc()
 		m.duration.WithLabelValues(route, r.Method).Observe(time.Since(started).Seconds())
 	})
-}
-
-type statusRecorder struct {
-	http.ResponseWriter
-	status int
-}
-
-func (w *statusRecorder) WriteHeader(code int) {
-	w.status = code
-	w.ResponseWriter.WriteHeader(code)
 }
