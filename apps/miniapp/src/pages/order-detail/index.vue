@@ -4,6 +4,7 @@ import { onLoad, onUnload } from "@dcloudio/uni-app"
 
 import { request } from "../../api/client"
 import { connectOrderRealtime } from "../../api/realtime"
+import { submitOrderPayment } from "../../api/payment"
 import { getDemoIdentities } from "../../api/demo"
 import OrderChat from "../../components/OrderChat.vue"
 import OrderProgress from "../../components/OrderProgress.vue"
@@ -24,6 +25,7 @@ const rating = ref(5)
 const review = ref("")
 const reviewed = ref(false)
 const aftercareReason = ref("")
+const paymentConfirming = ref(false)
 const chatRefreshKey = ref(0)
 let socket: UniApp.SocketTask | null = null
 
@@ -123,6 +125,9 @@ async function reload() {
     ])
     order.value = orderResult
     events.value = eventResult
+    if (orderResult.status !== "WAITING_PAYMENT") {
+      paymentConfirming.value = false
+    }
   } catch (error) {
     uni.showToast({
       title: error instanceof Error ? error.message : "订单加载失败",
@@ -192,12 +197,18 @@ async function runPrimary() {
   busy.value = true
   try {
     if (action.kind === "pay") {
-      order.value = await request<Order>(`/orders/${current.id}/mock-pay`, {
-        method: "POST",
-        userId: customerUserId.value,
-        headers: { "Idempotency-Key": `miniapp-${current.id}` }
+      const result = await submitOrderPayment(
+        current.id,
+        customerUserId.value
+      )
+      order.value = result.order
+      paymentConfirming.value = result.awaitingProviderConfirmation
+      uni.showToast({
+        title: result.awaitingProviderConfirmation
+          ? "支付已提交，等待确认"
+          : "支付成功",
+        icon: result.awaitingProviderConfirmation ? "none" : "success"
       })
-      uni.showToast({ title: "支付成功", icon: "success" })
     }
 
     if (action.kind === "confirm") {
@@ -209,8 +220,9 @@ async function runPrimary() {
     }
     await reload()
   } catch (error) {
+    const message = error instanceof Error ? error.message : "操作失败，请刷新后重试"
     uni.showToast({
-      title: error instanceof Error ? error.message : "操作失败，请刷新后重试",
+      title: message === "PAYMENT_CANCELLED" ? "已取消支付" : message,
       icon: "none"
     })
     await reload()
@@ -387,6 +399,13 @@ function openServicePlayer() {
         <text>支付成功后将直接绑定该大神，不进入公开抢单池。</text>
       </view>
 
+      <view v-if="order.status === 'WAITING_PAYMENT' && paymentConfirming" class="notice payment-confirming">
+        <text class="notice-title">微信支付已提交</text>
+        <text>正在等待服务端收到微信支付成功通知；订单状态以服务端验签结果为准。</text>
+      </view>
+
+
+
       <view v-if="order.status === 'MATCHING'" class="notice">
         <text class="notice-title">等待接单</text>
         <text>订单已进入抢单大厅，接单后会自动刷新，无需重复下单。</text>
@@ -499,6 +518,7 @@ function openServicePlayer() {
 .event-actor { display:block; margin-top:5rpx; color:#9a9aa4; font-size:18rpx; }
 .notice { margin-top:18rpx; padding:24rpx 26rpx; border-radius:24rpx; background:#f1efff; color:#6c5ce7; font-size:20rpx; line-height:1.6; }
 .notice.designated { background:#fff5e8; color:#a96806; }
+.notice.payment-confirming { background:#eef7ff; color:#24689b; }
 .notice-title { display:block; margin-bottom:5rpx; font-weight:750; }
 .aftercare-hint { color:#92929d; font-size:20rpx; line-height:1.55; }
 .aftercare-card textarea, .review-card textarea { width:100%; height:140rpx; margin-top:18rpx; padding:18rpx; border-radius:20rpx; background:#f7f7fb; box-sizing:border-box; font-size:22rpx; }

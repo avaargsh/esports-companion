@@ -74,3 +74,25 @@ the client in `wechat` mode.
 
 The released Mini Program must configure the HTTPS request domain and WSS
 socket domain in the WeChat platform.
+
+
+## WeChat JSAPI payment
+
+In `demo` auth mode the Customer order page keeps using the local
+`/mock-pay` endpoint.
+
+In `wechat` auth mode payment uses the production flow:
+
+```text
+POST /orders/{order_id}/payments
+  -> signed JSAPI client parameters
+  -> uni.requestPayment()
+  -> WeChat signed callback
+  -> PaymentTransaction SUCCESS
+  -> Order PAID -> MATCHING / ACCEPTED
+```
+
+The Mini Program does **not** transition the order from the
+`uni.requestPayment` success callback. It reloads briefly and then relies on
+the durable backend callback plus the order WebSocket for final state. If the
+provider callback has not arrived yet, the UI shows “支付已提交，等待确认”.

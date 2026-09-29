@@ -56,20 +56,24 @@ POST /orders/{id}/mock-pay
   -> MATCHING
 ```
 
-Production target:
+Production flow:
 
 ```text
-Create payment
-  -> backend creates WeChat Pay order
-  -> wx.requestPayment()
+POST /orders/{id}/payments
+  -> backend creates/replays a WeChat JSAPI prepay attempt
+  -> signed client payload
+  -> uni.requestPayment()
   -> WeChat callback
-  -> verify callback/signature
-  -> idempotent PaymentTransaction
+  -> verify signature + decrypt provider resource
+  -> idempotent PaymentTransaction SUCCESS
   -> order state machine
-  -> PAID -> MATCHING
+  -> PAID -> MATCHING / designated ACCEPTED
 ```
 
-The client-side payment success callback must not be treated as durable payment truth.
+The client-side `uni.requestPayment` success callback is intentionally not
+durable payment truth. The Mini Program briefly reloads the order and then
+waits for the signed provider callback through normal HTTP/WebSocket state
+updates.
 
 ## Required production configuration
 
