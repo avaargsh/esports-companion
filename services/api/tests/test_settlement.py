@@ -49,6 +49,14 @@ def test_settlement_is_idempotent_and_writes_two_ledger_entries():
             platform_fee_rate=Decimal("0.2000"),
         )
         db.add_all([player, sku])
+        db.flush()
+        db.add(
+            ProviderOffering(
+                player_id=player.id,
+                sku_id=sku.id,
+                status="ACTIVE",
+            )
+        )
         db.commit()
 
         order = OrderService.create_order(db, user_id=customer.id, sku_id=sku.id)
