@@ -93,29 +93,34 @@ def order_pool(
         ProviderOffering.status == "ACTIVE",
     )
 
+    page_limit = max(1, min(limit, 100))
     try:
         ids = redis_client.zrange(
             f"order_pool:{game_id}",
             0,
-            max(0, min(limit, 100) - 1),
+            page_limit - 1,
         )
     except Exception:
         ids = []
 
+    result: list[Order] = []
+    parsed_ids: list[uuid.UUID] = []
     if ids:
         parsed_ids = [uuid.UUID(value) for value in ids]
-        orders = db.scalars(
+        redis_orders = db.scalars(
             select(Order).where(
                 Order.id.in_(parsed_ids),
+                Order.game_id == game_id,
                 Order.status == "MATCHING",
                 Order.sku_id.in_(active_sku_ids),
             )
         ).all()
-        by_id = {str(order.id): order for order in orders}
-        return [by_id[value] for value in ids if value in by_id]
+        by_id = {str(order.id): order for order in redis_orders}
+        result.extend(by_id[value] for value in ids if value in by_id)
 
-    return list(
-        db.scalars(
+    remaining = page_limit - len(result)
+    if remaining > 0:
+        fallback = (
             select(Order)
             .where(
                 Order.game_id == game_id,
@@ -123,9 +128,13 @@ def order_pool(
                 Order.sku_id.in_(active_sku_ids),
             )
             .order_by(Order.created_at)
-            .limit(max(1, min(limit, 100)))
+            .limit(remaining)
         )
-    )
+        if parsed_ids:
+            fallback = fallback.where(Order.id.not_in(parsed_ids))
+        result.extend(db.scalars(fallback).all())
+
+    return result
 
 
 @router.get("/orders", response_model=list[OrderOut])
