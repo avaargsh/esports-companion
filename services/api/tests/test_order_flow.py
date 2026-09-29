@@ -6,7 +6,8 @@ from sqlalchemy.pool import StaticPool
 
 from app.db import Base
 from app.models import Game, OrderEvent, PaymentTransaction, ServiceSKU, User
-from app.services.order_service import MockPaymentService, OrderService
+from app.services.order_service import OrderService
+from app.services.payment_service import MockPaymentService
 
 
 def test_mock_payment_is_idempotent_and_enters_matching():

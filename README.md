@@ -193,6 +193,7 @@ See [docs/wechat-setup.md](docs/wechat-setup.md) for the intended WeChat adapter
 - [Realtime / Outbox](docs/realtime.md)
 - [API](docs/api.md)
 - [WeChat Production Integration](docs/wechat-setup.md)
+- [Provider Adapters](docs/adapters.md)
 
 ## License
 

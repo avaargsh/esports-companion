@@ -15,7 +15,8 @@ from app.models import (
     Wallet,
 )
 from app.services.dispatch_service import DispatchService
-from app.services.order_service import MockPaymentService, OrderService
+from app.services.order_service import OrderService
+from app.services.payment_service import MockPaymentService
 from app.services.settlement_service import SettlementService
 
 

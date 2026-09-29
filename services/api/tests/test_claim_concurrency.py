@@ -7,7 +7,8 @@ from sqlalchemy import func, select
 from app.db import SessionLocal
 from app.models import Game, OrderAssignment, PlayerProfile, ServiceSKU, User
 from app.services.dispatch_service import DispatchService, OrderAlreadyClaimed
-from app.services.order_service import MockPaymentService, OrderService
+from app.services.order_service import OrderService
+from app.services.payment_service import MockPaymentService
 
 
 def _claim(order_id, player_id, expected_version):
