@@ -1,4 +1,9 @@
-<script setup lang="ts">
+<script lang="ts">
+export default {
+  onLaunch() {
+    console.info("esports-companion mini program launched")
+  }
+}
 </script>
 
 <style>
