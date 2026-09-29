@@ -104,3 +104,46 @@ def test_logout_with_stale_rotated_refresh_revokes_current_session():
         )
         assert me.status_code == 401
         assert me.json()["detail"] == "ACCESS_SESSION_REVOKED"
+
+
+def test_session_management_lists_active_sessions_and_logout_all():
+    with TestClient(app) as client:
+        first = client.post(
+            "/api/v1/auth/wechat/login",
+            json={"code": "demo-player-2"},
+        )
+        second = client.post(
+            "/api/v1/auth/wechat/login",
+            json={"code": "demo-player-2"},
+        )
+        assert first.status_code == 200
+        assert second.status_code == 200
+        first_tokens = first.json()
+        second_tokens = second.json()
+
+        sessions = client.get(
+            "/api/v1/auth/sessions",
+            headers={"Authorization": f"Bearer {second_tokens['accessToken']}"},
+        )
+        assert sessions.status_code == 200
+        rows = sessions.json()
+        assert len(rows) >= 2
+        assert sum(1 for row in rows if row["current"]) == 1
+        assert all(row["provider"] == "MOCK" for row in rows)
+        assert all(row["sessionId"] for row in rows)
+        assert all(row["createdAt"] for row in rows)
+        assert all(row["expiresAt"] for row in rows)
+
+        logout_all = client.post(
+            "/api/v1/auth/logout-all",
+            headers={"Authorization": f"Bearer {second_tokens['accessToken']}"},
+        )
+        assert logout_all.status_code == 204
+
+        for token in (first_tokens["accessToken"], second_tokens["accessToken"]):
+            me = client.get(
+                "/api/v1/auth/me",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            assert me.status_code == 401
+            assert me.json()["detail"] == "ACCESS_SESSION_REVOKED"
