@@ -30,6 +30,7 @@ def _age_seconds(now: datetime, value: datetime | None) -> int:
 
 def _category(
     *,
+    now: datetime,
     kind: str,
     label: str,
     rows: list,
@@ -37,7 +38,7 @@ def _category(
     sla_seconds: int,
     severity: str,
 ) -> dict:
-    ages = [_age_seconds(datetime.now(timezone.utc), timestamp(row)) for row in rows]
+    ages = [_age_seconds(now, timestamp(row)) for row in rows]
     return {
         "kind": kind,
         "label": label,
@@ -104,6 +105,7 @@ def build_operations_queue(
 
     categories = [
         _category(
+            now=effective_now,
             kind="OUTBOX",
             label="Outbox 堆积",
             rows=outbox,
@@ -112,6 +114,7 @@ def build_operations_queue(
             severity="critical",
         ),
         _category(
+            now=effective_now,
             kind="REFUND",
             label="退款处理中",
             rows=refunds,
@@ -120,6 +123,7 @@ def build_operations_queue(
             severity="critical",
         ),
         _category(
+            now=effective_now,
             kind="WITHDRAWAL",
             label="提现待处理",
             rows=withdrawals,
@@ -128,6 +132,7 @@ def build_operations_queue(
             severity="warning",
         ),
         _category(
+            now=effective_now,
             kind="DISPUTE",
             label="争议待处理",
             rows=disputes,
@@ -136,6 +141,7 @@ def build_operations_queue(
             severity="warning",
         ),
         _category(
+            now=effective_now,
             kind="FINISH_REQUESTED",
             label="完成确认超时",
             rows=finish_orders,
