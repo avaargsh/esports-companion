@@ -349,6 +349,13 @@ def test_provider_refund_id_cannot_complete_two_refunds():
             provider_refund_id="manual:shared-refund-proof",
             admin_user_id=platform_id,
         )
+        with pytest.raises(ValueError, match="REFUND_PROVIDER_ID_MISMATCH"):
+            DisputeService.complete_refund(
+                db,
+                refund_id=first_refund.id,
+                provider_refund_id="manual:different-proof",
+                admin_user_id=platform_id,
+            )
 
         with pytest.raises(ValueError, match="REFUND_PROVIDER_ID_REUSED"):
             DisputeService.complete_refund(
