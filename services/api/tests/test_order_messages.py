@@ -449,4 +449,4 @@ def test_concurrent_message_send_replays_single_message():
                 OutboxEvent.aggregate_id == str(order_uuid),
                 OutboxEvent.event_type == "ORDER_MESSAGE_CREATED",
             )
-        ) >= 1
+        ) == 1
