@@ -21,7 +21,8 @@ signals.
 - transactional outbox oldest pending event > 60 seconds;
 - in-flight refund oldest age > 15 minutes;
 - pending withdrawal oldest age > 1 hour;
-- unresolved dispute oldest age > 24 hours.
+- unresolved dispute oldest age > 24 hours;
+- finish-request backlog contains items older than the configured auto-confirm timeout plus scan grace.
 
 Thresholds are reference defaults. They should be tuned from observed
 production traffic and the actual service/support SLA.
