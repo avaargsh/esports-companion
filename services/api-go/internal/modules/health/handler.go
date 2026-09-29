@@ -15,7 +15,7 @@ type Checker struct {
 }
 
 func (c Checker) Live(w http.ResponseWriter, _ *http.Request) {
-	httpx.JSONValue(w, http.StatusOK, map[string]string{"status": "ok"})
+	httpx.JSON(w, http.StatusOK, `{"status":"ok"}`)
 }
 
 func (c Checker) Ready(w http.ResponseWriter, r *http.Request) {
@@ -23,20 +23,14 @@ func (c Checker) Ready(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	if err := c.Postgres(ctx); err != nil {
-		httpx.JSONValue(w, http.StatusServiceUnavailable, map[string]string{
-			"status":     "not_ready",
-			"dependency": "postgres",
-		})
+		httpx.JSON(w, http.StatusServiceUnavailable, `{"status":"not_ready","dependency":"postgres"}`)
 		return
 	}
 	if c.RequireRedis {
 		if err := c.Redis(ctx); err != nil {
-			httpx.JSONValue(w, http.StatusServiceUnavailable, map[string]string{
-				"status":     "not_ready",
-				"dependency": "redis",
-			})
+			httpx.JSON(w, http.StatusServiceUnavailable, `{"status":"not_ready","dependency":"redis"}`)
 			return
 		}
 	}
-	httpx.JSONValue(w, http.StatusOK, map[string]string{"status": "ready"})
+	httpx.JSON(w, http.StatusOK, `{"status":"ready"}`)
 }
