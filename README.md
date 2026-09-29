@@ -31,6 +31,20 @@ Customer
 - **Production reference** — fail-fast config, file-backed secrets, health probes, structured logs, hardened non-root container/Compose
 - **Prometheus + OpenTelemetry** — low-cardinality HTTP/domain metrics and optional OTLP trace export
 
+## Product surface
+
+The default UI is intentionally small:
+
+```text
+Customer: Home / Orders / Profile
+Player:   Claim / Fulfill / Earnings
+Admin:    Overview / Orders / Players / Finance / Configuration
+```
+
+Advanced transaction machinery remains in the backend but is nested under these
+product domains instead of becoming extra navigation. See
+[Product Simplification](docs/product-simplification.md).
+
 ## Core invariants
 
 - order state changes only through domain services/state machine;

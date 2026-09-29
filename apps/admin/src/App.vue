@@ -10,9 +10,9 @@ import {
 import AdminSessionPanel from "./components/AdminSessionPanel.vue"
 import AftercarePanel from "./components/AftercarePanel.vue"
 import CatalogPanel from "./components/CatalogPanel.vue"
-import WithdrawalsPanel from "./components/WithdrawalsPanel.vue"
-import OrderEvidencePanel from "./components/OrderEvidencePanel.vue"
 import OperationsQueuePanel from "./components/OperationsQueuePanel.vue"
+import OrderEvidencePanel from "./components/OrderEvidencePanel.vue"
+import WithdrawalsPanel from "./components/WithdrawalsPanel.vue"
 
 type Player = {
   id: string
@@ -58,9 +58,16 @@ type Settlement = {
   status: string
 }
 
-type Tab = "operations" | "dashboard" | "players" | "skills" | "catalog" | "orders" | "aftercare" | "withdrawals" | "settlements"
+type Tab = "dashboard" | "orders" | "players" | "finance" | "config"
+type OrderView = "orders" | "aftercare"
+type PlayerView = "players" | "skills"
+type FinanceView = "withdrawals" | "settlements"
 
-const tab = ref<Tab>("operations")
+const tab = ref<Tab>("dashboard")
+const orderView = ref<OrderView>("orders")
+const playerView = ref<PlayerView>("players")
+const financeView = ref<FinanceView>("withdrawals")
+
 const authMode = getAdminAuthMode()
 const authReady = ref(isAdminSessionReady())
 const loading = ref(authReady.value)
@@ -72,15 +79,11 @@ const skills = ref<PlayerSkillReview[]>([])
 const evidenceOrderId = ref("")
 
 const nav = [
-  { key: "operations" as const, label: "运营待办", icon: "!" },
   { key: "dashboard" as const, label: "概览", icon: "◫" },
-  { key: "players" as const, label: "陪玩审核", icon: "人" },
-  { key: "skills" as const, label: "技能认证", icon: "证" },
-  { key: "catalog" as const, label: "服务目录", icon: "目" },
-  { key: "orders" as const, label: "订单管理", icon: "单" },
-  { key: "aftercare" as const, label: "售后工作台", icon: "售" },
-  { key: "withdrawals" as const, label: "提现审核", icon: "提" },
-  { key: "settlements" as const, label: "结算中心", icon: "¥" }
+  { key: "orders" as const, label: "订单", icon: "单" },
+  { key: "players" as const, label: "陪玩", icon: "人" },
+  { key: "finance" as const, label: "资金", icon: "¥" },
+  { key: "config" as const, label: "配置", icon: "设" }
 ]
 
 const pendingPlayers = computed(() =>
@@ -198,187 +201,188 @@ onMounted(() => {
       <AdminSessionPanel v-if="!authReady" @ready="onAdminSessionReady" />
 
       <template v-else>
-      <div v-if="error" class="alert">{{ error }}</div>
-      <div v-if="loading" class="loading">正在同步 Marketplace 状态...</div>
+        <div v-if="error" class="alert">{{ error }}</div>
+        <div v-if="loading" class="loading">正在同步 Marketplace 状态...</div>
 
-      <OperationsQueuePanel v-else-if="tab === 'operations'" />
+        <template v-else-if="tab === 'dashboard'">
+          <section class="metric-grid">
+            <article class="metric">
+              <span>订单总数</span>
+              <strong>{{ orders.length }}</strong>
+              <small>当前数据集</small>
+            </article>
+            <article class="metric">
+              <span>GMV</span>
+              <strong>¥{{ (gmv / 100).toFixed(2) }}</strong>
+              <small>订单累计金额</small>
+            </article>
+            <article class="metric">
+              <span>待审核陪玩</span>
+              <strong>{{ pendingPlayers.length }}</strong>
+              <small>需要运营处理</small>
+            </article>
+            <article class="metric accent">
+              <span>平台服务费</span>
+              <strong>¥{{ (platformRevenue / 100).toFixed(2) }}</strong>
+              <small>已结算订单</small>
+            </article>
+          </section>
 
-      <template v-else-if="tab === 'dashboard'">
-        <section class="metric-grid">
-          <article class="metric">
-            <span>订单总数</span>
-            <strong>{{ orders.length }}</strong>
-            <small>当前 Demo 数据集</small>
-          </article>
-          <article class="metric">
-            <span>GMV</span>
-            <strong>¥{{ (gmv / 100).toFixed(2) }}</strong>
-            <small>订单累计金额</small>
-          </article>
-          <article class="metric">
-            <span>待审核陪玩</span>
-            <strong>{{ pendingPlayers.length }}</strong>
-            <small>需要运营处理</small>
-          </article>
-          <article class="metric accent">
-            <span>平台服务费</span>
-            <strong>¥{{ (platformRevenue / 100).toFixed(2) }}</strong>
-            <small>已结算订单</small>
-          </article>
-        </section>
+          <OperationsQueuePanel />
+        </template>
 
-        <section class="panel">
-          <div class="panel-head">
-            <div>
-              <h2>Marketplace 状态</h2>
-              <p>PostgreSQL durable state · Redis runtime acceleration</p>
+        <template v-else-if="tab === 'orders'">
+          <div class="subnav">
+            <button :class="{ active: orderView === 'orders' }" @click="orderView = 'orders'">订单列表</button>
+            <button :class="{ active: orderView === 'aftercare' }" @click="orderView = 'aftercare'">售后 / 退款</button>
+          </div>
+
+          <section v-if="orderView === 'orders'" class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>订单</h2>
+                <p>订单状态、聊天与审计事实统一从订单进入。</p>
+              </div>
+              <span class="count">{{ orders.length }} 单</span>
             </div>
-            <span class="healthy"><i></i> Demo Online</span>
-          </div>
-          <div class="flow">
-            <span>WAITING_PAYMENT</span>
-            <b>→</b>
-            <span>MATCHING</span>
-            <b>→</b>
-            <span>ACCEPTED</span>
-            <b>→</b>
-            <span>IN_SERVICE</span>
-            <b>→</b>
-            <span>SETTLED</span>
-          </div>
-        </section>
-      </template>
+            <div class="table orders">
+              <div class="tr th">
+                <span>订单号</span><span>状态</span><span>金额</span><span>版本</span><span>创建时间</span>
+              </div>
+              <div v-for="order in orders" :key="order.id" class="tr">
+                <span class="identity"><b>{{ order.orderNo }}</b><small>{{ order.id.slice(0, 8) }}</small></span>
+                <span><em class="badge purple">{{ order.status }}</em></span>
+                <span>¥{{ (order.totalAmount / 100).toFixed(2) }}</span>
+                <span>v{{ order.version }}</span>
+                <span class="order-actions">
+                  <small>{{ new Date(order.createdAt).toLocaleString() }}</small>
+                  <button class="evidence-button" @click="evidenceOrderId = order.id">查看详情</button>
+                </span>
+              </div>
+            </div>
+          </section>
 
-      <section v-else-if="tab === 'players'" class="panel">
-        <div class="panel-head">
-          <div>
-            <h2>陪玩认证审核</h2>
-            <p>申请通过后才能切换 AVAILABLE 并进入抢单市场。</p>
-          </div>
-          <span class="count">{{ players.length }} 人</span>
-        </div>
+          <AftercarePanel v-else />
+        </template>
 
-        <div class="table">
-          <div class="tr th">
-            <span>陪玩</span><span>审核状态</span><span>接单状态</span><span>评分</span><span>操作</span>
+        <template v-else-if="tab === 'players'">
+          <div class="subnav">
+            <button :class="{ active: playerView === 'players' }" @click="playerView = 'players'">陪玩审核</button>
+            <button :class="{ active: playerView === 'skills' }" @click="playerView = 'skills'">技能认证</button>
           </div>
-          <div v-for="player in players" :key="player.id" class="tr">
-            <span class="identity">
-              <b>{{ player.displayName }}</b>
-              <small>{{ player.id.slice(0, 8) }}</small>
-            </span>
-            <span><em class="badge">{{ player.verificationStatus }}</em></span>
-            <span>{{ player.serviceStatus }}</span>
-            <span>{{ player.rating.toFixed(2) }}</span>
-            <span class="actions">
-              <button
-                v-if="player.verificationStatus === 'PENDING'"
-                class="approve"
-                @click="reviewPlayer(player, 'approve')"
-              >通过</button>
-              <button
-                v-if="player.verificationStatus === 'PENDING'"
-                class="reject"
-                @click="reviewPlayer(player, 'reject')"
-              >拒绝</button>
-              <small v-else>已处理</small>
-            </span>
-          </div>
-        </div>
-      </section>
 
-      <section v-else-if="tab === 'skills'" class="panel">
-        <div class="panel-head">
-          <div>
-            <h2>技能认证审核</h2>
-            <p>段位或证明变化后会重新进入 PENDING，公开主页只展示 APPROVED 技能。</p>
-          </div>
-          <span class="count">{{ skills.filter(item => item.verificationStatus === "PENDING").length }} 待处理</span>
-        </div>
+          <section v-if="playerView === 'players'" class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>陪玩审核</h2>
+                <p>审核通过后才能进入接单市场。</p>
+              </div>
+              <span class="count">{{ players.length }} 人</span>
+            </div>
 
-        <div class="table">
-          <div class="tr th">
-            <span>陪玩 / 游戏</span><span>段位</span><span>证明</span><span>状态</span><span>操作</span>
-          </div>
-          <div v-for="skill in skills" :key="skill.id" class="tr">
-            <span class="identity">
-              <b>{{ skill.playerName }}</b>
-              <small>{{ skill.gameName }}</small>
-            </span>
-            <span>{{ skill.rank || "-" }}</span>
-            <span>
-              <a v-if="skill.evidenceUrl" :href="skill.evidenceUrl" target="_blank" rel="noreferrer">查看证明</a>
-              <small v-else>无</small>
-            </span>
-            <span><em class="badge">{{ skill.verificationStatus }}</em></span>
-            <span class="actions">
-              <button
-                v-if="skill.verificationStatus === 'PENDING'"
-                class="approve"
-                @click="reviewSkill(skill, 'approve')"
-              >通过</button>
-              <button
-                v-if="skill.verificationStatus === 'PENDING'"
-                class="reject"
-                @click="reviewSkill(skill, 'reject')"
-              >拒绝</button>
-              <small v-else>{{ skill.reviewNote || "已处理" }}</small>
-            </span>
-          </div>
-        </div>
-      </section>
+            <div class="table">
+              <div class="tr th">
+                <span>陪玩</span><span>审核状态</span><span>接单状态</span><span>评分</span><span>操作</span>
+              </div>
+              <div v-for="player in players" :key="player.id" class="tr">
+                <span class="identity">
+                  <b>{{ player.displayName }}</b>
+                  <small>{{ player.id.slice(0, 8) }}</small>
+                </span>
+                <span><em class="badge">{{ player.verificationStatus }}</em></span>
+                <span>{{ player.serviceStatus }}</span>
+                <span>{{ player.rating.toFixed(2) }}</span>
+                <span class="actions">
+                  <button
+                    v-if="player.verificationStatus === 'PENDING'"
+                    class="approve"
+                    @click="reviewPlayer(player, 'approve')"
+                  >通过</button>
+                  <button
+                    v-if="player.verificationStatus === 'PENDING'"
+                    class="reject"
+                    @click="reviewPlayer(player, 'reject')"
+                  >拒绝</button>
+                  <small v-else>已处理</small>
+                </span>
+              </div>
+            </div>
+          </section>
 
-      <CatalogPanel v-else-if="tab === 'catalog'" />
+          <section v-else class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>技能认证</h2>
+                <p>公开主页只展示已通过认证的游戏技能。</p>
+              </div>
+              <span class="count">{{ skills.filter(item => item.verificationStatus === "PENDING").length }} 待处理</span>
+            </div>
 
-      <section v-else-if="tab === 'orders'" class="panel">
-        <div class="panel-head">
-          <div>
-            <h2>订单查询</h2>
-            <p>订单事实状态直接读取 PostgreSQL。</p>
-          </div>
-          <span class="count">{{ orders.length }} 单</span>
-        </div>
-        <div class="table orders">
-          <div class="tr th">
-            <span>订单号</span><span>状态</span><span>金额</span><span>版本</span><span>创建时间</span>
-          </div>
-          <div v-for="order in orders" :key="order.id" class="tr">
-            <span class="identity"><b>{{ order.orderNo }}</b><small>{{ order.id.slice(0, 8) }}</small></span>
-            <span><em class="badge purple">{{ order.status }}</em></span>
-            <span>¥{{ (order.totalAmount / 100).toFixed(2) }}</span>
-            <span>v{{ order.version }}</span>
-            <span class="order-actions">
-              <small>{{ new Date(order.createdAt).toLocaleString() }}</small>
-              <button class="evidence-button" @click="evidenceOrderId = order.id">查看事实</button>
-            </span>
-          </div>
-        </div>
-      </section>
+            <div class="table">
+              <div class="tr th">
+                <span>陪玩 / 游戏</span><span>段位</span><span>证明</span><span>状态</span><span>操作</span>
+              </div>
+              <div v-for="skill in skills" :key="skill.id" class="tr">
+                <span class="identity">
+                  <b>{{ skill.playerName }}</b>
+                  <small>{{ skill.gameName }}</small>
+                </span>
+                <span>{{ skill.rank || "-" }}</span>
+                <span>
+                  <a v-if="skill.evidenceUrl" :href="skill.evidenceUrl" target="_blank" rel="noreferrer">查看证明</a>
+                  <small v-else>无</small>
+                </span>
+                <span><em class="badge">{{ skill.verificationStatus }}</em></span>
+                <span class="actions">
+                  <button
+                    v-if="skill.verificationStatus === 'PENDING'"
+                    class="approve"
+                    @click="reviewSkill(skill, 'approve')"
+                  >通过</button>
+                  <button
+                    v-if="skill.verificationStatus === 'PENDING'"
+                    class="reject"
+                    @click="reviewSkill(skill, 'reject')"
+                  >拒绝</button>
+                  <small v-else>{{ skill.reviewNote || "已处理" }}</small>
+                </span>
+              </div>
+            </div>
+          </section>
+        </template>
 
-      <AftercarePanel v-else-if="tab === 'aftercare'" />
-      <WithdrawalsPanel v-else-if="tab === 'withdrawals'" />
+        <template v-else-if="tab === 'finance'">
+          <div class="subnav">
+            <button :class="{ active: financeView === 'withdrawals' }" @click="financeView = 'withdrawals'">提现</button>
+            <button :class="{ active: financeView === 'settlements' }" @click="financeView = 'settlements'">结算</button>
+          </div>
 
-      <section v-else-if="tab === 'settlements'" class="panel">
-        <div class="panel-head">
-          <div>
-            <h2>结算查看</h2>
-            <p>Settlement 与 Ledger 是资金链的审计入口。</p>
-          </div>
-          <span class="count">{{ settlements.length }} 笔</span>
-        </div>
-        <div class="table settlements">
-          <div class="tr th">
-            <span>结算 ID</span><span>状态</span><span>订单金额</span><span>陪玩收入</span><span>平台服务费</span>
-          </div>
-          <div v-for="item in settlements" :key="item.id" class="tr">
-            <span class="identity"><b>{{ item.id.slice(0, 12) }}</b><small>{{ item.orderId.slice(0, 8) }}</small></span>
-            <span><em class="badge green">{{ item.status }}</em></span>
-            <span>¥{{ (item.grossAmount / 100).toFixed(2) }}</span>
-            <span>¥{{ (item.playerAmount / 100).toFixed(2) }}</span>
-            <span>¥{{ (item.platformFee / 100).toFixed(2) }}</span>
-          </div>
-        </div>
-      </section>
+          <WithdrawalsPanel v-if="financeView === 'withdrawals'" />
+
+          <section v-else class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>结算</h2>
+                <p>Settlement 与 Ledger 保留为资金审计事实，不再作为独立产品入口。</p>
+              </div>
+              <span class="count">{{ settlements.length }} 笔</span>
+            </div>
+            <div class="table settlements">
+              <div class="tr th">
+                <span>结算 ID</span><span>状态</span><span>订单金额</span><span>陪玩收入</span><span>平台服务费</span>
+              </div>
+              <div v-for="item in settlements" :key="item.id" class="tr">
+                <span class="identity"><b>{{ item.id.slice(0, 12) }}</b><small>{{ item.orderId.slice(0, 8) }}</small></span>
+                <span><em class="badge green">{{ item.status }}</em></span>
+                <span>¥{{ (item.grossAmount / 100).toFixed(2) }}</span>
+                <span>¥{{ (item.playerAmount / 100).toFixed(2) }}</span>
+                <span>¥{{ (item.platformFee / 100).toFixed(2) }}</span>
+              </div>
+            </div>
+          </section>
+        </template>
+
+        <CatalogPanel v-else-if="tab === 'config'" />
       </template>
     </main>
 
@@ -392,7 +396,7 @@ onMounted(() => {
 
 <style>
 :root {
-  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
   color: #17171f;
   background: #f6f6fa;
   font-synthesis: none;
@@ -401,7 +405,7 @@ onMounted(() => {
 body { margin: 0; min-width: 1100px; }
 button { font: inherit; }
 a { color: #6c5ce7; text-decoration: none; }
-.shell { min-height: 100vh; display: grid; grid-template-columns: 250px minmax(0, 1fr); }
+.shell { min-height: 100vh; display: grid; grid-template-columns: 226px minmax(0, 1fr); }
 .sidebar { position: sticky; top: 0; height: 100vh; padding: 28px 20px; background: #17171f; color: white; display: flex; flex-direction: column; }
 .brand { display: flex; align-items: center; gap: 12px; padding: 4px 8px 32px; }
 .brand-mark { width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; background: linear-gradient(135deg, #6c5ce7, #8b7cf6); font-weight: 900; }
@@ -421,21 +425,21 @@ header { display: flex; justify-content: space-between; align-items: flex-end; m
 .eyebrow { margin: 0 0 8px; color: #6c5ce7; font-size: 11px; font-weight: 800; letter-spacing: 2px; }
 h1 { margin: 0; font-size: 34px; letter-spacing: -1px; }
 .refresh { border: 1px solid #e4e3eb; padding: 10px 16px; border-radius: 12px; background: white; color: #585864; cursor: pointer; }
+.subnav { display:flex; gap:8px; margin-bottom:20px; padding:5px; width:max-content; border:1px solid #e8e7ee; border-radius:13px; background:#fff; }
+.subnav button { border:0; padding:9px 14px; border-radius:9px; background:transparent; color:#82828d; cursor:pointer; font-size:12px; }
+.subnav button.active { background:#17171f; color:#fff; }
 .metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; }
-.metric { min-height: 155px; padding: 24px; border: 1px solid #ecebf1; border-radius: 22px; background: white; box-shadow: 0 16px 45px rgba(30, 23, 70, .04); }
+.metric { min-height: 145px; padding: 24px; border: 1px solid #ecebf1; border-radius: 22px; background: white; box-shadow: 0 16px 45px rgba(30, 23, 70, .04); }
 .metric span, .metric small { display: block; color: #92929d; font-size: 12px; }
 .metric strong { display: block; margin: 18px 0 8px; font-size: 32px; }
 .metric.accent { color: white; border: 0; background: linear-gradient(135deg, #6c5ce7, #8b7cf6); }
 .metric.accent span, .metric.accent small { color: rgba(255,255,255,.75); }
 .panel { margin-top: 22px; padding: 26px; border: 1px solid #ecebf1; border-radius: 22px; background: white; box-shadow: 0 16px 45px rgba(30,23,70,.035); }
+.subnav + .panel { margin-top:0; }
 .panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
 .panel-head h2 { margin: 0; font-size: 18px; }
 .panel-head p { margin: 7px 0 0; color: #92929d; font-size: 12px; }
-.healthy, .count { padding: 8px 12px; border-radius: 999px; background: #f2f1f7; color: #686872; font-size: 11px; }
-.healthy i { display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: #22c55e; }
-.flow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 24px; border-radius: 16px; background: #f8f8fb; }
-.flow span { padding: 9px 12px; border-radius: 10px; background: white; color: #6c5ce7; font-size: 11px; font-weight: 800; }
-.flow b { color: #c0bfca; }
+.count { padding: 8px 12px; border-radius: 999px; background: #f2f1f7; color: #686872; font-size: 11px; }
 .table { width: 100%; overflow: hidden; }
 .tr { display: grid; grid-template-columns: 1.5fr 1fr 1fr .7fr 1.2fr; align-items: center; gap: 14px; min-height: 66px; padding: 12px 8px; border-top: 1px solid #f0eff4; font-size: 12px; }
 .tr.th { min-height: 42px; border: 0; color: #92929d; font-size: 10px; font-weight: 700; text-transform: uppercase; }

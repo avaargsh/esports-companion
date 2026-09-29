@@ -15,7 +15,7 @@ async function loadHome() {
   try {
     const [gameItems, playerItems] = await Promise.all([
       request<Game[]>("/games"),
-      request<PublicPlayer[]>("/players?limit=6")
+      request<PublicPlayer[]>("/players?limit=4")
     ])
     games.value = gameItems
     players.value = playerItems
@@ -42,29 +42,34 @@ function openDiscover() {
   uni.navigateTo({ url: "/pages/discover/index" })
 }
 
-function openPlayerWorkspace() {
-  uni.navigateTo({ url: "/pages-player/workbench/index" })
+function quickOrder() {
+  if (!games.value.length) {
+    uni.showToast({ title: "暂无可用服务", icon: "none" })
+    return
+  }
+  uni.pageScrollTo({ selector: "#game-list", duration: 250 })
 }
 </script>
 
 <template>
   <view class="page">
     <view class="hero">
-      <view>
-        <text class="eyebrow">ESPORTS COMPANION</text>
-        <view class="title">今晚一起上分</view>
-        <view class="subtitle">选游戏 · 选服务 · 即时匹配</view>
-      </view>
+      <text class="eyebrow">ESPORTS COMPANION</text>
+      <view class="title">找陪玩，直接下单</view>
+      <view class="subtitle">按服务快速匹配，或指定喜欢的大神。</view>
+
       <view class="hero-actions">
-        <button class="discover-button" @click="openDiscover">发现大神</button>
-        <button class="workspace-button" @click="openPlayerWorkspace">我是陪玩</button>
+        <button class="primary-action" @click="quickOrder">一键安排</button>
+        <button class="secondary-action" @click="openDiscover">找大神</button>
       </view>
     </view>
 
-    <view class="section">
+    <view id="game-list" class="section">
       <view class="section-head">
-        <text class="section-title">热门游戏</text>
-        <text class="section-link">按游戏下单</text>
+        <view>
+          <text class="section-title">选游戏下单</text>
+          <text class="section-desc">选择套餐后进入平台匹配</text>
+        </view>
       </view>
 
       <view v-if="loading" class="empty-card">正在加载服务…</view>
@@ -78,16 +83,20 @@ function openPlayerWorkspace() {
     </view>
 
     <view class="trust-strip">
-      <view><text class="dot">1</text><text>平台订单</text></view>
-      <view><text class="dot">2</text><text>实时匹配</text></view>
-      <view><text class="dot">3</text><text>完成后结算</text></view>
+      <text>平台订单</text>
+      <text>完成后结算</text>
+      <text>有问题可售后</text>
     </view>
 
     <view class="section">
       <view class="section-head">
-        <text class="section-title">推荐大神</text>
-        <text class="section-link" @click="openDiscover">查看全部 ›</text>
+        <view>
+          <text class="section-title">想指定陪玩？</text>
+          <text class="section-desc">看技能、评分和价格再选择</text>
+        </view>
+        <text class="section-link" @click="openDiscover">找大神 ›</text>
       </view>
+
       <view v-if="!loading && players.length === 0" class="empty-card">暂无可接单大神</view>
       <view
         v-for="player in players"
@@ -104,7 +113,7 @@ function openPlayerWorkspace() {
           </view>
           <text class="provider-desc">
             {{ player.rating > 0 ? player.rating.toFixed(1) + "分" : "新大神" }}
-            · {{ player.review_count }} 条评价
+            · {{ player.order_count }} 单
             · {{ player.offerings[0]?.game_name }}
           </text>
           <text v-if="player.offerings[0]" class="provider-price">
@@ -118,26 +127,26 @@ function openPlayerWorkspace() {
 
 <style scoped>
 .page { padding: 28rpx; }
-.hero { min-height: 300rpx; padding: 42rpx; border-radius: 36rpx; background: linear-gradient(135deg,#6252df,#8877f4); color: #fff; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 24rpx 70rpx rgba(108,92,231,.22); }
+.hero { min-height: 300rpx; padding: 42rpx; border-radius: 36rpx; background: linear-gradient(135deg,#6252df,#8877f4); color: #fff; box-shadow: 0 24rpx 70rpx rgba(108,92,231,.22); }
 .eyebrow { font-size: 20rpx; opacity: .72; letter-spacing: 3rpx; }
-.title { margin-top: 18rpx; font-size: 48rpx; font-weight: 800; }
-.subtitle { margin-top: 12rpx; font-size: 25rpx; opacity: .9; }
-.hero-actions { display:flex; gap:14rpx; margin-top:34rpx; }
-.hero-actions button { margin:0; height:70rpx; line-height:70rpx; border-radius:23rpx; font-size:23rpx; }
-.discover-button { width:210rpx; background:#fff; color:#5f50d7; font-weight:750; }
-.workspace-button { width:190rpx; background:rgba(255,255,255,.17); color:#fff; }
+.title { margin-top: 18rpx; font-size: 46rpx; font-weight: 800; }
+.subtitle { margin-top: 12rpx; font-size: 24rpx; opacity: .9; }
+.hero-actions { display:flex; gap:14rpx; margin-top:42rpx; }
+.hero-actions button { flex:1; margin:0; height:76rpx; line-height:76rpx; border-radius:24rpx; font-size:24rpx; font-weight:750; }
+.primary-action { background:#fff; color:#5f50d7; }
+.secondary-action { background:rgba(255,255,255,.17); color:#fff; }
 .section { margin-top: 40rpx; }
-.section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 22rpx; }
-.section-title { font-size: 32rpx; font-weight: 700; }
-.section-link { color: #92929d; font-size: 21rpx; }
+.section-head { display:flex; justify-content:space-between; align-items:flex-end; gap:20rpx; margin-bottom:22rpx; }
+.section-title,.section-desc { display:block; }
+.section-title { font-size: 31rpx; font-weight: 750; }
+.section-desc { margin-top:7rpx; color:#92929d; font-size:19rpx; }
+.section-link { color: #6c5ce7; font-size: 21rpx; font-weight:700; }
 .game-grid { display: flex; flex-wrap: wrap; gap: 18rpx; }
 .game-card { width: calc(25% - 14rpx); padding: 24rpx 8rpx; border-radius: 28rpx; background: #fff; text-align: center; box-shadow: 0 10rpx 32rpx rgba(25,20,60,.04); box-sizing: border-box; }
 .game-icon { width: 76rpx; height: 76rpx; margin: 0 auto 14rpx; border-radius: 24rpx; display: flex; align-items: center; justify-content: center; background: #f0edff; color: #6c5ce7; font-size: 30rpx; font-weight: 800; }
 .game-name { font-size: 22rpx; }
 .empty-card { padding: 44rpx; border-radius: 28rpx; background: #fff; color: #92929d; text-align: center; }
-.trust-strip { margin-top: 28rpx; padding: 24rpx; display: flex; justify-content: space-between; border-radius: 28rpx; background: #fff; }
-.trust-strip view { display: flex; align-items: center; gap: 8rpx; color: #686872; font-size: 20rpx; }
-.dot { width: 34rpx; height: 34rpx; border-radius: 50%; background: #f0edff; color: #6c5ce7; display: inline-flex; align-items: center; justify-content: center; font-size: 18rpx; font-weight: 700; }
+.trust-strip { margin-top:28rpx; display:flex; justify-content:space-between; gap:10rpx; padding:22rpx 24rpx; border-radius:26rpx; background:#fff; color:#777783; font-size:19rpx; }
 .provider-card { display: flex; align-items: center; gap: 22rpx; padding: 28rpx; margin-bottom: 16rpx; border-radius: 32rpx; background: #fff; }
 .avatar-image { width: 96rpx; height: 96rpx; border-radius: 30rpx; }
 .avatar { width: 96rpx; height: 96rpx; border-radius: 30rpx; background: #17171f; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 36rpx; font-weight: 800; }

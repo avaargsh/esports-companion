@@ -1,83 +1,81 @@
-# WeChat Mini Program Frontend Design v0.1
+# WeChat Mini Program Frontend Design v0.5
 
 ## Product shell
 
 One Mini Program, two workspaces:
 
-- **Customer main package**: bright marketplace UI for discovery, order, payment, realtime status and review.
-- **Player subpackage**: dark operational UI for order pool, fulfillment and earnings.
+- **Customer**: Home / Orders / Profile.
+- **Player**: a secondary operational workspace entered from Profile.
 
-The two roles share identity and deployment, but not the same information hierarchy.
+The two roles share identity and deployment, but do not compete for the same
+top-level navigation.
+
+## Customer home
+
+Home exposes exactly two primary intents:
+
+```text
+One-click Arrangement
+  -> choose game/service
+  -> marketplace matching
+
+Find Player
+  -> browse verified available players
+  -> choose service
+  -> designated order
+```
+
+The old "I am a player" home action is removed from the customer acquisition
+surface and moved to Profile.
 
 ## Customer journey
 
-`Home -> Game/SKU -> Create -> Pay -> MATCHING -> ACCEPTED -> IN_SERVICE -> FINISH_REQUESTED -> SETTLED -> Review`
+```text
+Home
+ -> Game/Service OR Player/Service
+ -> Create
+ -> Pay
+ -> Order Detail
+ -> Service
+ -> Confirm or Aftercare
+ -> Settled / Refunded
+ -> Review
+```
 
-Primary tabs remain **Home / Orders / Profile**.
+Aftercare, refund, chat/evidence and completion remain order-detail concerns.
+They do not become independent customer navigation.
 
-Customer UI intentionally does not expose `player_amount` or `platform_fee`. Those values belong to settlement and player operations, not the customer decision surface.
+## Find Player
+
+Filtering is intentionally limited to **game** in the default UI. Rank and other
+attributes can still be shown as trust signals, but they do not create a second
+filter hierarchy in v0.5.
 
 ## Player journey
 
-`Profile/Home -> Workbench -> Order Pool -> Claim -> Service Orders -> Start -> Finish -> Wait for Customer -> Wallet`
+```text
+Profile -> Player Workbench
+        -> Claim
+        -> Service Orders
+        -> Earnings / Withdrawal
+        -> My Services (collapsed configuration)
+```
 
-Player pages prioritize:
-
-1. availability / service status
-2. available and frozen earnings
-3. pending fulfillment
-4. claim and lifecycle actions
-
-Marketing modules stay out of the operational workspace.
+The workbench defaults to operational information. Offering and skill
+configuration are hidden behind "My Services" until requested.
 
 ## State contract
 
-The frontend does not invent a second order state machine. All labels and progress derive from backend states:
+The frontend does not invent a second order state machine. All status labels and
+actions derive from backend order state and permissions.
 
-`WAITING_PAYMENT -> PAID -> MATCHING -> ACCEPTED -> IN_SERVICE -> FINISH_REQUESTED -> COMPLETED -> SETTLED`
+WebSocket events remain invalidation signals; the client reloads canonical
+order state from the API.
 
-Exceptional states:
+## Design rule
 
-`CANCELLED / REFUNDING / REFUNDED / DISPUTED`
+**Keep correctness, remove cognitive load.**
 
-WebSocket `order.status_changed` is only an invalidation signal. The client reloads canonical order state from the API instead of treating event payloads as the source of truth.
-
-## Visual direction
-
-### Customer
-
-- neutral #F6F7FB background
-- white transaction cards
-- purple primary action
-- green only for success / online semantics
-- human-readable Chinese order states and visible lifecycle progress
-- restrained gaming identity instead of cyberpunk decoration
-
-### Player
-
-- dark workbench
-- earnings and fulfillment state above decorative content
-- purple is reserved for executable primary actions
-
-## v0.1 acceptance
-
-The existing Golden Slice should remain buildable and complete:
-
-1. Customer selects game and SKU.
-2. Customer creates and mock-pays an order.
-3. Order enters MATCHING and appears in Player order pool.
-4. Player claims and starts service.
-5. Player requests finish.
-6. Customer sees realtime status and confirms completion.
-7. Settlement updates Player wallet.
-8. Customer gives a 1–5 star review with optional text.
-
-## Next slice
-
-- real WeChat login / account binding
-- WebSocket auth, reconnect and heartbeat
-- player profile / rating / recommendation APIs
-- wallet ledger page
-- refund / dispute / customer-service UI
-- skeleton, retry and accessibility polish
-- real payment adapter
+Backend concepts such as Settlement, Ledger, Dispute, Refund, Outbox and
+Evidence remain durable infrastructure. They should only surface when the user
+needs an action or explanation.

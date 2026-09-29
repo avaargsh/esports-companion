@@ -32,54 +32,50 @@ function openOrders() {
       <view class="avatar">{{ nickname.slice(0, 1).toUpperCase() }}</view>
       <view>
         <view class="name">{{ nickname }}</view>
-        <view class="hint">开发环境模拟微信身份</view>
+        <view class="hint">账户与订单都绑定当前微信身份</view>
       </view>
-    </view>
-
-    <view class="role-card" @click="openPlayerWorkspace">
-      <view>
-        <text class="role-label">陪玩工作台</text>
-        <text class="role-desc">
-          {{ playerName ? playerName + " · 查看接单与收益" : "未找到 Demo Player，请先运行 seed" }}
-        </text>
-      </view>
-      <text class="arrow light">›</text>
     </view>
 
     <view class="menu">
       <view class="menu-item" @click="openOrders">
         <view>
           <text class="menu-title">我的订单</text>
-          <text class="menu-desc">查看匹配、服务与结算状态</text>
+          <text class="menu-desc">匹配、服务、完成与售后都从订单进入</text>
         </view>
         <text class="arrow">›</text>
       </view>
-      <view class="menu-item">
-        <view>
-          <text class="menu-title">客服与争议</text>
-          <text class="menu-desc">后续接退款 / DISPUTED 流程</text>
-        </view>
-        <text class="soon">待接入</text>
+    </view>
+
+    <view class="role-card" @click="openPlayerWorkspace">
+      <view>
+        <text class="role-label">我是陪玩</text>
+        <text class="role-desc">
+          {{ playerName ? playerName + " · 接单、服务与收益" : "进入陪玩工作台" }}
+        </text>
       </view>
+      <text class="arrow light">›</text>
+    </view>
+
+    <view class="tip">
+      售后、退款和联系服务者都放在对应订单详情中，不额外增加独立入口。
     </view>
   </view>
 </template>
 
 <style scoped>
 .page { padding: 28rpx; }
-.profile-card { display: flex; gap: 22rpx; align-items: center; padding: 34rpx; background: #fff; border-radius: 32rpx; }
-.avatar { width: 104rpx; height: 104rpx; border-radius: 32rpx; background: #6c5ce7; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 38rpx; font-weight: 800; }
-.name { font-size: 32rpx; font-weight: 700; }
-.hint { margin-top: 8rpx; color: #92929d; font-size: 22rpx; }
-.role-card { margin-top: 24rpx; padding: 30rpx; border-radius: 30rpx; background: #17171f; color: #fff; display: flex; align-items: center; justify-content: space-between; }
-.role-label { display: block; font-size: 29rpx; font-weight: 700; }
-.role-desc { display: block; margin-top: 10rpx; color: #aaaab4; font-size: 21rpx; }
-.menu { margin-top: 24rpx; overflow: hidden; border-radius: 28rpx; background: #fff; }
-.menu-item { display: flex; align-items: center; justify-content: space-between; padding: 30rpx; border-bottom: 1rpx solid #f0f0f4; }
-.menu-item:last-child { border-bottom: 0; }
-.menu-title { display: block; font-size: 27rpx; font-weight: 600; }
-.menu-desc { display: block; margin-top: 8rpx; color: #92929d; font-size: 20rpx; }
-.arrow { color: #b3b3bc; font-size: 38rpx; }
-.arrow.light { color: #777784; }
-.soon { color: #aaaab4; font-size: 20rpx; }
+.profile-card { display:flex; gap:22rpx; align-items:center; padding:34rpx; background:#fff; border-radius:32rpx; }
+.avatar { width:104rpx; height:104rpx; border-radius:32rpx; background:#6c5ce7; color:#fff; display:flex; align-items:center; justify-content:center; font-size:38rpx; font-weight:800; }
+.name { font-size:32rpx; font-weight:700; }
+.hint { margin-top:8rpx; color:#92929d; font-size:22rpx; }
+.menu { margin-top:24rpx; overflow:hidden; border-radius:28rpx; background:#fff; }
+.menu-item { display:flex; align-items:center; justify-content:space-between; padding:30rpx; }
+.menu-title { display:block; font-size:27rpx; font-weight:650; }
+.menu-desc { display:block; margin-top:8rpx; color:#92929d; font-size:20rpx; }
+.role-card { margin-top:24rpx; padding:30rpx; border-radius:30rpx; background:#17171f; color:#fff; display:flex; align-items:center; justify-content:space-between; }
+.role-label { display:block; font-size:27rpx; font-weight:700; }
+.role-desc { display:block; margin-top:9rpx; color:#aaaab4; font-size:20rpx; }
+.arrow { color:#b3b3bc; font-size:38rpx; }
+.arrow.light { color:#777784; }
+.tip { margin-top:22rpx; padding:24rpx 26rpx; border-radius:24rpx; background:#f0edff; color:#6f65ad; font-size:20rpx; line-height:1.6; }
 </style>

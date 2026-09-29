@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue"
+import { ref } from "vue"
 import { onLoad } from "@dcloudio/uni-app"
 
 import { request } from "../../api/client"
@@ -8,34 +8,8 @@ import type { Game, PublicPlayer } from "../../types/domain"
 const games = ref<Game[]>([])
 const players = ref<PublicPlayer[]>([])
 const selectedGameId = ref("")
-const selectedRank = ref("")
 const loading = ref(true)
 const failed = ref(false)
-
-const visiblePlayers = computed(() => {
-  let list = players.value
-  if (selectedRank.value) {
-    list = list.filter(player =>
-      player.skills.some(skill =>
-        skill.rank === selectedRank.value &&
-        (!selectedGameId.value || skill.game_id === selectedGameId.value)
-      )
-    )
-  }
-  return list
-})
-
-const ranks = computed(() => {
-  const values = new Set<string>()
-  for (const player of players.value) {
-    for (const skill of player.skills) {
-      if (!selectedGameId.value || skill.game_id === selectedGameId.value) {
-        values.add(skill.rank)
-      }
-    }
-  }
-  return [...values].sort((a,b)=>a.localeCompare(b))
-})
 
 function lowestPrice(player: PublicPlayer) {
   const offerings = selectedGameId.value
@@ -47,7 +21,6 @@ function lowestPrice(player: PublicPlayer) {
 async function loadPlayers() {
   loading.value = true
   failed.value = false
-  selectedRank.value = ""
   try {
     const suffix = selectedGameId.value
       ? `?limit=30&game_id=${encodeURIComponent(selectedGameId.value)}`
@@ -86,14 +59,13 @@ onLoad(async query => {
 <template>
   <view class="page">
     <view class="hero">
-      <text class="eyebrow">VERIFIED PLAYERS</text>
-      <view class="title">发现大神</view>
-      <view class="subtitle">只展示已认证、当前可接单且拥有有效服务 Offering 的陪玩。</view>
+      <view class="title">找大神</view>
+      <view class="subtitle">按游戏浏览已认证且当前可接单的陪玩。</view>
     </view>
 
     <scroll-view scroll-x class="filters" :show-scrollbar="false">
       <view class="filter-row">
-        <text :class="{ active: !selectedGameId }" @click="selectGame('')">全部游戏</text>
+        <text :class="{ active: !selectedGameId }" @click="selectGame('')">全部</text>
         <text
           v-for="game in games"
           :key="game.id"
@@ -103,32 +75,17 @@ onLoad(async query => {
       </view>
     </scroll-view>
 
-    <scroll-view v-if="ranks.length" scroll-x class="rank-filters" :show-scrollbar="false">
-      <view class="filter-row rank-row">
-        <text :class="{ active: !selectedRank }" @click="selectedRank=''">全部段位</text>
-        <text
-          v-for="rank in ranks"
-          :key="rank"
-          :class="{ active: selectedRank === rank }"
-          @click="selectedRank=rank"
-        >{{ rank }}</text>
-      </view>
-    </scroll-view>
-
     <view class="section-head">
-      <view>
-        <view class="section-title">可指定大神</view>
-        <view class="section-desc">按评分排序 · 价格来自当前有效 Offering</view>
-      </view>
-      <text>{{ visiblePlayers.length }} 人</text>
+      <text class="section-title">可指定陪玩</text>
+      <text>{{ players.length }} 人</text>
     </view>
 
-    <view v-if="loading" class="empty">正在加载大神…</view>
+    <view v-if="loading" class="empty">正在加载…</view>
     <view v-else-if="failed" class="empty" @click="loadPlayers">加载失败，点此重试</view>
-    <view v-else-if="!visiblePlayers.length" class="empty">当前筛选条件下暂无可接单大神</view>
+    <view v-else-if="!players.length" class="empty">当前暂无可接单陪玩</view>
 
     <view
-      v-for="player in visiblePlayers"
+      v-for="player in players"
       :key="player.id"
       class="player-card"
       @click="openPlayer(player)"
@@ -148,13 +105,12 @@ onLoad(async query => {
         </view>
         <view class="stats">
           {{ player.rating > 0 ? player.rating.toFixed(1) + " ★" : "新大神" }}
-          · {{ player.review_count }} 评价
           · {{ player.order_count }} 单
         </view>
 
         <view class="skill-row">
           <text
-            v-for="skill in player.skills.slice(0,3)"
+            v-for="skill in player.skills.slice(0,2)"
             :key="skill.id"
             class="skill"
           >{{ skill.game_name }} {{ skill.rank }}</text>
@@ -165,7 +121,7 @@ onLoad(async query => {
             <text class="price">¥{{ (lowestPrice(player)/100).toFixed(2) }}</text>
             <text class="from"> 起</text>
           </view>
-          <text class="cta">查看并指定 ›</text>
+          <text class="cta">查看 ›</text>
         </view>
       </view>
     </view>
@@ -174,20 +130,16 @@ onLoad(async query => {
 
 <style scoped>
 .page { min-height:100vh; padding:28rpx; background:#f6f6fa; box-sizing:border-box; }
-.hero { padding:34rpx; border-radius:34rpx; background:linear-gradient(135deg,#17171f,#2c2940); color:#fff; }
-.eyebrow { color:#9186e3; font-size:17rpx; font-weight:800; letter-spacing:3rpx; }
-.title { margin-top:12rpx; font-size:42rpx; font-weight:850; }
-.subtitle { margin-top:10rpx; color:#aaaab4; font-size:21rpx; line-height:1.55; }
-.filters { margin-top:24rpx; width:100%; }
-.rank-filters { margin-top:12rpx; width:100%; }
+.hero { padding:32rpx 4rpx 18rpx; }
+.title { font-size:40rpx; font-weight:850; }
+.subtitle { margin-top:9rpx; color:#92929d; font-size:21rpx; line-height:1.5; }
+.filters { margin-top:12rpx; width:100%; }
 .filter-row { display:flex; gap:10rpx; white-space:nowrap; }
-.filter-row text { flex:none; padding:13rpx 19rpx; border-radius:18rpx; background:#fff; color:#777783; font-size:20rpx; }
-.filter-row text.active { background:#6c5ce7; color:#fff; font-weight:700; }
-.rank-row text { padding:10rpx 16rpx; background:#ecebf2; font-size:18rpx; }
-.section-head { display:flex; justify-content:space-between; align-items:flex-end; gap:20rpx; margin:34rpx 2rpx 18rpx; }
-.section-title { font-size:30rpx; font-weight:800; }
-.section-desc { margin-top:6rpx; color:#92929d; font-size:18rpx; }
-.section-head>text { color:#92929d; font-size:19rpx; }
+.filter-row text { flex:none; padding:12rpx 18rpx; border-radius:18rpx; background:#fff; color:#777783; font-size:20rpx; }
+.filter-row text.active { background:#17171f; color:#fff; font-weight:700; }
+.section-head { display:flex; justify-content:space-between; align-items:center; margin:32rpx 2rpx 18rpx; }
+.section-title { font-size:29rpx; font-weight:800; }
+.section-head>text:last-child { color:#92929d; font-size:19rpx; }
 .player-card { display:flex; gap:20rpx; margin-bottom:16rpx; padding:26rpx; border-radius:30rpx; background:#fff; box-shadow:0 12rpx 36rpx rgba(25,20,60,.04); }
 .avatar { width:102rpx; height:102rpx; flex:none; border-radius:30rpx; }
 .avatar.fallback { display:flex; align-items:center; justify-content:center; background:#17171f; color:#fff; font-size:34rpx; font-weight:800; }
