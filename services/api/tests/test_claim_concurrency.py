@@ -1,16 +1,11 @@
 import asyncio
+import uuid
 from decimal import Decimal
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import func, select
 
 from app.db import SessionLocal
-from app.models import (
-    Game,
-    OrderAssignment,
-    PlayerProfile,
-    ServiceSKU,
-    User,
-)
+from app.models import Game, OrderAssignment, PlayerProfile, ServiceSKU, User
 from app.services.dispatch_service import DispatchService, OrderAlreadyClaimed
 from app.services.order_service import MockPaymentService, OrderService
 
@@ -30,10 +25,10 @@ def _claim(order_id, player_id, expected_version):
 
 
 def test_one_winner_under_100_concurrent_claims():
+    suffix = uuid.uuid4().hex
     with SessionLocal() as db:
-        db.execute(delete(OrderAssignment))
-        customer = User(nickname="claim-customer")
-        game = Game(code="claim-game", name="Claim Test")
+        customer = User(nickname=f"claim-customer-{suffix}")
+        game = Game(code=f"claim-{suffix}", name="Claim Test")
         db.add_all([customer, game])
         db.flush()
         sku = ServiceSKU(
@@ -48,7 +43,7 @@ def test_one_winner_under_100_concurrent_claims():
 
         player_ids = []
         for index in range(100):
-            user = User(nickname=f"player-{index}")
+            user = User(nickname=f"player-{suffix}-{index}")
             db.add(user)
             db.flush()
             player = PlayerProfile(
@@ -63,7 +58,7 @@ def test_one_winner_under_100_concurrent_claims():
         db.commit()
 
         order = OrderService.create_order(db, user_id=customer.id, sku_id=sku.id)
-        MockPaymentService.pay(db, order, "claim-payment")
+        MockPaymentService.pay(db, order, f"claim-payment-{suffix}")
         expected_version = order.version
         order_id = order.id
 

@@ -43,8 +43,8 @@ def apply(
         user_id=user_id,
         display_name=body.display_name,
         bio=body.bio,
-        verification_status="APPROVED",
-        service_status="AVAILABLE",
+        verification_status="PENDING",
+        service_status="OFFLINE",
     )
     db.add(player)
     db.commit()
@@ -66,15 +66,37 @@ def order_pool(
     limit: int = 20,
     db: Session = Depends(get_db),
 ):
-    ids = redis_client.zrange(f"order_pool:{game_id}", 0, max(0, min(limit, 100) - 1))
-    if not ids:
-        return []
-    parsed_ids = [uuid.UUID(value) for value in ids]
-    orders = db.scalars(
-        select(Order).where(Order.id.in_(parsed_ids), Order.status == "MATCHING")
-    ).all()
-    by_id = {str(order.id): order for order in orders}
-    return [by_id[value] for value in ids if value in by_id]
+    try:
+        ids = redis_client.zrange(
+            f"order_pool:{game_id}",
+            0,
+            max(0, min(limit, 100) - 1),
+        )
+    except Exception:
+        ids = []
+
+    if ids:
+        parsed_ids = [uuid.UUID(value) for value in ids]
+        orders = db.scalars(
+            select(Order).where(
+                Order.id.in_(parsed_ids),
+                Order.status == "MATCHING",
+            )
+        ).all()
+        by_id = {str(order.id): order for order in orders}
+        return [by_id[value] for value in ids if value in by_id]
+
+    return list(
+        db.scalars(
+            select(Order)
+            .where(
+                Order.game_id == game_id,
+                Order.status == "MATCHING",
+            )
+            .order_by(Order.created_at)
+            .limit(max(1, min(limit, 100)))
+        )
+    )
 
 
 @router.post("/orders/{order_id}/claim", response_model=OrderOut)
@@ -92,7 +114,10 @@ def claim(
             player_id=player.id,
             expected_version=body.expected_version,
         )
-        redis_client.zrem(f"order_pool:{order.game_id}", str(order.id))
+        try:
+            redis_client.zrem(f"order_pool:{order.game_id}", str(order.id))
+        except Exception:
+            pass
         return order
     except LookupError as exc:
         raise HTTPException(404, str(exc)) from exc
