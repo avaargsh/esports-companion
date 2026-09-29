@@ -181,3 +181,40 @@ class PublicPlayerOut(BaseModel):
     order_count: int
     offerings: list[PublicOfferingOut]
     reviews: list[PublicReviewOut] = Field(default_factory=list)
+
+
+class DisputeCreate(BaseModel):
+    reason_code: str = Field(min_length=2, max_length=64)
+    description: str = Field(default="", max_length=2000)
+
+
+class DisputeOut(BaseModel):
+    id: uuid.UUID
+    order_id: uuid.UUID
+    status: str
+    opened_by_user_id: uuid.UUID
+    opened_by_role: str
+    reason_code: str
+    description: str
+    held_amount: int
+    resolution: str | None
+    resolved_by_user_id: uuid.UUID | None
+    resolved_at: object | None
+    created_at: object
+    model_config = {"from_attributes": True}
+
+
+class RefundOut(BaseModel):
+    id: uuid.UUID
+    order_id: uuid.UUID
+    dispute_id: uuid.UUID
+    amount: int
+    status: str
+    provider: str
+    provider_refund_id: str | None
+    completed_at: object | None
+    model_config = {"from_attributes": True}
+
+
+class RefundComplete(BaseModel):
+    provider_refund_id: str = Field(min_length=1, max_length=128)

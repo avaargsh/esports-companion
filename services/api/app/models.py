@@ -273,3 +273,42 @@ class OutboxEvent(Base):
     status: Mapped[str] = mapped_column(String(32), default="PENDING", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class Dispute(Base, TimestampMixin):
+    __tablename__ = "disputes"
+    __table_args__ = (
+        UniqueConstraint("order_id", name="uq_dispute_order"),
+        UniqueConstraint("idempotency_key", name="uq_dispute_idempotency"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    order_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("orders.id"), index=True)
+    status: Mapped[str] = mapped_column(String(32), default="OPEN", index=True)
+    opened_by_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
+    opened_by_role: Mapped[str] = mapped_column(String(32))
+    reason_code: Mapped[str] = mapped_column(String(64))
+    description: Mapped[str] = mapped_column(Text, default="")
+    held_amount: Mapped[int] = mapped_column(Integer)
+    resolution: Mapped[str | None] = mapped_column(String(64))
+    resolved_by_user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    idempotency_key: Mapped[str] = mapped_column(String(128))
+
+
+class Refund(Base, TimestampMixin):
+    __tablename__ = "refunds"
+    __table_args__ = (
+        UniqueConstraint("order_id", name="uq_refund_order"),
+        UniqueConstraint("dispute_id", name="uq_refund_dispute"),
+        UniqueConstraint("idempotency_key", name="uq_refund_idempotency"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    order_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("orders.id"), index=True)
+    dispute_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("disputes.id"))
+    amount: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(32), default="PENDING", index=True)
+    provider: Mapped[str] = mapped_column(String(32), default="MANUAL")
+    provider_refund_id: Mapped[str | None] = mapped_column(String(128))
+    failure_reason: Mapped[str | None] = mapped_column(String(256))
+    idempotency_key: Mapped[str] = mapped_column(String(128))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

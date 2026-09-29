@@ -24,6 +24,7 @@ ALLOWED_TRANSITIONS = {
     OrderStatus.IN_SERVICE: {OrderStatus.FINISH_REQUESTED, OrderStatus.DISPUTED},
     OrderStatus.FINISH_REQUESTED: {OrderStatus.COMPLETED, OrderStatus.DISPUTED},
     OrderStatus.COMPLETED: {OrderStatus.SETTLED},
+    OrderStatus.DISPUTED: {OrderStatus.COMPLETED, OrderStatus.REFUNDING},
     OrderStatus.REFUNDING: {OrderStatus.REFUNDED},
 }
 
