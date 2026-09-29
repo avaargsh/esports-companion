@@ -5,7 +5,7 @@ from sqlalchemy import select
 
 from app.config import settings
 from app.db import SessionLocal
-from app.models import Game, PlayerProfile, ServiceSKU, User
+from app.models import Game, PlayerProfile, ProviderOffering, ServiceSKU, User
 
 router = APIRouter(prefix="/api/v1/dev", tags=["dev"])
 
@@ -68,15 +68,31 @@ def bootstrap():
         customer, admin, players = _demo_records(db)
         player_user, player = players[0]
 
+        skus = list(
+            db.scalars(
+                select(ServiceSKU)
+                .join(
+                    ProviderOffering,
+                    ProviderOffering.sku_id == ServiceSKU.id,
+                )
+                .where(
+                    ProviderOffering.player_id == player.id,
+                    ProviderOffering.status == "ACTIVE",
+                    ServiceSKU.status == "ACTIVE",
+                )
+                .order_by(ServiceSKU.created_at)
+            )
+        )
+        game_ids = {sku.game_id for sku in skus}
         games = list(
             db.scalars(
                 select(Game)
-                .where(Game.status == "ACTIVE")
-                .order_by(Game.sort_order)
+                .where(
+                    Game.id.in_(game_ids),
+                    Game.status == "ACTIVE",
+                )
+                .order_by(Game.sort_order, Game.created_at)
             )
-        )
-        skus = list(
-            db.scalars(select(ServiceSKU).where(ServiceSKU.status == "ACTIVE"))
         )
         skus_by_game: dict[uuid.UUID, list[ServiceSKU]] = {}
         for sku in skus:

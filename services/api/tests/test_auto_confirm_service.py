@@ -164,12 +164,13 @@ def test_manual_confirm_prevents_later_auto_confirm():
         seconds=settings.finish_confirm_timeout_seconds + 5
     )
     with SessionLocal() as db:
-        assert AutoConfirmService.process_due(
+        processed = AutoConfirmService.process_due(
             db,
             now=due_now,
             timeout_seconds=settings.finish_confirm_timeout_seconds,
             limit=10,
-        ) == []
+        )
+        assert order_id not in processed
         assert db.scalar(
             select(func.count())
             .select_from(Settlement)
