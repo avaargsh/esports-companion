@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 def _candidate_ids() -> list[uuid.UUID]:
     cutoff = datetime.now(timezone.utc) - timedelta(
-        seconds=settings.refund_reconcile_scan_seconds
+        seconds=settings.refund_reconcile_min_age_seconds
     )
     with SessionLocal() as db:
         return list(
@@ -41,8 +41,7 @@ def _reconcile_one(refund_id: uuid.UUID) -> None:
                 db,
                 refund_id=refund_id,
                 provider=get_refund_provider("wechat"),
-                actor_user_id=None,
-                min_age_seconds=settings.refund_reconcile_scan_seconds,
+                min_age_seconds=settings.refund_reconcile_min_age_seconds,
             )
         except Exception:
             db.rollback()
@@ -51,7 +50,10 @@ def _reconcile_one(refund_id: uuid.UUID) -> None:
 
 async def run_refund_reconcile_worker() -> None:
     while True:
-        if settings.refund_provider.strip().lower() == "wechat":
-            for refund_id in await asyncio.to_thread(_candidate_ids):
-                await asyncio.to_thread(_reconcile_one, refund_id)
+        try:
+            if settings.refund_provider.strip().lower() == "wechat":
+                for refund_id in await asyncio.to_thread(_candidate_ids):
+                    await asyncio.to_thread(_reconcile_one, refund_id)
+        except Exception:
+            logger.exception("refund reconciliation scan failed")
         await asyncio.sleep(max(1, settings.refund_reconcile_scan_seconds))
