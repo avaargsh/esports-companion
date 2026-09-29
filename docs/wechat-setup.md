@@ -1,6 +1,6 @@
 # WeChat Production Integration
 
-v0.1 intentionally runs with Mock Auth and Mock Payment so the marketplace domain can be evaluated without third-party credentials.
+Development defaults to Mock Auth/Payment so the marketplace can be evaluated without third-party credentials. Production adapters for WeChat login, JSAPI payment, verified callbacks, refunds, and refund reconciliation are implemented behind provider boundaries.
 
 ## Authentication
 
@@ -10,7 +10,7 @@ Development:
 Mini Program -> Demo Identity -> internal user_id
 ```
 
-Production target:
+Production path:
 
 ```text
 wx.login()
@@ -53,12 +53,13 @@ The client-side payment success callback must not be treated as durable payment 
 
 ## Required production configuration
 
-Recommended environment variables:
+Required production identifiers/providers (sensitive values should use the documented `*_FILE` secret mounts):
 
 ```text
 APP_ENV=production
 AUTH_PROVIDER=wechat
 PAYMENT_PROVIDER=wechat
+REFUND_PROVIDER=wechat
 
 WECHAT_APP_ID=...
 WECHAT_APP_SECRET=...
@@ -66,6 +67,8 @@ WECHAT_MCH_ID=...
 WECHAT_MCH_CERT_SERIAL=...
 WECHAT_MCH_PRIVATE_KEY=...
 WECHAT_PAY_API_V3_KEY=...
+WECHAT_NOTIFY_URL=https://api.example.com/api/v1/payments/wechat/callback
+WECHAT_REFUND_NOTIFY_URL=https://api.example.com/api/v1/refunds/wechat/callback
 ```
 
 Secrets must not be committed to the repository.

@@ -1,39 +1,57 @@
 # Quick Start
 
-This guide gets the complete v0.1 demo running without a WeChat AppID or payment merchant account.
+This guide starts the complete demo without a WeChat AppID or merchant account.
 
 ## Prerequisites
 
 - Docker + Docker Compose
-- Node.js 22
-- npm
+- Python 3
+- Node.js 22 + npm
 - WeChat DevTools for the Mini Program client
 
 ## 1. Start the backend
 
-From the repository root:
-
 ```bash
 cp .env.example .env
-docker compose up --build
+make up
 ```
 
-The API container automatically:
-
-1. waits for PostgreSQL and Redis;
-2. runs Alembic migrations;
-3. seeds demo users, approved players, games and SKUs;
-4. starts FastAPI.
+The development stack waits for PostgreSQL/Redis, runs Alembic migrations,
+seeds deterministic demo users/providers/catalog, and starts FastAPI with hot
+reload.
 
 Verify:
 
 ```text
-API       http://localhost:8000
-OpenAPI   http://localhost:8000/docs
-Health    http://localhost:8000/health
+API        http://localhost:8000
+OpenAPI    http://localhost:8000/docs
+Liveness   http://localhost:8000/livez
+Readiness  http://localhost:8000/readyz
 ```
 
-## 2. Run the Admin Console
+## 2. Prove the running Golden Slice
+
+```bash
+make smoke
+```
+
+This is not an in-process unit test. It calls the running API over HTTP:
+
+```text
+bootstrap
+ -> create order
+ -> mock payment
+ -> order pool
+ -> claim
+ -> start
+ -> finish
+ -> customer confirm
+ -> settlement
+ -> review
+ -> provider ledger verification
+```
+
+## 3. Run Admin
 
 ```bash
 cd apps/admin
@@ -43,9 +61,7 @@ npm run dev
 
 Open `http://localhost:5173`.
 
-The development console discovers the seeded demo administrator automatically.
-
-## 3. Run the WeChat Mini Program
+## 4. Run WeChat Mini Program
 
 ```bash
 cd apps/miniapp
@@ -53,72 +69,34 @@ npm install
 npm run dev:mp-weixin
 ```
 
-Import the generated `dist/dev/mp-weixin` directory into WeChat DevTools.
+Import `dist/dev/mp-weixin` into WeChat DevTools.
 
-For a backend running on another host:
+For another API host:
 
 ```bash
 VITE_API_ORIGIN=http://YOUR_HOST:8000 npm run dev:mp-weixin
 ```
 
-## 4. Walk the Golden Slice
-
-Customer workspace:
-
-```text
-Home
-  -> choose game
-  -> choose SKU
-  -> Create Order
-  -> Mock Pay
-  -> MATCHING
-```
-
-Player workspace:
-
-```text
-Workbench
-  -> Order Pool
-  -> Claim
-  -> ACCEPTED
-  -> Start
-  -> IN_SERVICE
-  -> Finish
-  -> FINISH_REQUESTED
-```
-
-Customer workspace again:
-
-```text
-Order Detail
-  -> Confirm
-  -> COMPLETED
-  -> automatic Settlement
-  -> SETTLED
-  -> Review
-```
-
-The player's wallet receives the provider share and the platform wallet receives the platform fee.
-
-## 5. Run acceptance tests
+## 5. Run all build/test checks
 
 ```bash
 make test
+make miniapp-build
+make admin-build
 ```
 
-The suite includes:
+The test suite includes state-machine invariants, idempotent payment/refund and
+settlement behavior, session rotation, timeout recovery, and 100-way concurrent
+claim correctness.
 
-- full HTTP Golden Slice;
-- 100 concurrent claim attempts with exactly one winner;
-- payment idempotency;
-- settlement idempotency;
-- state-machine invariants.
+## Demo-only boundaries
 
-## Demo-only endpoints
+These mechanisms are deliberately unavailable in production:
 
-The following exist only outside production:
+- `GET /api/v1/dev/*`;
+- legacy `X-User-Id` / `X-Admin-Id` identity headers;
+- `POST /orders/{id}/mock-pay`.
 
-- `GET /api/v1/dev/demo-identities`
-- `GET /api/v1/dev/bootstrap`
+Production uses WeChat auth + Bearer sessions + WeChat Pay provider facts.
 
-Do not build production authentication around these endpoints.
+For deployment, continue with [Production Compose](production-compose.md).

@@ -1,199 +1,191 @@
 # esports-companion
 
-**Open-source WeChat Mini Program starter for an on-demand esports companion marketplace.**
+**Open-source WeChat Mini Program starter for a transactional on-demand service marketplace, with esports companion as the reference domain.**
 
-It is intentionally built around a reusable marketplace core rather than a pile of companion-specific CRUD pages.
+The project focuses on the hard parts that survive beyond one vertical: order state, atomic claiming, provider assignment, payment/refund adapters, settlement/ledger, disputes, session/RBAC, realtime events and production boundaries.
 
 ```text
 Customer
-   |
-Create Order
-   |
-Mock / WeChat Payment
-   v
-MATCHING -> Order Pool -> Atomic Claim -> Assignment
-                              |
-                              v
-                         Service Lifecycle
-                              |
-                              v
-                         Settlement
-                         /        \
-                Provider Ledger  Platform Ledger
-                              |
-                              v
-                            Review
+  -> Order
+  -> WeChat / Mock Payment
+  -> MATCHING
+  -> Atomic Claim / Designated Provider
+  -> Service Lifecycle
+  -> Confirm / Auto Confirm / Dispute
+  -> Settlement or Refund
+  -> Ledger / Withdrawal
+  -> Review
 ```
 
-## What is included
+## Included
 
-- **WeChat Mini Program** — customer workspace + player workspace in one app
-- **FastAPI modular monolith** — Catalog, Player, Order, Dispatch, Wallet, Review, Realtime
-- **PostgreSQL** — durable source of truth
-- **Redis** — order pool, presence/cache/runtime acceleration only
-- **Web Admin** — player review, order operations, settlement view
-- **WebSocket + Outbox** — realtime order status delivery
-- **Mock Auth / Mock Payment** — clone and run without WeChat credentials
-- **CI acceptance** — API, Mini Program and Admin builds
+- **UniApp WeChat Mini Program** — customer and provider workspaces in one app
+- **FastAPI modular monolith** — Auth, Catalog, Player, Order, Dispatch, Wallet, Review, Realtime
+- **Web Admin** — provider verification, catalog, orders, settlement, disputes/refunds
+- **PostgreSQL source of truth** — state, audit, money and idempotency
+- **Redis acceleration** — reconstructable order-pool/realtime state
+- **WeChat adapters** — code2Session auth, JSAPI payment, signed payment callback, refund API/callback/query reconciliation
+- **Production sessions** — short access token, rotating refresh token, USER / PLAYER / PLATFORM roles
+- **Money controls** — settlement ledger, withdrawals, dispute hold, refund lifecycle
+- **Transactional outbox + WebSocket**
+- **Production reference** — fail-fast config, file-backed secrets, health probes, structured logs, hardened non-root container/Compose
 
-## Engineering highlights
+## Core invariants
 
-The project demonstrates several invariants that are easy to lose in a CRUD marketplace:
+- order state changes only through domain services/state machine;
+- every successful transition writes an append-only `OrderEvent`;
+- PostgreSQL conditional updates/constraints provide claim correctness;
+- at most one ACTIVE assignment exists for an order;
+- payment success comes from verified server-side provider facts, never client UI callbacks;
+- payment, settlement, withdrawal and refund paths are idempotent;
+- disputes stop auto-confirm and provider settlement;
+- ledger entries are money history; wallet balances are materialized query state;
+- Redis is never durable order or money truth.
 
-- explicit order state machine;
-- optimistic concurrency with `orders.version`;
-- PostgreSQL conditional update for atomic claim;
-- at most one ACTIVE `OrderAssignment`;
-- append-only `OrderEvent` audit timeline;
-- transactional outbox for realtime side effects;
-- idempotent payment and settlement;
-- ledger-based money history;
-- Redis treated as reconstructable state, never order truth.
+The concurrency acceptance suite executes **100 claim attempts against one order** and requires exactly one winner.
 
-The concurrency acceptance test starts **100 claim attempts against one order** and requires exactly one success.
-
-## Architecture
-
-```text
-┌─────────────────────────────────────────────┐
-│              WeChat Mini Program            │
-│     Customer Workspace | Player Workspace   │
-└──────────────────────┬──────────────────────┘
-                       │ HTTPS / WebSocket
-                       v
-┌─────────────────────────────────────────────┐
-│                  FastAPI                    │
-│ Auth | Catalog | Player | Order | Dispatch  │
-│ Wallet | Review | Realtime | Admin          │
-└───────────────┬─────────────────┬───────────┘
-                │                 │
-                v                 v
-          PostgreSQL            Redis
-          source of truth       acceleration
-                │
-                v
-     OrderEvent + Transactional Outbox
-
-                 Web Admin
-                    |
-                    +------> FastAPI
-```
-
-## Five-minute backend start
+## Quick start: demo mode
 
 ```bash
 git clone https://github.com/avaargsh/esports-companion.git
 cd esports-companion
 cp .env.example .env
-docker compose up --build
+make up
 ```
 
-Then:
-
-- API: `http://localhost:8000`
-- OpenAPI: `http://localhost:8000/docs`
-- Health: `http://localhost:8000/health`
-
-The API container runs migrations and seeds demo identities, approved players, games and SKUs.
-
-For the complete Mini Program/Admin workflow, see **[docs/quickstart.md](docs/quickstart.md)**.
-
-## Golden Slice
+Verify:
 
 ```text
-Create Order
- -> Mock Payment
- -> MATCHING
- -> Order Pool
- -> Concurrent Claim
- -> ACCEPTED
- -> Start
- -> IN_SERVICE
- -> Finish Request
- -> Customer Confirm
- -> Settlement
- -> Ledger
- -> Review
+API        http://localhost:8000
+OpenAPI    http://localhost:8000/docs
+Liveness   http://localhost:8000/livez
+Readiness  http://localhost:8000/readyz
 ```
 
-The full path is executable through `services/api/tests/test_golden_slice_e2e.py`.
+Then execute the complete running HTTP path:
 
-## Current status
+```bash
+make smoke
+```
 
-- [x] M0 — FastAPI / PostgreSQL / Redis / Alembic / CI
-- [x] M1 — Game/SKU → Create → Mock Pay → MATCHING
-- [x] M2 — Provider → Pool → atomic claim → service lifecycle
-- [x] M3 — Settlement/Ledger → Review → Realtime → Mini Program → Admin
+Expected final output resembles:
 
-**v0.1 scope is frozen around this vertical slice.** Real WeChat login and WeChat Pay are adapters for the next productionization step, not blockers for the open-source demo.
+```json
+{"status":"PASS","orderId":"...","finalState":"SETTLED","providerIncome":2400}
+```
 
-## Repository layout
+See [Quick Start](docs/quickstart.md) for Mini Program and Admin startup.
+
+## Architecture
 
 ```text
-apps/
-  miniapp/                 UniApp WeChat Mini Program
-  admin/                   Vue 3 operations console
+┌──────────────────────────────────────────────┐
+│              WeChat Mini Program             │
+│       Customer | Provider Workspace          │
+└──────────────────────┬───────────────────────┘
+                       │ HTTPS / WebSocket
+                       ▼
+┌──────────────────────────────────────────────┐
+│                  FastAPI                     │
+│ Auth | Catalog | Order | Dispatch | Wallet   │
+│ Dispute | Refund | Review | Realtime | Admin │
+└───────────────┬─────────────────┬────────────┘
+                │                 │
+                ▼                 ▼
+          PostgreSQL            Redis
+          durable truth         acceleration
+                │
+                ├─ OrderEvent / Outbox
+                ├─ Payment / Refund
+                ├─ Settlement / Ledger
+                └─ Session / Audit
+```
 
-services/
-  api/                     FastAPI modular monolith
+External boundaries:
 
-domain-packs/
-  esports-companion/       esports reference configuration
-
-docs/
-  architecture.md
-  domain-model.md
-  order-state-machine.md
-  invariants.md
-  golden-slice.md
-  acceptance.md
-  realtime.md
-  quickstart.md
-  wechat-setup.md
+```text
+AuthProvider      -> Mock | WeChat code2Session
+PaymentProvider   -> Mock | WeChat JSAPI
+RefundProvider    -> Manual | WeChat Refund
+Realtime delivery -> Transactional Outbox -> WebSocket
 ```
 
 ## Validation
 
 ```bash
 make test
+make smoke
 make miniapp-build
 make admin-build
 ```
 
-GitHub Actions independently verifies:
+GitHub Actions verifies independently:
 
 ```text
-API        migrations + lint + pytest + Golden Slice
-MiniApp    npm install + vue-tsc + mp-weixin build
-Admin      npm install + Vite build
+API          migrations + seed + lint + pytest
+HTTP Smoke   real Uvicorn + Golden Slice over HTTP
+MiniApp      type-check + mp-weixin build
+Admin        Vite build
+API Image    production build + non-root runtime + import
 ```
 
-## Production boundaries
+## Production deployment reference
 
-The repository defaults to Demo Mode.
+Production mode fails closed if it sees Mock auth/payment, the development session key, missing WeChat credentials, insecure callback URLs, or localhost/insecure CORS origins.
 
-Do **not** treat these as production auth/payment mechanisms:
+Prepare the single-node reference:
 
-- `X-User-Id`
-- `X-Admin-Id`
-- `/api/v1/dev/*`
-- `/orders/{id}/mock-pay`
+```bash
+cp .env.production.example .env.production
+# populate deploy/secrets/* as documented
+make prod-up
+```
 
-See [docs/wechat-setup.md](docs/wechat-setup.md) for the intended WeChat adapter boundaries.
+Production Compose:
 
-## Documentation
+- does **not** seed demo users;
+- does **not** use `--reload`;
+- does not expose PostgreSQL or Redis host ports;
+- runs the API as non-root UID/GID 10001;
+- mounts secrets from files;
+- uses a read-only API filesystem;
+- binds API to localhost by default for a TLS reverse proxy.
 
-- [Quick Start](docs/quickstart.md)
-- [Architecture](docs/architecture.md)
-- [Domain Model](docs/domain-model.md)
-- [Order State Machine](docs/order-state-machine.md)
-- [Core Invariants](docs/invariants.md)
-- [Golden Slice](docs/golden-slice.md)
-- [Acceptance Tests](docs/acceptance.md)
-- [Realtime / Outbox](docs/realtime.md)
-- [API](docs/api.md)
-- [WeChat Production Integration](docs/wechat-setup.md)
-- [Provider Adapters](docs/adapters.md)
+See [Production Readiness](docs/production-readiness.md) and [Production Compose](docs/production-compose.md).
+
+## Repository layout
+
+```text
+apps/
+  miniapp/                  UniApp WeChat Mini Program
+  admin/                    Vue 3 operations console
+
+services/
+  api/                      FastAPI modular monolith
+
+deploy/
+  compose/production.yml    hardened single-node reference
+  secrets/README.md         required secret files
+
+scripts/
+  smoke_demo.py             real HTTP Golden Slice
+
+docs/
+  architecture.md
+  order-state-machine.md
+  invariants.md
+  production-readiness.md
+  production-compose.md
+  wechat-setup.md
+  wechat-refunds.md
+  refund-reconciliation.md
+```
+
+## Scope
+
+The repository is intentionally a **modular monolith**. It is suitable as a starter/reference implementation and for small deployments, but it is not presented as a security-audited turnkey platform.
+
+Before a public launch, complete the [Release Checklist](docs/release-checklist.md), including TLS/domain configuration, WeChat merchant configuration, backup/restore testing, monitoring/alerting, ingress rate limiting and operational ownership.
 
 ## License
 

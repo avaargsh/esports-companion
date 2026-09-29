@@ -82,3 +82,52 @@ jobs:
           test "$(docker image inspect esports-companion-api:ci --format '{{.Config.User}}')" = "10001:10001"
       - name: Verify application imports
         run: docker run --rm -e APP_ENV=test esports-companion-api:ci python -c "import app.main"
+
+
+  smoke:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: esports
+          POSTGRES_PASSWORD: esports
+          POSTGRES_DB: esports_smoke
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U esports -d esports_smoke"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+    env:
+      DATABASE_URL: postgresql+psycopg://esports:esports@localhost:5432/esports_smoke
+      REDIS_URL: redis://localhost:6379/0
+      APP_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install API
+        working-directory: services/api
+        run: pip install -e .
+      - name: Migrate and seed demo
+        working-directory: services/api
+        run: |
+          alembic upgrade head
+          python -m app.seed
+      - name: Start API
+        working-directory: services/api
+        run: |
+          uvicorn app.main:app --host 127.0.0.1 --port 8000 > /tmp/esports-api.log 2>&1 &
+          echo $! > /tmp/esports-api.pid
+      - name: Run HTTP Golden Slice
+        run: python3 scripts/smoke_demo.py
+      - name: Show API logs on failure
+        if: failure()
+        run: cat /tmp/esports-api.log

@@ -1,4 +1,4 @@
-.PHONY: up down logs migrate seed test miniapp-build admin-build prod-build prod-up prod-down prod-logs
+.PHONY: up down logs migrate seed test smoke verify miniapp-build admin-build prod-build prod-up prod-down prod-logs
 
 up:
 	docker compose up --build -d
@@ -17,6 +17,11 @@ seed:
 
 test:
 	docker compose run --rm api pytest -q
+
+smoke:
+	python3 scripts/smoke_demo.py
+
+verify: test miniapp-build admin-build
 
 
 miniapp-build:
