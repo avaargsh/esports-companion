@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.domain.order_state_machine import OrderStatus, ensure_transition
@@ -150,18 +151,23 @@ class OrderService:
 
     @staticmethod
     def cancel(db: Session, order: Order, user_id: uuid.UUID) -> Order:
-        if order.user_id != user_id:
+        locked_order = db.scalar(
+            select(Order).where(Order.id == order.id).with_for_update()
+        )
+        if not locked_order:
+            raise OrderNotFound(str(order.id))
+        if locked_order.user_id != user_id:
             raise PermissionError("ORDER_NOT_OWNED")
         OrderService.transition(
             db,
-            order,
+            locked_order,
             OrderStatus.CANCELLED,
             event_type="ORDER_CANCELLED",
             actor_type="USER",
             actor_id=str(user_id),
         )
         db.commit()
-        return order
+        return locked_order
 
     @staticmethod
     def _record(
