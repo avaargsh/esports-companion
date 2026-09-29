@@ -161,6 +161,11 @@ async function submitReview() {
       <text>订单已进入陪玩抢单池，接单后这里会自动更新，无需手动刷新。</text>
     </view>
 
+    <view v-if="order.status === 'WAITING_PAYMENT' && order.designated_player_id" class="notice designated">
+      <text class="notice-title">已锁定指定大神</text>
+      <text>支付成功后将直接绑定该大神，不进入公开抢单池。</text>
+    </view>
+
     <view v-if="order.status === 'ACCEPTED'" class="notice success">
       <text class="notice-title">陪玩已接单</text>
       <text>等待陪玩开始服务；服务开始后状态会自动更新。</text>
@@ -219,6 +224,7 @@ async function submitReview() {
 .strong { color: #15151b; font-size: 31rpx; font-weight: 800; }
 .notice { margin-top: 22rpx; padding: 28rpx; border-radius: 28rpx; background: #f0edff; color: #6c5ce7; font-size: 23rpx; line-height: 1.6; }
 .notice.success { background: #eafbf2; color: #16824d; }
+.notice.designated { background: #fff6e7; color: #9a6417; }
 .notice-title { display: block; margin-bottom: 6rpx; font-weight: 700; }
 .actions { margin-top: 26rpx; display: flex; gap: 18rpx; }
 .actions button { flex: 1; margin: 0; }

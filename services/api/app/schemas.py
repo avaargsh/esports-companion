@@ -23,7 +23,8 @@ class SKUOut(BaseModel):
 
 
 class OrderCreate(BaseModel):
-    sku_id: uuid.UUID
+    sku_id: uuid.UUID | None = None
+    offering_id: uuid.UUID | None = None
     quantity: int = Field(default=1, ge=1, le=10)
     remark: str = Field(default="", max_length=500)
 
@@ -34,6 +35,7 @@ class OrderOut(BaseModel):
     user_id: uuid.UUID
     game_id: uuid.UUID
     sku_id: uuid.UUID
+    designated_player_id: uuid.UUID | None = None
     status: str
     quantity: int
     unit_price: int
@@ -130,20 +132,33 @@ class ProviderOfferingOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class WithdrawalCreate(BaseModel):
-    amount: int = Field(gt=0)
-
-
-class WithdrawalOut(BaseModel):
+class PublicOfferingOut(BaseModel):
     id: uuid.UUID
-    user_id: uuid.UUID
-    wallet_id: uuid.UUID
-    amount: int
-    status: str
-    provider: str
-    provider_txn_id: str | None
-    failure_reason: str | None
-    created_at: object
-    completed_at: object | None
-    rejected_at: object | None
-    model_config = {"from_attributes": True}
+    sku_id: uuid.UUID
+    game_id: uuid.UUID
+    game_name: str
+    sku_name: str
+    service_type: str
+    duration_minutes: int
+    price: int
+    description: str
+
+
+class PublicReviewOut(BaseModel):
+    id: uuid.UUID
+    rating: int
+    content: str
+
+
+class PublicPlayerOut(BaseModel):
+    id: uuid.UUID
+    display_name: str
+    avatar_url: str | None = None
+    bio: str
+    gender: str | None = None
+    service_status: str
+    rating: float
+    review_count: int
+    order_count: int
+    offerings: list[PublicOfferingOut]
+    reviews: list[PublicReviewOut] = Field(default_factory=list)

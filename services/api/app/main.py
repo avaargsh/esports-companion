@@ -22,7 +22,7 @@ from app.routers.offerings import router as offerings_router
 from app.routers.realtime import router as realtime_router
 from app.routers.reviews import router as reviews_router
 from app.routers.wallet import router as wallet_router
-from app.routers.withdrawals import router as withdrawals_router
+from app.routers.marketplace import router as marketplace_router
 
 
 @asynccontextmanager
@@ -53,12 +53,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(catalog_router)
+app.include_router(marketplace_router)
 app.include_router(orders_router)
 app.include_router(payments_router)
 app.include_router(player_router)
 app.include_router(offerings_router)
 app.include_router(wallet_router)
-app.include_router(withdrawals_router)
 app.include_router(reviews_router)
 app.include_router(admin_router)
 app.include_router(admin_catalog_router)

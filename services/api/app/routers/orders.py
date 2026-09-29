@@ -45,6 +45,7 @@ def create_order(
             db,
             user_id=user_id,
             sku_id=body.sku_id,
+            offering_id=body.offering_id,
             quantity=body.quantity,
             remark=body.remark,
         )

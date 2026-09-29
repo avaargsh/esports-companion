@@ -132,6 +132,9 @@ class Order(Base, TimestampMixin):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
     game_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("games.id"))
     sku_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("service_skus.id"))
+    designated_player_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("player_profiles.id"), index=True
+    )
     status: Mapped[str] = mapped_column(String(32), default="WAITING_PAYMENT", index=True)
     quantity: Mapped[int] = mapped_column(Integer, default=1)
     unit_price: Mapped[int] = mapped_column(Integer)
@@ -215,24 +218,6 @@ class LedgerEntry(Base):
     amount: Mapped[int] = mapped_column(Integer)
     balance_after: Mapped[int] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-
-
-class Withdrawal(Base, TimestampMixin):
-    __tablename__ = "withdrawals"
-    __table_args__ = (
-        UniqueConstraint("idempotency_key", name="uq_withdrawal_idempotency"),
-    )
-    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
-    wallet_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("wallets.id"))
-    amount: Mapped[int] = mapped_column(Integer)
-    status: Mapped[str] = mapped_column(String(32), default="PENDING", index=True)
-    provider: Mapped[str] = mapped_column(String(32), default="MANUAL")
-    provider_txn_id: Mapped[str | None] = mapped_column(String(128))
-    failure_reason: Mapped[str | None] = mapped_column(String(256))
-    idempotency_key: Mapped[str] = mapped_column(String(128))
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    rejected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Settlement(Base, TimestampMixin):

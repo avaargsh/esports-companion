@@ -100,6 +100,46 @@ class DispatchService:
         return order
 
     @staticmethod
+    def assign_designated(db: Session, *, order: Order) -> Order:
+        if not order.designated_player_id:
+            return order
+        if order.status != OrderStatus.MATCHING.value:
+            raise OrderAlreadyClaimed("ORDER_NOT_MATCHING")
+
+        existing = db.scalar(
+            select(OrderAssignment).where(
+                OrderAssignment.order_id == order.id,
+                OrderAssignment.status == "ACTIVE",
+            )
+        )
+        if existing:
+            return order
+
+        player = db.get(PlayerProfile, order.designated_player_id)
+        if not player:
+            raise PlayerNotEligible("DESIGNATED_PLAYER_NOT_FOUND")
+
+        db.add(
+            OrderAssignment(
+                order_id=order.id,
+                player_id=player.id,
+                status="ACTIVE",
+                assigned_by="USER",
+                accepted_at=datetime.now(timezone.utc),
+            )
+        )
+        OrderService.transition(
+            db,
+            order,
+            OrderStatus.ACCEPTED,
+            event_type="DESIGNATED_PLAYER_ASSIGNED",
+            actor_type="USER",
+            actor_id=str(order.user_id),
+            payload={"playerId": str(player.id)},
+        )
+        return order
+
+    @staticmethod
     def active_assignment(db: Session, order_id: uuid.UUID) -> OrderAssignment:
         assignment = db.scalar(
             select(OrderAssignment).where(

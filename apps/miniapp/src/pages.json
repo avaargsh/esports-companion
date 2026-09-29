@@ -2,6 +2,7 @@
   "pages": [
     { "path": "pages/home/index", "style": { "navigationBarTitleText": "陪玩" } },
     { "path": "pages/game/index", "style": { "navigationBarTitleText": "选择服务" } },
+    { "path": "pages/player/index", "style": { "navigationBarTitleText": "大神主页" } },
     { "path": "pages/order-detail/index", "style": { "navigationBarTitleText": "订单详情" } },
     { "path": "pages/orders/index", "style": { "navigationBarTitleText": "我的订单" } },
     { "path": "pages/profile/index", "style": { "navigationBarTitleText": "我的" } }
