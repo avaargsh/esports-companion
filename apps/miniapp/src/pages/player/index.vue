@@ -81,6 +81,16 @@ async function createDesignatedOrder() {
       </view>
     </view>
 
+    <view v-if="player.skills.length" class="section">
+      <view class="section-title">已认证技能</view>
+      <view class="skill-list">
+        <view v-for="skill in player.skills" :key="skill.id" class="skill-badge">
+          <text class="skill-game">{{ skill.game_name }}</text>
+          <text class="skill-rank">{{ skill.rank }}</text>
+        </view>
+      </view>
+    </view>
+
     <view class="section">
       <view class="section-title">选择服务</view>
       <view
@@ -150,6 +160,10 @@ async function createDesignatedOrder() {
 .bio { margin-top: 16rpx; color: #aaaab4; font-size: 22rpx; line-height: 1.6; }
 .section { margin-top: 34rpx; }
 .section-title { margin-bottom: 18rpx; font-size: 29rpx; font-weight: 800; }
+.skill-list { display: flex; flex-wrap: wrap; gap: 12rpx; }
+.skill-badge { display: flex; gap: 8rpx; align-items: center; padding: 12rpx 16rpx; border-radius: 18rpx; background: #eefbf4; }
+.skill-game { color: #16824d; font-size: 20rpx; font-weight: 700; }
+.skill-rank { color: #4f8068; font-size: 20rpx; }
 .offering { display: flex; gap: 18rpx; align-items: center; margin-bottom: 16rpx; padding: 26rpx; border: 2rpx solid transparent; border-radius: 28rpx; background: #fff; }
 .offering.selected { border-color: #6c5ce7; box-shadow: 0 10rpx 30rpx rgba(108,92,231,.08); }
 .check { width: 36rpx; height: 36rpx; border-radius: 50%; border: 2rpx solid #d7d6df; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18rpx; }

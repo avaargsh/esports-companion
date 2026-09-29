@@ -70,6 +70,26 @@ export type Wallet = {
 }
 
 
+export type PublicSkill = {
+  id: string
+  game_id: string
+  game_name: string
+  rank: string
+  description: string
+}
+
+export type PlayerSkill = {
+  id: string
+  player_id: string
+  game_id: string
+  rank?: string | null
+  description: string
+  evidence_url?: string | null
+  verification_status: "PENDING" | "APPROVED" | "REJECTED"
+  review_note: string
+  status: string
+}
+
 export type PublicOffering = {
   id: string
   sku_id: string
@@ -99,5 +119,6 @@ export type PublicPlayer = {
   review_count: number
   order_count: number
   offerings: PublicOffering[]
+  skills: PublicSkill[]
   reviews: PublicReview[]
 }

@@ -8,12 +8,13 @@ from app.db import get_db
 from app.models import (
     Game,
     PlayerProfile,
+    PlayerSkill,
     ProviderOffering,
     Review,
     ServiceSKU,
     User,
 )
-from app.schemas import PublicOfferingOut, PublicPlayerOut, PublicReviewOut
+from app.schemas import PublicOfferingOut, PublicPlayerOut, PublicReviewOut, PublicSkillOut
 
 router = APIRouter(prefix="/api/v1/players", tags=["marketplace"])
 
@@ -44,6 +45,31 @@ def _offerings_for(db: Session, player_id: uuid.UUID) -> list[PublicOfferingOut]
             description=offering.description,
         )
         for offering, sku, game in rows
+    ]
+
+
+def _skills_for(db: Session, player_id: uuid.UUID) -> list[PublicSkillOut]:
+    rows = db.execute(
+        select(PlayerSkill, Game)
+        .join(Game, Game.id == PlayerSkill.game_id)
+        .where(
+            PlayerSkill.player_id == player_id,
+            PlayerSkill.status == "ACTIVE",
+            PlayerSkill.verification_status == "APPROVED",
+            Game.status == "ACTIVE",
+        )
+        .order_by(Game.sort_order, PlayerSkill.updated_at.desc())
+    ).all()
+    return [
+        PublicSkillOut(
+            id=skill.id,
+            game_id=game.id,
+            game_name=game.name,
+            rank=skill.rank or "",
+            description=skill.description,
+        )
+        for skill, game in rows
+        if skill.rank
     ]
 
 
@@ -86,6 +112,7 @@ def _public_player(
         review_count=review_count,
         order_count=player.order_count,
         offerings=_offerings_for(db, player.id),
+        skills=_skills_for(db, player.id),
         reviews=reviews,
     )
 
@@ -93,6 +120,7 @@ def _public_player(
 @router.get("", response_model=list[PublicPlayerOut])
 def list_players(
     game_id: uuid.UUID | None = None,
+    rank: str | None = Query(default=None, max_length=80),
     limit: int = Query(default=12, ge=1, le=50),
     db: Session = Depends(get_db),
 ):
@@ -111,6 +139,14 @@ def list_players(
         item = _public_player(db, player)
         if game_id and not any(offering.game_id == game_id for offering in item.offerings):
             continue
+        if rank:
+            normalized_rank = rank.strip().casefold()
+            if not any(
+                skill.rank.casefold() == normalized_rank
+                and (game_id is None or skill.game_id == game_id)
+                for skill in item.skills
+            ):
+                continue
         if item.offerings:
             result.append(item)
     return result
