@@ -51,7 +51,7 @@ const messages = ref<OrderMessage[]>([])
 const loading = ref(false)
 const error = ref("")
 
-const latestEvent = computed(() => events.value.at(-1))
+const latestEvent = computed(() => events.value[events.value.length - 1])
 const hasChat = computed(() => messages.value.length > 0)
 
 const eventLabels: Record<string,string> = {
