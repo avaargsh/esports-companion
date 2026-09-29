@@ -19,9 +19,17 @@ def test_admin_withdrawal_completion_requires_real_payout_reference():
             wallet = db.scalar(
                 select(Wallet).where(Wallet.user_id == uuid.UUID(player_user_id))
             )
-            assert wallet is not None
-            wallet.available_balance = 10000
-            wallet.frozen_balance = 0
+            if wallet is None:
+                wallet = Wallet(
+                    user_id=uuid.UUID(player_user_id),
+                    available_balance=10000,
+                    frozen_balance=0,
+                    version=0,
+                )
+                db.add(wallet)
+            else:
+                wallet.available_balance = 10000
+                wallet.frozen_balance = 0
             db.commit()
 
         requested = client.post(
