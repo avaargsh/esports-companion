@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     access_token_ttl_seconds: int = 900
     refresh_token_ttl_seconds: int = 2592000
 
+    finish_confirm_timeout_seconds: int = 1800
+    order_timeout_scan_seconds: int = 30
+
     wechat_app_id: str = ""
     wechat_app_secret: str = ""
     wechat_mch_id: str = ""
