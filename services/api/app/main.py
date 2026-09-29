@@ -6,11 +6,15 @@ from app.infrastructure import redis_client
 from app.routers.catalog import router as catalog_router
 from app.routers.orders import router as orders_router
 from app.routers.player import router as player_router
+from app.routers.reviews import router as reviews_router
+from app.routers.wallet import router as wallet_router
 
 app = FastAPI(title="esports-companion API", version="0.1.0")
 app.include_router(catalog_router)
 app.include_router(orders_router)
 app.include_router(player_router)
+app.include_router(wallet_router)
+app.include_router(reviews_router)
 
 
 @app.get("/health")

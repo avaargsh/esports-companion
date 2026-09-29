@@ -8,6 +8,7 @@ from app.domain.order_state_machine import OrderStatus
 from app.infrastructure import redis_client
 from app.schemas import OrderCreate, OrderOut
 from app.services.order_service import MockPaymentService, OrderNotFound, OrderService
+from app.services.settlement_service import SettlementService
 
 router = APIRouter(prefix="/api/v1/orders", tags=["orders"])
 
@@ -99,11 +100,11 @@ def confirm(
             actor_type="USER",
             actor_id=str(user_id),
         )
-        db.commit()
+        SettlementService.settle(db, order)
         return order
     except OrderNotFound as exc:
         raise HTTPException(404, "ORDER_NOT_FOUND") from exc
     except PermissionError as exc:
         raise HTTPException(403, str(exc)) from exc
-    except ValueError as exc:
+    except (ValueError, LookupError) as exc:
         raise HTTPException(409, str(exc)) from exc

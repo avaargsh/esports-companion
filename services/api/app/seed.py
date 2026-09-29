@@ -3,7 +3,8 @@ from decimal import Decimal
 from sqlalchemy import select
 
 from app.db import SessionLocal
-from app.models import Game, ServiceSKU, User
+from app.models import Game, PlayerProfile, ServiceSKU, User
+
 
 GAMES = [
     ("wzry", "王者荣耀"),
@@ -15,8 +16,31 @@ GAMES = [
 
 def main():
     with SessionLocal() as db:
-        if not db.scalar(select(User).limit(1)):
-            db.add(User(nickname="Demo Customer", role="USER", status="ACTIVE"))
+        platform = db.scalar(select(User).where(User.role == "PLATFORM"))
+        if not platform:
+            db.add(User(nickname="Platform", role="PLATFORM", status="ACTIVE"))
+
+        customer = db.scalar(select(User).where(User.nickname == "Demo Customer"))
+        if not customer:
+            customer = User(nickname="Demo Customer", role="USER", status="ACTIVE")
+            db.add(customer)
+
+        for index in range(3):
+            nickname = f"Demo Player {index + 1}"
+            user = db.scalar(select(User).where(User.nickname == nickname))
+            if not user:
+                user = User(nickname=nickname, role="USER", status="ACTIVE")
+                db.add(user)
+                db.flush()
+                db.add(
+                    PlayerProfile(
+                        user_id=user.id,
+                        display_name=nickname,
+                        verification_status="APPROVED",
+                        service_status="AVAILABLE",
+                    )
+                )
+
         for index, (code, name) in enumerate(GAMES):
             game = db.scalar(select(Game).where(Game.code == code))
             if not game:
@@ -41,8 +65,8 @@ def main():
                     )
                 )
         db.commit()
-        user = db.scalar(select(User).limit(1))
-        print(f"demo_user_id={user.id}")
+        customer = db.scalar(select(User).where(User.nickname == "Demo Customer"))
+        print(f"demo_user_id={customer.id}")
 
 
 if __name__ == "__main__":
