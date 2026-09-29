@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.infrastructure import redis_client
-from app.models import Order, PlayerProfile
+from app.models import Order, OrderAssignment, PlayerProfile
 from app.schemas import ClaimRequest, OrderOut, PlayerApply, PlayerOut, PlayerUpdate
 from app.services.dispatch_service import (
     AssignmentNotFound,
@@ -121,6 +121,25 @@ def order_pool(
     )
 
 
+@router.get("/orders", response_model=list[OrderOut])
+def player_orders(
+    user_id: uuid.UUID = Depends(demo_user_id),
+    db: Session = Depends(get_db),
+):
+    player = get_player(db, user_id)
+    return list(
+        db.scalars(
+            select(Order)
+            .join(OrderAssignment, OrderAssignment.order_id == Order.id)
+            .where(
+                OrderAssignment.player_id == player.id,
+                OrderAssignment.status == "ACTIVE",
+            )
+            .order_by(Order.created_at.desc())
+        )
+    )
+
+
 @router.post("/orders/{order_id}/claim", response_model=OrderOut)
 def claim(
     order_id: uuid.UUID,
@@ -185,25 +204,3 @@ def finish(
         raise HTTPException(403, str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(409, str(exc)) from exc
-
-
-@router.get("/orders", response_model=list[OrderOut])
-def player_orders(
-    user_id: uuid.UUID = Depends(demo_user_id),
-    db: Session = Depends(get_db),
-):
-    player = get_player(db, user_id)
-    from app.models import OrderAssignment
-
-    return list(
-        db.scalars(
-            select(Order)
-            .join(OrderAssignment, OrderAssignment.order_id == Order.id)
-            .where(
-                OrderAssignment.player_id == player.id,
-                OrderAssignment.status == "ACTIVE",
-            )
-            .order_by(Order.created_at.desc())
-            .limit(100)
-        )
-    )

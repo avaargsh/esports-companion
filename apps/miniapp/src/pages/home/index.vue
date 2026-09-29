@@ -20,6 +20,12 @@ onMounted(async () => {
   }
 })
 
+function openGame(game: Game) {
+  uni.navigateTo({
+    url: `/pages/game/index?id=${game.id}&name=${encodeURIComponent(game.name)}`
+  })
+}
+
 function openPlayerWorkspace() {
   uni.navigateTo({ url: "/pages-player/workbench/index" })
 }
@@ -41,10 +47,14 @@ function openPlayerWorkspace() {
         <text class="section-title">热门游戏</text>
         <text class="section-link">全部</text>
       </view>
-
       <view v-if="loading" class="empty-card">加载中...</view>
       <view v-else class="game-grid">
-        <view v-for="game in games" :key="game.id" class="game-card">
+        <view
+          v-for="game in games"
+          :key="game.id"
+          class="game-card"
+          @click="openGame(game)"
+        >
           <view class="game-icon">{{ game.name.slice(0, 1) }}</view>
           <text class="game-name">{{ game.name }}</text>
         </view>
@@ -54,21 +64,17 @@ function openPlayerWorkspace() {
     <view class="section">
       <view class="section-head">
         <text class="section-title">推荐大神</text>
-        <text class="section-link">查看更多</text>
+        <text class="section-link">Demo</text>
       </view>
-
       <view class="provider-card">
         <view class="avatar">鹿</view>
         <view class="provider-main">
           <view class="provider-title">
-            <text class="provider-name">小鹿</text>
+            <text class="provider-name">Demo Player</text>
             <text class="online">接单中</text>
           </view>
-          <text class="provider-desc">王者荣耀 · 国服辅助 · 娱乐陪玩</text>
-          <view class="provider-meta">
-            <text>★ 4.9</text>
-            <text>268单</text>
-          </view>
+          <text class="provider-desc">王者荣耀 · 娱乐陪玩</text>
+          <view class="provider-meta"><text>★ 4.9</text><text>可抢单</text></view>
         </view>
         <view class="price">
           <text class="price-value">¥30</text>
@@ -81,52 +87,21 @@ function openPlayerWorkspace() {
 
 <style scoped>
 .page { padding: 28rpx; }
-.hero {
-  min-height: 300rpx;
-  padding: 42rpx;
-  border-radius: 36rpx;
-  background: linear-gradient(135deg, #6c5ce7, #8b7cf6);
-  color: white;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
+.hero { min-height: 300rpx; padding: 42rpx; border-radius: 36rpx; background: linear-gradient(135deg,#6c5ce7,#8b7cf6); color: white; display: flex; flex-direction: column; justify-content: space-between; }
 .eyebrow { font-size: 20rpx; opacity: .72; letter-spacing: 3rpx; }
 .title { margin-top: 18rpx; font-size: 48rpx; font-weight: 800; }
 .subtitle { margin-top: 12rpx; font-size: 26rpx; opacity: .88; }
-.workspace-button {
-  margin: 34rpx 0 0;
-  width: 220rpx;
-  height: 72rpx;
-  line-height: 72rpx;
-  border-radius: 24rpx;
-  background: rgba(255,255,255,.18);
-  color: white;
-  font-size: 24rpx;
-}
+.workspace-button { margin: 34rpx 0 0; width: 220rpx; height: 72rpx; line-height: 72rpx; border-radius: 24rpx; background: rgba(255,255,255,.18); color: white; font-size: 24rpx; }
 .section { margin-top: 40rpx; }
 .section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 22rpx; }
 .section-title { font-size: 32rpx; font-weight: 700; }
 .section-link { color: #92929d; font-size: 24rpx; }
 .game-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18rpx; }
 .game-card { padding: 24rpx 10rpx; border-radius: 28rpx; background: white; text-align: center; }
-.game-icon {
-  width: 76rpx; height: 76rpx; margin: 0 auto 14rpx; border-radius: 24rpx;
-  display: flex; align-items: center; justify-content: center;
-  background: #f0edff; color: #6c5ce7; font-size: 30rpx; font-weight: 800;
-}
+.game-icon { width: 76rpx; height: 76rpx; margin: 0 auto 14rpx; border-radius: 24rpx; display: flex; align-items: center; justify-content: center; background: #f0edff; color: #6c5ce7; font-size: 30rpx; font-weight: 800; }
 .game-name { font-size: 22rpx; }
-.provider-card {
-  display: flex; align-items: center; gap: 22rpx;
-  padding: 28rpx; border-radius: 32rpx; background: white;
-  box-shadow: 0 12rpx 40rpx rgba(25, 20, 60, .06);
-}
-.avatar {
-  width: 104rpx; height: 104rpx; border-radius: 32rpx;
-  background: #efeaff; color: #6c5ce7;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 40rpx; font-weight: 800;
-}
+.provider-card { display: flex; align-items: center; gap: 22rpx; padding: 28rpx; border-radius: 32rpx; background: white; box-shadow: 0 12rpx 40rpx rgba(25,20,60,.06); }
+.avatar { width: 104rpx; height: 104rpx; border-radius: 32rpx; background: #efeaff; color: #6c5ce7; display: flex; align-items: center; justify-content: center; font-size: 40rpx; font-weight: 800; }
 .provider-main { flex: 1; min-width: 0; }
 .provider-title { display: flex; align-items: center; gap: 12rpx; }
 .provider-name { font-size: 30rpx; font-weight: 700; }

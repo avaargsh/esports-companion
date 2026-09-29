@@ -1,7 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, Header, HTTPException
-from redis.exceptions import RedisError
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -23,6 +22,7 @@ def demo_user_id(x_user_id: uuid.UUID = Header(alias="X-User-Id")) -> uuid.UUID:
 @router.get("", response_model=list[OrderOut])
 def list_orders(
     user_id: uuid.UUID = Depends(demo_user_id),
+    limit: int = Query(default=50, ge=1, le=100),
     db: Session = Depends(get_db),
 ):
     return list(
@@ -30,7 +30,7 @@ def list_orders(
             select(Order)
             .where(Order.user_id == user_id)
             .order_by(Order.created_at.desc())
-            .limit(100)
+            .limit(limit)
         )
     )
 
@@ -75,7 +75,7 @@ def mock_pay(
                 f"order_pool:{order.game_id}",
                 {str(order.id): order.created_at.timestamp()},
             )
-        except RedisError:
+        except Exception:
             pass
         return order
     except OrderNotFound as exc:
@@ -95,7 +95,7 @@ def cancel(
         order = OrderService.cancel(db, order, user_id)
         try:
             redis_client.zrem(f"order_pool:{order.game_id}", str(order.id))
-        except RedisError:
+        except Exception:
             pass
         return order
     except OrderNotFound as exc:

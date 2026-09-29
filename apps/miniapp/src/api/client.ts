@@ -1,4 +1,5 @@
-const API_BASE_URL = "http://localhost:8000/api/v1"
+export const API_ORIGIN = "http://localhost:8000"
+export const API_BASE_URL = API_ORIGIN + "/api/v1"
 
 type Method = "GET" | "POST" | "PATCH" | "DELETE"
 
