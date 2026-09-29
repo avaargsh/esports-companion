@@ -11,6 +11,7 @@ const gameName = ref("选择服务")
 const skus = ref<ServiceSku[]>([])
 const selectedId = ref("")
 const remark = ref("")
+const quantity = ref(1)
 const creating = ref(false)
 
 const selected = computed(() =>
@@ -19,6 +20,11 @@ const selected = computed(() =>
 const serviceSummary = computed(() =>
   selected.value ? `${selected.value.duration_minutes} 分钟 · ${selected.value.service_type}` : "请选择服务"
 )
+const totalAmount = computed(() => (selected.value?.price || 0) * quantity.value)
+
+function changeQuantity(delta: number) {
+  quantity.value = Math.min(10, Math.max(1, quantity.value + delta))
+}
 
 onLoad(async query => {
   gameId.value = String(query?.id ?? "")
@@ -39,7 +45,7 @@ async function createOrder() {
       userId: identities.customer.userId,
       data: {
         sku_id: selected.value.id,
-        quantity: 1,
+        quantity: quantity.value,
         remark: remark.value.trim()
       }
     })
@@ -81,6 +87,18 @@ async function createOrder() {
       </view>
     </view>
 
+    <view class="quantity-card">
+      <view>
+        <text class="quantity-label">服务数量</text>
+        <text class="quantity-hint">1–10 份，金额自动联动</text>
+      </view>
+      <view class="stepper">
+        <button :disabled="quantity <= 1" @click="changeQuantity(-1)">−</button>
+        <text>{{ quantity }}</text>
+        <button :disabled="quantity >= 10" @click="changeQuantity(1)">＋</button>
+      </view>
+    </view>
+
     <view class="remark-card">
       <view class="remark-head">
         <view class="label">服务偏好</view>
@@ -102,7 +120,7 @@ async function createOrder() {
     <view class="footer">
       <view>
         <text class="pay-label">{{ serviceSummary }}</text>
-        <text v-if="selected" class="total">¥{{ (selected.price / 100).toFixed(2) }}</text>
+        <text v-if="selected" class="total">¥{{ (totalAmount / 100).toFixed(2) }}</text>
       </view>
       <button
         class="buy"
@@ -134,6 +152,13 @@ async function createOrder() {
 .meta { margin-top:8rpx; color:#9999a3; font-size:20rpx; }
 .price { color:#17171e; font-size:35rpx; font-weight:850; }
 .price text { margin-right:2rpx; font-size:21rpx; }
+.quantity-card { display:flex; align-items:center; justify-content:space-between; gap:20rpx; margin-top:22rpx; padding:26rpx 28rpx; border-radius:30rpx; background:#fff; }
+.quantity-label { display:block; font-size:25rpx; font-weight:750; }
+.quantity-hint { display:block; margin-top:6rpx; color:#aaaab3; font-size:18rpx; }
+.stepper { display:flex; align-items:center; gap:20rpx; }
+.stepper button { margin:0; width:58rpx; height:58rpx; line-height:58rpx; padding:0; border-radius:18rpx; background:#f1efff; color:#6c5ce7; font-size:28rpx; font-weight:800; }
+.stepper button[disabled] { opacity:.35; }
+.stepper text { min-width:34rpx; text-align:center; font-size:27rpx; font-weight:800; }
 .remark-card { position:relative; margin-top:22rpx; padding:28rpx; border-radius:30rpx; background:#fff; }
 .remark-head { display:flex; gap:10rpx; align-items:center; }
 .label { font-size:25rpx; font-weight:750; }
