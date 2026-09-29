@@ -1,19 +1,65 @@
 {
   "pages": [
-    { "path": "pages/home/index", "style": { "navigationBarTitleText": "陪玩" } },
-    { "path": "pages/game/index", "style": { "navigationBarTitleText": "选择服务" } },
-    { "path": "pages/order-detail/index", "style": { "navigationBarTitleText": "订单详情" } },
-    { "path": "pages/orders/index", "style": { "navigationBarTitleText": "我的订单" } },
-    { "path": "pages/profile/index", "style": { "navigationBarTitleText": "我的" } }
+    {
+      "path": "pages/home/index",
+      "style": {
+        "navigationBarTitleText": "陪玩"
+      }
+    },
+    {
+      "path": "pages/game/index",
+      "style": {
+        "navigationBarTitleText": "选择服务"
+      }
+    },
+    {
+      "path": "pages/order-detail/index",
+      "style": {
+        "navigationBarTitleText": "订单详情"
+      }
+    },
+    {
+      "path": "pages/orders/index",
+      "style": {
+        "navigationBarTitleText": "我的订单"
+      }
+    },
+    {
+      "path": "pages/profile/index",
+      "style": {
+        "navigationBarTitleText": "我的"
+      }
+    }
   ],
   "subPackages": [
     {
       "root": "pages-player",
       "pages": [
-        { "path": "workbench/index", "style": { "navigationBarTitleText": "陪玩工作台" } },
-        { "path": "order-pool/index", "style": { "navigationBarTitleText": "抢单大厅" } },
-        { "path": "orders/index", "style": { "navigationBarTitleText": "服务订单" } },
-        { "path": "order-detail/index", "style": { "navigationBarTitleText": "服务详情" } }
+        {
+          "path": "workbench/index",
+          "style": {
+            "navigationBarTitleText": "陪玩工作台"
+          }
+        },
+        {
+          "path": "order-pool/index",
+          "style": {
+            "navigationBarTitleText": "抢单大厅",
+            "enablePullDownRefresh": true
+          }
+        },
+        {
+          "path": "orders/index",
+          "style": {
+            "navigationBarTitleText": "服务订单"
+          }
+        },
+        {
+          "path": "order-detail/index",
+          "style": {
+            "navigationBarTitleText": "服务详情"
+          }
+        }
       ]
     }
   ],
@@ -22,9 +68,18 @@
     "selectedColor": "#6c5ce7",
     "backgroundColor": "#ffffff",
     "list": [
-      { "pagePath": "pages/home/index", "text": "首页" },
-      { "pagePath": "pages/orders/index", "text": "订单" },
-      { "pagePath": "pages/profile/index", "text": "我的" }
+      {
+        "pagePath": "pages/home/index",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/orders/index",
+        "text": "订单"
+      },
+      {
+        "pagePath": "pages/profile/index",
+        "text": "我的"
+      }
     ]
   }
 }
