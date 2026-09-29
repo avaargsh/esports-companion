@@ -31,7 +31,12 @@ jobs:
         run: go mod download
 
       - name: Format check
-        run: test -z "$(gofmt -l .)"
+        run: |
+          diff="$(gofmt -d .)"
+          if [ -n "$diff" ]; then
+            echo "$diff"
+            exit 1
+          fi
 
       - name: Vet
         run: go vet ./...
