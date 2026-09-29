@@ -79,3 +79,26 @@ order state from the API.
 Backend concepts such as Settlement, Ledger, Dispute, Refund, Outbox and
 Evidence remain durable infrastructure. They should only surface when the user
 needs an action or explanation.
+
+
+## First-use identity
+
+A newly logged-in WeChat user starts as a customer. The Profile page does not
+show a player workbench until a real PlayerProfile has been approved.
+
+The player onboarding stays inside Profile:
+
+```text
+Profile
+ -> Apply as Player
+ -> PENDING review
+ -> APPROVED
+ -> Player Workbench appears
+```
+
+This avoids a separate onboarding tab/page and prevents ordinary customers from
+entering a workspace for which they have no PlayerProfile.
+
+In secure WeChat mode, client role discovery reads `/auth/me` so an operator
+approval becomes visible without relying on stale roles stored in the original
+login response.
