@@ -24,7 +24,11 @@ function changeQuantity(delta:number){quantity.value=Math.min(10,Math.max(1,quan
 
 onLoad(async query=>{
   playerId.value=String(query?.id??"")
-  if(!playerId.value)return
+  if(!playerId.value){
+    failed.value=true
+    loading.value=false
+    return
+  }
   try{
     player.value=await request<PublicPlayer>(`/players/${playerId.value}`)
     selectedOfferingId.value=player.value.offerings[0]?.id??""
