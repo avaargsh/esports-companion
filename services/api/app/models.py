@@ -86,11 +86,17 @@ class PlayerProfile(Base, TimestampMixin):
 
 class PlayerSkill(Base, TimestampMixin):
     __tablename__ = "player_skills"
+    __table_args__ = (
+        UniqueConstraint("player_id", "game_id", name="uq_player_skill_player_game"),
+    )
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
     player_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("player_profiles.id"))
     game_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("games.id"))
     rank: Mapped[str | None] = mapped_column(String(80))
     description: Mapped[str] = mapped_column(Text, default="")
+    evidence_url: Mapped[str | None] = mapped_column(String(512))
+    verification_status: Mapped[str] = mapped_column(String(32), default="PENDING", index=True)
+    review_note: Mapped[str] = mapped_column(Text, default="")
     status: Mapped[str] = mapped_column(String(32), default="ACTIVE")
 
 

@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import Order, PlayerProfile, Settlement, Withdrawal
+from app.models import Game, Order, PlayerProfile, PlayerSkill, Settlement, Withdrawal
 from app.security import Principal, require_platform
 from app.services.withdrawal_service import WithdrawalService
 
@@ -64,6 +64,74 @@ def reject_player(
     player.service_status = "SUSPENDED"
     db.commit()
     return {"id": str(player.id), "verificationStatus": player.verification_status}
+
+
+@router.get("/player-skills")
+def list_player_skills(
+    status: str | None = Query(default=None),
+    principal: Principal = Depends(require_platform),
+    db: Session = Depends(get_db),
+):
+    stmt = (
+        select(PlayerSkill, PlayerProfile, Game)
+        .join(PlayerProfile, PlayerProfile.id == PlayerSkill.player_id)
+        .join(Game, Game.id == PlayerSkill.game_id)
+        .order_by(PlayerSkill.updated_at.desc())
+    )
+    if status:
+        stmt = stmt.where(PlayerSkill.verification_status == status.upper())
+
+    return [
+        {
+            "id": str(skill.id),
+            "playerId": str(player.id),
+            "playerName": player.display_name,
+            "gameId": str(game.id),
+            "gameName": game.name,
+            "rank": skill.rank,
+            "description": skill.description,
+            "evidenceUrl": skill.evidence_url,
+            "verificationStatus": skill.verification_status,
+            "reviewNote": skill.review_note,
+            "updatedAt": skill.updated_at,
+        }
+        for skill, player, game in db.execute(stmt)
+    ]
+
+
+@router.post("/player-skills/{skill_id}/approve")
+def approve_player_skill(
+    skill_id: uuid.UUID,
+    principal: Principal = Depends(require_platform),
+    db: Session = Depends(get_db),
+):
+    skill = db.get(PlayerSkill, skill_id)
+    if not skill:
+        raise HTTPException(404, "PLAYER_SKILL_NOT_FOUND")
+    skill.verification_status = "APPROVED"
+    skill.review_note = ""
+    db.commit()
+    return {"id": str(skill.id), "verificationStatus": skill.verification_status}
+
+
+@router.post("/player-skills/{skill_id}/reject")
+def reject_player_skill(
+    skill_id: uuid.UUID,
+    note: str = Query(default="EVIDENCE_INSUFFICIENT", max_length=500),
+    principal: Principal = Depends(require_platform),
+    db: Session = Depends(get_db),
+):
+    skill = db.get(PlayerSkill, skill_id)
+    if not skill:
+        raise HTTPException(404, "PLAYER_SKILL_NOT_FOUND")
+    skill.verification_status = "REJECTED"
+    skill.review_note = note.strip()
+    db.commit()
+    return {
+        "id": str(skill.id),
+        "verificationStatus": skill.verification_status,
+        "reviewNote": skill.review_note,
+    }
 
 
 @router.get("/orders")

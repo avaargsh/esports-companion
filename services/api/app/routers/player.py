@@ -6,8 +6,16 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.infrastructure import redis_client
-from app.models import Order, OrderAssignment, PlayerProfile, ProviderOffering
-from app.schemas import ClaimRequest, OrderOut, PlayerApply, PlayerOut, PlayerUpdate
+from app.models import Game, Order, OrderAssignment, PlayerProfile, PlayerSkill, ProviderOffering
+from app.schemas import (
+    ClaimRequest,
+    OrderOut,
+    PlayerApply,
+    PlayerOut,
+    PlayerSkillOut,
+    PlayerSkillUpsert,
+    PlayerUpdate,
+)
 from app.services.dispatch_service import (
     AssignmentNotFound,
     DispatchService,
@@ -78,6 +86,57 @@ def update_profile(
     db.commit()
     db.refresh(player)
     return player
+
+
+@router.get("/skills", response_model=list[PlayerSkillOut])
+def list_skills(
+    principal: Principal = Depends(require_player),
+    db: Session = Depends(get_db),
+):
+    player = get_player(db, principal.user_id)
+    return list(
+        db.scalars(
+            select(PlayerSkill)
+            .where(PlayerSkill.player_id == player.id)
+            .order_by(PlayerSkill.created_at)
+        )
+    )
+
+
+@router.put("/skills/{game_id}", response_model=PlayerSkillOut)
+def upsert_skill(
+    game_id: uuid.UUID,
+    body: PlayerSkillUpsert,
+    principal: Principal = Depends(require_player),
+    db: Session = Depends(get_db),
+):
+    player = get_player(db, principal.user_id)
+    game = db.get(Game, game_id)
+    if not game or game.status != "ACTIVE":
+        raise HTTPException(404, "GAME_NOT_FOUND")
+
+    skill = db.scalar(
+        select(PlayerSkill).where(
+            PlayerSkill.player_id == player.id,
+            PlayerSkill.game_id == game_id,
+        )
+    )
+    if not skill:
+        skill = PlayerSkill(
+            player_id=player.id,
+            game_id=game_id,
+        )
+        db.add(skill)
+
+    skill.rank = body.rank.strip()
+    skill.description = body.description.strip()
+    skill.evidence_url = body.evidence_url.strip()
+    skill.verification_status = "PENDING"
+    skill.review_note = ""
+    skill.status = "ACTIVE"
+    db.commit()
+    db.refresh(skill)
+    return skill
 
 
 @router.get("/order-pool", response_model=list[OrderOut])

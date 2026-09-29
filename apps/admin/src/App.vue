@@ -24,6 +24,20 @@ type Order = {
   createdAt: string
 }
 
+type PlayerSkillReview = {
+  id: string
+  playerId: string
+  playerName: string
+  gameId: string
+  gameName: string
+  rank: string | null
+  description: string
+  evidenceUrl: string | null
+  verificationStatus: string
+  reviewNote: string
+  updatedAt: string
+}
+
 type Settlement = {
   id: string
   orderId: string
@@ -34,7 +48,7 @@ type Settlement = {
   status: string
 }
 
-type Tab = "dashboard" | "players" | "catalog" | "orders" | "settlements"
+type Tab = "dashboard" | "players" | "skills" | "catalog" | "orders" | "settlements"
 
 const tab = ref<Tab>("dashboard")
 const loading = ref(true)
@@ -42,10 +56,12 @@ const error = ref("")
 const players = ref<Player[]>([])
 const orders = ref<Order[]>([])
 const settlements = ref<Settlement[]>([])
+const skills = ref<PlayerSkillReview[]>([])
 
 const nav = [
   { key: "dashboard" as const, label: "概览", icon: "◫" },
   { key: "players" as const, label: "陪玩审核", icon: "人" },
+  { key: "skills" as const, label: "技能认证", icon: "证" },
   { key: "catalog" as const, label: "服务目录", icon: "目" },
   { key: "orders" as const, label: "订单管理", icon: "单" },
   { key: "settlements" as const, label: "结算中心", icon: "¥" }
@@ -67,12 +83,14 @@ async function load() {
   loading.value = true
   error.value = ""
   try {
-    const [nextPlayers, nextOrders, nextSettlements] = await Promise.all([
+    const [nextPlayers, nextSkills, nextOrders, nextSettlements] = await Promise.all([
       adminRequest<Player[]>("/admin/players"),
+      adminRequest<PlayerSkillReview[]>("/admin/player-skills"),
       adminRequest<Order[]>("/admin/orders"),
       adminRequest<Settlement[]>("/admin/settlements")
     ])
     players.value = nextPlayers
+    skills.value = nextSkills
     orders.value = nextOrders
     settlements.value = nextSettlements
   } catch (reason) {
@@ -90,6 +108,17 @@ async function reviewPlayer(player: Player, action: "approve" | "reject") {
     await load()
   } catch (reason) {
     error.value = reason instanceof Error ? reason.message : "审核失败"
+  }
+}
+
+async function reviewSkill(skill: PlayerSkillReview, action: "approve" | "reject") {
+  try {
+    await adminRequest(`/admin/player-skills/${skill.id}/${action}`, {
+      method: "POST"
+    })
+    await load()
+  } catch (reason) {
+    error.value = reason instanceof Error ? reason.message : "技能审核失败"
   }
 }
 
@@ -221,6 +250,47 @@ onMounted(load)
         </div>
       </section>
 
+      <section v-else-if="tab === 'skills'" class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>技能认证审核</h2>
+            <p>段位或证明变化后会重新进入 PENDING，公开主页只展示 APPROVED 技能。</p>
+          </div>
+          <span class="count">{{ skills.filter(item => item.verificationStatus === "PENDING").length }} 待处理</span>
+        </div>
+
+        <div class="table">
+          <div class="tr th">
+            <span>陪玩 / 游戏</span><span>段位</span><span>证明</span><span>状态</span><span>操作</span>
+          </div>
+          <div v-for="skill in skills" :key="skill.id" class="tr">
+            <span class="identity">
+              <b>{{ skill.playerName }}</b>
+              <small>{{ skill.gameName }}</small>
+            </span>
+            <span>{{ skill.rank || "-" }}</span>
+            <span>
+              <a v-if="skill.evidenceUrl" :href="skill.evidenceUrl" target="_blank" rel="noreferrer">查看证明</a>
+              <small v-else>无</small>
+            </span>
+            <span><em class="badge">{{ skill.verificationStatus }}</em></span>
+            <span class="actions">
+              <button
+                v-if="skill.verificationStatus === 'PENDING'"
+                class="approve"
+                @click="reviewSkill(skill, 'approve')"
+              >通过</button>
+              <button
+                v-if="skill.verificationStatus === 'PENDING'"
+                class="reject"
+                @click="reviewSkill(skill, 'reject')"
+              >拒绝</button>
+              <small v-else>{{ skill.reviewNote || "已处理" }}</small>
+            </span>
+          </div>
+        </div>
+      </section>
+
       <CatalogPanel v-else-if="tab === 'catalog'" />
 
       <section v-else-if="tab === 'orders'" class="panel">
@@ -280,6 +350,7 @@ onMounted(load)
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 1100px; }
 button { font: inherit; }
+a { color: #6c5ce7; text-decoration: none; }
 .shell { min-height: 100vh; display: grid; grid-template-columns: 250px minmax(0, 1fr); }
 .sidebar { position: sticky; top: 0; height: 100vh; padding: 28px 20px; background: #17171f; color: white; display: flex; flex-direction: column; }
 .brand { display: flex; align-items: center; gap: 12px; padding: 4px 8px 32px; }

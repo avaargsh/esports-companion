@@ -6,6 +6,7 @@ import { request } from "../../api/client"
 import { getDemoIdentities } from "../../api/demo"
 import type { Wallet } from "../../types/domain"
 import OfferingPanel from "./OfferingPanel.vue"
+import SkillPanel from "./SkillPanel.vue"
 
 type Player = {
   id: string
@@ -98,6 +99,7 @@ onShow(() => { void load() })
     </view>
 
     <OfferingPanel v-if="playerUserId" :user-id="playerUserId" />
+    <SkillPanel v-if="playerUserId" :user-id="playerUserId" />
 
     <view class="principle">
       <text class="principle-title">工作台只放履约信息</text>

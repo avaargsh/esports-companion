@@ -81,6 +81,33 @@ class PlayerOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class PlayerSkillUpsert(BaseModel):
+    rank: str = Field(min_length=1, max_length=80)
+    description: str = Field(default="", max_length=500)
+    evidence_url: str = Field(min_length=1, max_length=512)
+
+
+class PlayerSkillOut(BaseModel):
+    id: uuid.UUID
+    player_id: uuid.UUID
+    game_id: uuid.UUID
+    rank: str | None
+    description: str
+    evidence_url: str | None
+    verification_status: str
+    review_note: str
+    status: str
+    model_config = {"from_attributes": True}
+
+
+class PublicSkillOut(BaseModel):
+    id: uuid.UUID
+    game_id: uuid.UUID
+    game_name: str
+    rank: str
+    description: str
+
+
 class ClaimRequest(BaseModel):
     expected_version: int = Field(ge=0)
 
@@ -195,6 +222,7 @@ class PublicPlayerOut(BaseModel):
     review_count: int
     order_count: int
     offerings: list[PublicOfferingOut]
+    skills: list[PublicSkillOut] = Field(default_factory=list)
     reviews: list[PublicReviewOut] = Field(default_factory=list)
 
 
