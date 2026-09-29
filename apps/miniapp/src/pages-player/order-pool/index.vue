@@ -3,7 +3,7 @@ import { ref } from "vue"
 import { onShow } from "@dcloudio/uni-app"
 
 import { request } from "../../api/client"
-import { getDemoIdentities } from "../../api/demo"
+import { getRuntimeIdentities } from "../../api/identity"
 import type { Game, Order } from "../../types/domain"
 
 const games = ref<Game[]>([])
@@ -23,7 +23,7 @@ async function loadPool() {
 }
 
 onShow(async () => {
-  const identities = await getDemoIdentities()
+  const identities = await getRuntimeIdentities()
   playerUserId.value = identities.players[0]?.userId ?? ""
   games.value = await request<Game[]>("/games")
   if (!gameId.value && games.value.length) {

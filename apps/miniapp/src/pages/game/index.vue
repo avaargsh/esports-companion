@@ -3,7 +3,7 @@ import { computed, ref } from "vue"
 import { onLoad } from "@dcloudio/uni-app"
 
 import { request } from "../../api/client"
-import { getDemoIdentities } from "../../api/demo"
+import { getRuntimeIdentities } from "../../api/identity"
 import type { Order, ServiceSku } from "../../types/domain"
 
 const gameId = ref("")
@@ -30,7 +30,7 @@ async function createOrder() {
   if (!selected.value || creating.value) return
   creating.value = true
   try {
-    const identities = await getDemoIdentities()
+    const identities = await getRuntimeIdentities()
     const order = await request<Order>("/orders", {
       method: "POST",
       userId: identities.customer.userId,

@@ -3,7 +3,7 @@ import { computed, ref } from "vue"
 import { onLoad } from "@dcloudio/uni-app"
 
 import { request } from "../../api/client"
-import { getDemoIdentities } from "../../api/demo"
+import { getRuntimeIdentities } from "../../api/identity"
 import type { Order, PublicOffering, PublicPlayer } from "../../types/domain"
 
 const playerId = ref("")
@@ -37,7 +37,7 @@ async function createDesignatedOrder() {
   if (!selectedOffering.value || creating.value) return
   creating.value = true
   try {
-    const identities = await getDemoIdentities()
+    const identities = await getRuntimeIdentities()
     const order = await request<Order>("/orders", {
       method: "POST",
       userId: identities.customer.userId,

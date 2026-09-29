@@ -3,7 +3,7 @@ import { computed, ref } from "vue"
 import { onShow } from "@dcloudio/uni-app"
 
 import { request } from "../../api/client"
-import { getDemoIdentities } from "../../api/demo"
+import { getRuntimeIdentities } from "../../api/identity"
 import OrderCard from "../../components/OrderCard.vue"
 import type { Order } from "../../types/domain"
 import { isActiveOrder } from "../../utils/order"
@@ -27,7 +27,7 @@ const visibleOrders = computed(() => {
 async function load() {
   loading.value = true
   try {
-    const identities = await getDemoIdentities()
+    const identities = await getRuntimeIdentities()
     orders.value = await request<Order[]>("/orders?limit=50", {
       userId: identities.customer.userId
     })

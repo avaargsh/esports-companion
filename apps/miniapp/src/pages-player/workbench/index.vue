@@ -3,7 +3,7 @@ import { computed, ref } from "vue"
 import { onShow } from "@dcloudio/uni-app"
 
 import { request } from "../../api/client"
-import { getDemoIdentities } from "../../api/demo"
+import { getRuntimeIdentities } from "../../api/identity"
 import type { Wallet } from "../../types/domain"
 import OfferingPanel from "./OfferingPanel.vue"
 import SkillPanel from "./SkillPanel.vue"
@@ -24,7 +24,7 @@ const busy = ref(false)
 const online = computed(() => profile.value?.service_status === "AVAILABLE")
 
 async function load() {
-  const identities = await getDemoIdentities()
+  const identities = await getRuntimeIdentities()
   playerUserId.value = identities.players[0]?.userId ?? ""
   if (!playerUserId.value) return
 

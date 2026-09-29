@@ -3,14 +3,14 @@ import { ref } from "vue"
 import { onShow } from "@dcloudio/uni-app"
 
 import { request } from "../../api/client"
-import { getDemoIdentities } from "../../api/demo"
+import { getRuntimeIdentities } from "../../api/identity"
 import type { Order } from "../../types/domain"
 import { orderStatusMeta } from "../../utils/order"
 
 const orders = ref<Order[]>([])
 
 async function load() {
-  const identities = await getDemoIdentities()
+  const identities = await getRuntimeIdentities()
   const userId = identities.players[0]?.userId
   if (!userId) return
   orders.value = await request<Order[]>("/player/orders", { userId })

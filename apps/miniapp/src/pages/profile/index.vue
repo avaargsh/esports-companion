@@ -2,14 +2,16 @@
 import { ref } from "vue"
 import { onShow } from "@dcloudio/uni-app"
 
-import { getDemoIdentities } from "../../api/demo"
+import { getRuntimeIdentities } from "../../api/identity"
+import { usesWechatSession } from "../../api/session"
 
 const nickname = ref("Demo Customer")
 const playerName = ref("")
+const productionIdentity = usesWechatSession()
 
 onShow(async () => {
   try {
-    const identities = await getDemoIdentities()
+    const identities = await getRuntimeIdentities()
     nickname.value = identities.customer.nickname
     playerName.value = identities.players[0]?.displayName ?? ""
   } catch {
@@ -32,7 +34,9 @@ function openOrders() {
       <view class="avatar">{{ nickname.slice(0, 1).toUpperCase() }}</view>
       <view>
         <view class="name">{{ nickname }}</view>
-        <view class="hint">开发环境模拟微信身份</view>
+        <view class="hint">
+          {{ productionIdentity ? "微信登录身份" : "开发环境模拟微信身份" }}
+        </view>
       </view>
     </view>
 
@@ -40,7 +44,11 @@ function openOrders() {
       <view>
         <text class="role-label">陪玩工作台</text>
         <text class="role-desc">
-          {{ playerName ? playerName + " · 查看接单与收益" : "未找到 Demo Player，请先运行 seed" }}
+          {{ playerName
+            ? playerName + " · 查看接单与收益"
+            : productionIdentity
+              ? "当前账号尚未通过陪玩认证"
+              : "未找到 Demo Player，请先运行 seed" }}
         </text>
       </view>
       <text class="arrow light">›</text>

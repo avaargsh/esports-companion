@@ -3,7 +3,8 @@ import { computed, ref } from "vue"
 import { onLoad, onUnload } from "@dcloudio/uni-app"
 
 import { API_ORIGIN, request } from "../../api/client"
-import { getDemoIdentities } from "../../api/demo"
+import { getRuntimeIdentities } from "../../api/identity"
+import { websocketAuth } from "../../api/session"
 import OrderChat from "../../components/OrderChat.vue"
 import type { Order } from "../../types/domain"
 import { orderStatusMeta } from "../../utils/order"
@@ -59,10 +60,10 @@ async function load() {
 
 function connectRealtime() {
   if (!orderId.value || !playerUserId.value) return
+  const auth = websocketAuth(playerUserId.value)
   const task = uni.connectSocket({
-    url:
-      API_ORIGIN.replace(/^http/, "ws") +
-      `/ws?user_id=${encodeURIComponent(playerUserId.value)}`
+    url: API_ORIGIN.replace(/^http/, "ws") + "/ws" + auth.query,
+    header: auth.header
   }) as unknown as UniApp.SocketTask
 
   socket = task
@@ -114,7 +115,7 @@ async function act() {
 
 onLoad(async query => {
   orderId.value = String(query?.id || "")
-  const identities = await getDemoIdentities()
+  const identities = await getRuntimeIdentities()
   playerUserId.value = identities.players[0]?.userId ?? ""
   await load()
   connectRealtime()
