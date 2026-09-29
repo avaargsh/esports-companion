@@ -207,7 +207,7 @@ class WithdrawalCreate(BaseModel):
 
 
 class WithdrawalComplete(BaseModel):
-    provider_txn_id: str = Field(min_length=1, max_length=128)
+    provider_txn_id: str = Field(min_length=1, max_length=128, pattern=r".*\\S.*")
 
 
 class WithdrawalOut(BaseModel):
