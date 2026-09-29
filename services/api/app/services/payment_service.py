@@ -152,6 +152,7 @@ class PaymentService:
             select(PaymentTransaction).where(
                 PaymentTransaction.provider == callback.provider.upper(),
                 PaymentTransaction.provider_txn_id == callback.provider_txn_id,
+                PaymentTransaction.status == "SUCCESS",
             )
         )
         if existing_success:
