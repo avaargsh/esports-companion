@@ -57,7 +57,8 @@ Operator completion:
 
 ```text
 real external payout completed
-  -> click "confirm paid"
+  -> record real external payout / transfer reference
+  -> confirm paid
   -> frozen - amount
   -> COMPLETED
   -> ledger entry
@@ -74,7 +75,7 @@ PENDING
   -> ledger entry
 ```
 
-The console confirmation dialog is deliberate: **never mark a withdrawal COMPLETED before the external payout actually succeeded.**
+The console requires a real external payout reference and a confirmation step. **Never mark a withdrawal COMPLETED before the external payout actually succeeded.** A completed payout reference is treated as immutable audit evidence.
 
 ## Daily operating routine
 
@@ -110,3 +111,20 @@ The v0.4 Admin console is an internal operations surface.
 - No bulk marketing or CRM workflow is included.
 
 These limits are intentional; they keep the operations layer aligned with the existing transactional core instead of creating another workflow engine.
+
+
+## Order evidence view
+
+Order lookup and dispute handling both link to the same read-only evidence drawer.
+
+It combines:
+
+- current order status and version;
+- customer total, provider amount and platform fee;
+- assigned/designated provider identity;
+- append-only OrderEvent history;
+- complete order-scoped chat history available to PLATFORM.
+
+PLATFORM access to chat is intentionally read-only. Operators can inspect
+evidence for support and dispute resolution, but cannot impersonate a USER or
+PLAYER by sending into the order chat.
