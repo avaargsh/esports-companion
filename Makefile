@@ -1,4 +1,4 @@
-.PHONY: up down logs migrate seed test
+.PHONY: up down logs migrate seed test miniapp-build admin-build
 
 up:
 	docker compose up --build -d
@@ -17,3 +17,10 @@ seed:
 
 test:
 	docker compose run --rm api pytest -q
+
+
+miniapp-build:
+	cd apps/miniapp && npm install --no-audit --no-fund && npm run build:mp-weixin
+
+admin-build:
+	cd apps/admin && npm install --no-audit --no-fund && npm run build
