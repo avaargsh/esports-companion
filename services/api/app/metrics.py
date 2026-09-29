@@ -61,6 +61,18 @@ DISPUTES_OLDEST_OPEN_SECONDS = Gauge(
     "esports_disputes_oldest_open_seconds",
     "Age in seconds of the oldest open/resolving dispute.",
 )
+FINISH_REQUESTS_PENDING = Gauge(
+    "esports_finish_requests_pending",
+    "Orders waiting for customer completion confirmation.",
+)
+FINISH_REQUESTS_OVERDUE = Gauge(
+    "esports_finish_requests_overdue",
+    "Finish requests older than the configured auto-confirm timeout plus scan grace.",
+)
+FINISH_REQUESTS_OLDEST_SECONDS = Gauge(
+    "esports_finish_requests_oldest_seconds",
+    "Age in seconds of the oldest pending finish request.",
+)
 
 
 def stable_route(scope: dict) -> str:
