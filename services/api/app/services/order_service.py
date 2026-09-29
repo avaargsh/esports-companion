@@ -183,6 +183,7 @@ class OrderService:
                 actor_type=actor_type,
                 actor_id=actor_id,
                 payload_json=payload,
+                created_at=datetime.now(timezone.utc),
             )
         )
         db.add(
