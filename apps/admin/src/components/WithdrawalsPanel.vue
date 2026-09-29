@@ -32,7 +32,18 @@ async function load() {
 
 async function act(item: Withdrawal, action: "complete" | "reject") {
   if (busyId.value) return
-  if (action === "complete" && !window.confirm("确认已经线下完成打款？该操作会释放冻结金额并记为 COMPLETED。")) return
+  let body: unknown = undefined
+  if (action === "complete") {
+    const payoutRef = window.prompt("请输入真实外部打款流水号 / 凭证号")
+    if (payoutRef === null) return
+    const normalized = payoutRef.trim()
+    if (!normalized) {
+      error.value = "确认打款前必须填写真实外部流水号"
+      return
+    }
+    if (!window.confirm("确认外部打款已经成功？提交后资金会解除冻结并记为 COMPLETED。")) return
+    body = { provider_txn_id: normalized }
+  }
 
   let suffix = ""
   if (action === "reject") {
@@ -43,7 +54,10 @@ async function act(item: Withdrawal, action: "complete" | "reject") {
 
   busyId.value = item.id
   try {
-    await adminRequest(`/admin/withdrawals/${item.id}/${action}${suffix}`, { method: "POST" })
+    await adminRequest("/admin/withdrawals/" + item.id + "/" + action + suffix, {
+      method: "POST",
+      body
+    })
     await load()
   } catch (reason) {
     error.value = reason instanceof Error ? reason.message : "提现处理失败"
@@ -69,7 +83,7 @@ onMounted(load)
       <header>
         <div>
           <h2>提现审核</h2>
-          <p>申请时资金已从 available 冻结；仅在实际打款后点击“确认已打款”。</p>
+          <p>申请时资金已从 available 冻结；确认完成必须填写真实外部打款流水号。</p>
         </div>
         <button class="ghost" @click="load">刷新</button>
       </header>
@@ -84,7 +98,7 @@ onMounted(load)
           <span><em :class="{ pending:item.status==='PENDING' }">{{ item.status }}</em></span>
           <span class="actions">
             <template v-if="item.status === 'PENDING'">
-              <button class="complete" :disabled="!!busyId" @click="act(item,'complete')">确认已打款</button>
+              <button class="complete" :disabled="!!busyId" @click="act(item,'complete')">录入流水并完成</button>
               <button class="reject" :disabled="!!busyId" @click="act(item,'reject')">拒绝</button>
             </template>
             <small v-else>{{ item.providerTxnId || item.failureReason || "已处理" }}</small>

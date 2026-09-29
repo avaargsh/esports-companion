@@ -11,6 +11,7 @@ import AdminSessionPanel from "./components/AdminSessionPanel.vue"
 import AftercarePanel from "./components/AftercarePanel.vue"
 import CatalogPanel from "./components/CatalogPanel.vue"
 import WithdrawalsPanel from "./components/WithdrawalsPanel.vue"
+import OrderEvidencePanel from "./components/OrderEvidencePanel.vue"
 
 type Player = {
   id: string
@@ -67,6 +68,7 @@ const players = ref<Player[]>([])
 const orders = ref<Order[]>([])
 const settlements = ref<Settlement[]>([])
 const skills = ref<PlayerSkillReview[]>([])
+const evidenceOrderId = ref("")
 
 const nav = [
   { key: "dashboard" as const, label: "概览", icon: "◫" },
@@ -341,7 +343,10 @@ onMounted(() => {
             <span><em class="badge purple">{{ order.status }}</em></span>
             <span>¥{{ (order.totalAmount / 100).toFixed(2) }}</span>
             <span>v{{ order.version }}</span>
-            <span>{{ new Date(order.createdAt).toLocaleString() }}</span>
+            <span class="order-actions">
+              <small>{{ new Date(order.createdAt).toLocaleString() }}</small>
+              <button class="evidence-button" @click="evidenceOrderId = order.id">查看事实</button>
+            </span>
           </div>
         </div>
       </section>
@@ -372,6 +377,12 @@ onMounted(() => {
       </section>
       </template>
     </main>
+
+    <OrderEvidencePanel
+      v-if="evidenceOrderId"
+      :order-id="evidenceOrderId"
+      @close="evidenceOrderId = ''"
+    />
   </div>
 </template>
 
@@ -431,6 +442,9 @@ h1 { margin: 0; font-size: 34px; letter-spacing: -1px; }
 .badge.green { background: #eafbf2; color: #198754; }
 .actions { display: flex; gap: 7px; }
 .actions button { border: 0; padding: 7px 10px; border-radius: 9px; cursor: pointer; font-size: 11px; }
+.order-actions { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.order-actions small { color:#92929d; font-size:10px; }
+.evidence-button { border:0; padding:6px 9px; border-radius:9px; background:#f1efff; color:#6c5ce7; cursor:pointer; font-size:10px; font-weight:700; }
 .approve { background: #6c5ce7; color: white; }
 .reject { background: #f2f1f5; color: #686872; }
 .alert { margin-bottom: 18px; padding: 14px 16px; border-radius: 13px; background: #fff0f0; color: #c63d3d; font-size: 12px; }

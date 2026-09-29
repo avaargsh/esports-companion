@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.models import Game, Order, PlayerProfile, PlayerSkill, Settlement, Withdrawal
+from app.schemas import WithdrawalComplete
 from app.security import Principal, require_platform
 from app.services.withdrawal_service import WithdrawalService
 
@@ -207,6 +208,7 @@ def list_withdrawals(
 @router.post("/withdrawals/{withdrawal_id}/complete")
 def complete_withdrawal(
     withdrawal_id: uuid.UUID,
+    body: WithdrawalComplete,
     principal: Principal = Depends(require_platform),
     db: Session = Depends(get_db),
 ):
@@ -214,7 +216,7 @@ def complete_withdrawal(
         item = WithdrawalService.complete(
             db,
             withdrawal_id=withdrawal_id,
-            provider_txn_id=f"manual:{withdrawal_id}",
+            provider_txn_id=body.provider_txn_id.strip(),
         )
         return {"id": str(item.id), "status": item.status}
     except LookupError as exc:

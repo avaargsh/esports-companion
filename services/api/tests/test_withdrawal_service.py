@@ -97,6 +97,7 @@ def test_withdrawal_complete_is_idempotent():
 
         assert first.id == second.id
         assert first.status == "COMPLETED"
+        assert first.provider_txn_id == "manual:test"
         wallet = db.get(Wallet, wallet_id)
         assert wallet.available_balance == 7500
         assert wallet.frozen_balance == 0
@@ -138,3 +139,27 @@ def test_withdrawal_rejects_insufficient_balance():
         wallet = db.get(Wallet, wallet_id)
         assert wallet.available_balance == 1000
         assert wallet.frozen_balance == 0
+
+
+def test_completed_withdrawal_rejects_conflicting_payout_reference():
+    user_id, _wallet_id = _create_player_wallet(10000)
+
+    with SessionLocal() as db:
+        item = WithdrawalService.request(
+            db,
+            user_id=user_id,
+            amount=2500,
+            idempotency_key=f"wd:{uuid.uuid4()}",
+        )
+        WithdrawalService.complete(
+            db,
+            withdrawal_id=item.id,
+            provider_txn_id="manual:proof-a",
+        )
+
+        with pytest.raises(ValueError, match="WITHDRAWAL_PAYOUT_REFERENCE_MISMATCH"):
+            WithdrawalService.complete(
+                db,
+                withdrawal_id=item.id,
+                provider_txn_id="manual:proof-b",
+            )
