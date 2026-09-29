@@ -16,8 +16,7 @@ type RequestOptions = {
 async function execute<T>(
   path: string,
   options: RequestOptions,
-  *,
-  retryAuth: boolean
+  config: { retryAuth: boolean }
 ): Promise<T> {
   const requiresIdentity = Boolean(options.userId || options.adminId)
   const headers: Record<string, string> = {
@@ -45,7 +44,7 @@ async function execute<T>(
     response.statusCode === 401 &&
     requiresIdentity &&
     isWeChatAuthMode() &&
-    retryAuth
+    config.retryAuth
   ) {
     await refreshSession()
     return execute<T>(path, options, { retryAuth: false })
