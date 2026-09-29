@@ -149,6 +149,46 @@ class SessionService:
         )
 
     @staticmethod
+    def list_active_sessions(
+        db: Session,
+        *,
+        user_id: uuid.UUID,
+    ) -> list[AuthSession]:
+        now = datetime.now(timezone.utc)
+        return list(
+            db.scalars(
+                select(AuthSession)
+                .where(
+                    AuthSession.user_id == user_id,
+                    AuthSession.revoked_at.is_(None),
+                    AuthSession.expires_at > now,
+                )
+                .order_by(AuthSession.created_at.desc(), AuthSession.id.desc())
+            ).all()
+        )
+
+    @staticmethod
+    def revoke_all_for_user(
+        db: Session,
+        *,
+        user_id: uuid.UUID,
+    ) -> int:
+        now = datetime.now(timezone.utc)
+        sessions = db.scalars(
+            select(AuthSession)
+            .where(
+                AuthSession.user_id == user_id,
+                AuthSession.revoked_at.is_(None),
+            )
+            .with_for_update()
+        ).all()
+        for session in sessions:
+            session.revoked_at = now
+            session.last_used_at = now
+        db.commit()
+        return len(sessions)
+
+    @staticmethod
     def _revoke_descendants(
         db: Session,
         *,
