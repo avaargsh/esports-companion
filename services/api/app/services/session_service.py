@@ -107,7 +107,9 @@ class SessionService:
         if not current:
             raise ValueError("REFRESH_TOKEN_INVALID")
         if current.revoked_at is not None:
-            raise ValueError("REFRESH_TOKEN_REVOKED")
+            SessionService._revoke_descendants(db, session_id=current.id, now=now)
+            db.commit()
+            raise ValueError("REFRESH_TOKEN_REUSED")
         if SessionService._as_utc(current.expires_at) <= now:
             raise ValueError("REFRESH_TOKEN_EXPIRED")
 
@@ -145,6 +147,33 @@ class SessionService:
             refresh_expires_in=settings.refresh_token_ttl_seconds,
             roles=roles,
         )
+
+    @staticmethod
+    def _revoke_descendants(
+        db: Session,
+        *,
+        session_id: uuid.UUID,
+        now: datetime,
+    ) -> None:
+        """Revoke every active descendant of a reused refresh token.
+
+        Refresh rotation creates a linear chain today, but walking all children
+        keeps the containment correct if concurrent or future flows ever branch.
+        """
+        pending = [session_id]
+        while pending:
+            parent_ids = pending
+            pending = []
+            children = db.scalars(
+                select(AuthSession).where(
+                    AuthSession.rotated_from_id.in_(parent_ids)
+                )
+            ).all()
+            for child in children:
+                if child.revoked_at is None:
+                    child.revoked_at = now
+                child.last_used_at = now
+                pending.append(child.id)
 
     @staticmethod
     def revoke_refresh(
