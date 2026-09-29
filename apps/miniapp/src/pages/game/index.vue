@@ -11,11 +11,17 @@ const gameName = ref("选择服务")
 const skus = ref<ServiceSku[]>([])
 const selectedId = ref("")
 const remark = ref("")
+const quantity = ref(1)
 const creating = ref(false)
 
 const selected = computed(() =>
   skus.value.find(item => item.id === selectedId.value) ?? null
 )
+const totalAmount = computed(() => (selected.value?.price || 0) * quantity.value)
+
+function changeQuantity(delta: number) {
+  quantity.value = Math.min(10, Math.max(1, quantity.value + delta))
+}
 
 onLoad(async query => {
   gameId.value = String(query?.id ?? "")
@@ -36,7 +42,7 @@ async function createOrder() {
       userId: identities.customer.userId,
       data: {
         sku_id: selected.value.id,
-        quantity: 1,
+        quantity: quantity.value,
         remark: remark.value.trim()
       }
     })
@@ -76,6 +82,18 @@ async function createOrder() {
       </view>
     </view>
 
+    <view class="quantity-card">
+      <view>
+        <view class="label">服务数量</view>
+        <view class="quantity-hint">1–10 份，金额自动联动</view>
+      </view>
+      <view class="stepper">
+        <button :disabled="quantity <= 1" @click="changeQuantity(-1)">−</button>
+        <text>{{ quantity }}</text>
+        <button :disabled="quantity >= 10" @click="changeQuantity(1)">＋</button>
+      </view>
+    </view>
+
     <view class="remark-card">
       <view class="label">给陪玩留言 <text>选填</text></view>
       <textarea
@@ -88,7 +106,7 @@ async function createOrder() {
     <view class="footer">
       <view>
         <text class="pay-label">合计</text>
-        <text v-if="selected" class="total">¥{{ (selected.price / 100).toFixed(2) }}</text>
+        <text v-if="selected" class="total">¥{{ (totalAmount / 100).toFixed(2) }}</text>
       </view>
       <button
         class="buy"
@@ -116,6 +134,12 @@ async function createOrder() {
 .sku-name { font-size: 28rpx; font-weight: 700; }
 .meta { margin-top: 10rpx; color: #92929d; font-size: 21rpx; }
 .price { color: #6c5ce7; font-size: 31rpx; font-weight: 800; }
+.quantity-card { display:flex; align-items:center; justify-content:space-between; gap:20rpx; margin-top:22rpx; padding:26rpx 28rpx; border-radius:30rpx; background:#fff; }
+.quantity-hint { margin-top:6rpx; color:#aaaab4; font-size:18rpx; }
+.stepper { display:flex; align-items:center; gap:18rpx; }
+.stepper button { margin:0; width:58rpx; height:58rpx; line-height:58rpx; padding:0; border-radius:18rpx; background:#f0edff; color:#6c5ce7; font-size:28rpx; }
+.stepper button[disabled] { opacity:.35; }
+.stepper text { min-width:34rpx; text-align:center; font-size:27rpx; font-weight:800; }
 .remark-card { margin-top: 22rpx; padding: 28rpx; border-radius: 30rpx; background: #fff; }
 .label { font-size: 25rpx; font-weight: 700; }
 .label text { margin-left: 8rpx; color: #aaaab4; font-size: 20rpx; font-weight: 400; }

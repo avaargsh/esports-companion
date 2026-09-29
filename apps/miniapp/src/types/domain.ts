@@ -122,3 +122,13 @@ export type PublicPlayer = {
   skills: PublicSkill[]
   reviews: PublicReview[]
 }
+
+
+export type OrderEvent = {
+  id: string
+  event_type: string
+  from_status?: OrderStatus | null
+  to_status?: OrderStatus | null
+  actor_type: string
+  created_at: string
+}

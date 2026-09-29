@@ -10,12 +10,18 @@ const playerId = ref("")
 const player = ref<PublicPlayer | null>(null)
 const selectedOfferingId = ref("")
 const remark = ref("")
+const quantity = ref(1)
 const loading = ref(true)
 const creating = ref(false)
 
 const selectedOffering = computed<PublicOffering | null>(() =>
   player.value?.offerings.find(item => item.id === selectedOfferingId.value) ?? null
 )
+const totalAmount = computed(() => (selectedOffering.value?.price || 0) * quantity.value)
+
+function changeQuantity(delta: number) {
+  quantity.value = Math.min(10, Math.max(1, quantity.value + delta))
+}
 
 onLoad(async query => {
   playerId.value = String(query?.id ?? "")
@@ -43,7 +49,7 @@ async function createDesignatedOrder() {
       userId: identities.customer.userId,
       data: {
         offering_id: selectedOffering.value.id,
-        quantity: 1,
+        quantity: quantity.value,
         remark: remark.value.trim()
       }
     })
@@ -110,6 +116,18 @@ async function createDesignatedOrder() {
       </view>
     </view>
 
+    <view class="section-card quantity-card">
+      <view>
+        <view class="section-title compact">服务数量</view>
+        <view class="quantity-hint">指定大神，同一 Offering 可购买 1–10 份</view>
+      </view>
+      <view class="stepper">
+        <button :disabled="quantity <= 1" @click="changeQuantity(-1)">−</button>
+        <text>{{ quantity }}</text>
+        <button :disabled="quantity >= 10" @click="changeQuantity(1)">＋</button>
+      </view>
+    </view>
+
     <view class="section-card">
       <view class="section-title">给大神留言 <text class="optional">选填</text></view>
       <textarea
@@ -132,7 +150,7 @@ async function createDesignatedOrder() {
       <view>
         <text class="footer-label">指定大神</text>
         <text v-if="selectedOffering" class="footer-price">
-          ¥{{ (selectedOffering.price / 100).toFixed(2) }}
+          ¥{{ (totalAmount / 100).toFixed(2) }}
         </text>
       </view>
       <button
@@ -173,6 +191,13 @@ async function createDesignatedOrder() {
 .offering-desc, .offering-meta { margin-top: 8rpx; color: #92929d; font-size: 20rpx; }
 .price { color: #6c5ce7; font-size: 29rpx; font-weight: 800; }
 .section-card, .review, .empty { margin-top: 20rpx; padding: 28rpx; border-radius: 28rpx; background: #fff; }
+.quantity-card { display:flex; align-items:center; justify-content:space-between; gap:20rpx; }
+.section-title.compact { margin-bottom:0; }
+.quantity-hint { margin-top:7rpx; color:#92929d; font-size:18rpx; }
+.stepper { display:flex; align-items:center; gap:18rpx; }
+.stepper button { margin:0; width:58rpx; height:58rpx; line-height:58rpx; padding:0; border-radius:18rpx; background:#f0edff; color:#6c5ce7; font-size:28rpx; }
+.stepper button[disabled] { opacity:.35; }
+.stepper text { min-width:34rpx; text-align:center; font-size:27rpx; font-weight:800; }
 .section-card textarea { width: 100%; height: 140rpx; margin-top: 10rpx; font-size: 23rpx; }
 .optional { color: #aaaab4; font-size: 20rpx; font-weight: 400; }
 .review-rating { color: #f0b72f; font-size: 25rpx; }

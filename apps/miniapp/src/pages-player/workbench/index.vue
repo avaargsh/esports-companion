@@ -4,7 +4,7 @@ import { onShow } from "@dcloudio/uni-app"
 
 import { request } from "../../api/client"
 import { getDemoIdentities } from "../../api/demo"
-import type { Wallet } from "../../types/domain"
+import type { Order, Wallet } from "../../types/domain"
 import OfferingPanel from "./OfferingPanel.vue"
 import SkillPanel from "./SkillPanel.vue"
 
@@ -18,26 +18,42 @@ type Player = {
 
 const profile = ref<Player | null>(null)
 const wallet = ref<Wallet>({ availableBalance: 0, frozenBalance: 0 })
+const orders = ref<Order[]>([])
 const playerUserId = ref("")
 const busy = ref(false)
 
 const online = computed(() => profile.value?.service_status === "AVAILABLE")
+const verified = computed(() => profile.value?.verification_status === "APPROVED")
+const acceptedCount = computed(() => orders.value.filter(item => item.status === "ACCEPTED").length)
+const inServiceCount = computed(() => orders.value.filter(item => item.status === "IN_SERVICE").length)
+const waitingConfirmCount = computed(() => orders.value.filter(item => item.status === "FINISH_REQUESTED").length)
+const activeIncome = computed(() =>
+  orders.value
+    .filter(item => ["ACCEPTED", "IN_SERVICE", "FINISH_REQUESTED"].includes(item.status))
+    .reduce((sum, item) => sum + item.player_amount, 0)
+)
 
 async function load() {
   const identities = await getDemoIdentities()
   playerUserId.value = identities.players[0]?.userId ?? ""
   if (!playerUserId.value) return
 
-  const [profileResult, walletResult] = await Promise.all([
+  const [profileResult, walletResult, orderResult] = await Promise.all([
     request<Player>("/player/profile", { userId: playerUserId.value }),
-    request<Wallet>("/wallet", { userId: playerUserId.value })
+    request<Wallet>("/wallet", { userId: playerUserId.value }),
+    request<Order[]>("/player/orders", { userId: playerUserId.value })
   ])
   profile.value = profileResult
   wallet.value = walletResult
+  orders.value = orderResult
 }
 
 async function toggleStatus() {
   if (!profile.value || !playerUserId.value || busy.value) return
+  if (!verified.value) {
+    uni.showToast({ title: "认证通过后才能开启接单", icon: "none" })
+    return
+  }
   busy.value = true
   try {
     profile.value = await request<Player>("/player/profile", {
@@ -74,8 +90,8 @@ onShow(() => { void load() })
           <text class="label">可用收益</text>
           <view class="amount">¥ {{ (wallet.availableBalance / 100).toFixed(2) }}</view>
         </view>
-        <view class="status" :class="{ off: !online }" @click="toggleStatus">
-          ● {{ online ? "接单中" : "已下线" }}
+        <view class="status" :class="{ off: !online, disabled: !verified }" @click="toggleStatus">
+          ● {{ !verified ? "待认证" : online ? "接单中" : "已下线" }}
         </view>
       </view>
 
@@ -90,6 +106,17 @@ onShow(() => { void load() })
           <text>冻结中</text>
           <b>¥{{ (wallet.frozenBalance / 100).toFixed(2) }}</b>
         </view>
+      </view>
+
+      <view class="fulfillment-stats">
+        <view><b>{{ acceptedCount }}</b><text>待开始</text></view>
+        <view><b>{{ inServiceCount }}</b><text>服务中</text></view>
+        <view><b>{{ waitingConfirmCount }}</b><text>待确认</text></view>
+      </view>
+
+      <view class="active-income">
+        <text>履约中预计收入</text>
+        <b>¥{{ (activeIncome / 100).toFixed(2) }}</b>
       </view>
 
       <view class="actions">
@@ -116,13 +143,20 @@ onShow(() => { void load() })
 .amount { margin-top: 12rpx; font-size: 54rpx; font-weight: 800; }
 .status { padding: 12rpx 18rpx; border-radius: 999rpx; background: rgba(34,197,94,.14); color: #5ddb8b; font-size: 22rpx; }
 .status.off { background: rgba(255,255,255,.08); color: #aaaab4; }
+.status.disabled { background: rgba(245,158,11,.12); color: #e6b455; }
 .identity { margin-top: 42rpx; padding-top: 30rpx; border-top: 1rpx solid rgba(255,255,255,.08); display: flex; align-items: flex-end; justify-content: space-between; gap: 20rpx; }
 .player-name { font-size: 30rpx; font-weight: 700; }
 .verify { margin-top: 8rpx; color: #aaaab4; font-size: 21rpx; }
 .frozen { text-align: right; color: #777784; font-size: 19rpx; }
 .frozen text, .frozen b { display: block; }
 .frozen b { margin-top: 5rpx; color: #c8c4dc; font-size: 24rpx; }
-.actions { display: flex; gap: 16rpx; margin-top: 32rpx; }
+.fulfillment-stats { display:flex; gap:12rpx; margin-top:30rpx; }
+.fulfillment-stats view { flex:1; padding:18rpx 10rpx; border-radius:20rpx; background:rgba(255,255,255,.06); text-align:center; }
+.fulfillment-stats b { display:block; font-size:28rpx; }
+.fulfillment-stats text { display:block; margin-top:5rpx; color:#8e8e99; font-size:17rpx; }
+.active-income { display:flex; justify-content:space-between; align-items:center; margin-top:16rpx; padding:18rpx 20rpx; border-radius:20rpx; background:rgba(108,92,231,.12); color:#b7aff2; font-size:19rpx; }
+.active-income b { color:#fff; font-size:24rpx; }
+.actions { display: flex; gap: 16rpx; margin-top: 24rpx; }
 .actions button { flex: 1; margin: 0; }
 .primary, .secondary { height: 84rpx; line-height: 84rpx; border-radius: 26rpx; font-size: 25rpx; font-weight: 700; }
 .primary { background: #6c5ce7; color: #fff; }
