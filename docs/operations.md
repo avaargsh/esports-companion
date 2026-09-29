@@ -128,3 +128,14 @@ It combines:
 PLATFORM access to chat is intentionally read-only. Operators can inspect
 evidence for support and dispute resolution, but cannot impersonate a USER or
 PLAYER by sending into the order chat.
+
+
+## Withdrawal reconciliation view
+
+Each withdrawal links to a read-only reconciliation drawer that combines:
+
+- withdrawal status and external payout reference;
+- current Wallet available/frozen balances and version;
+- only the Ledger entries whose `biz_type=WITHDRAWAL` and `biz_id` matches the withdrawal.
+
+This view is for reconciliation and incident analysis. Operators still must not edit wallet balances or ledger rows directly.

@@ -71,3 +71,31 @@ def test_admin_withdrawal_completion_requires_real_payout_reference():
         assert rows.status_code == 200
         item = next(row for row in rows.json() if row["id"] == withdrawal_id)
         assert item["providerTxnId"] == "wechat-transfer-20260929-001"
+
+        evidence = client.get(
+            f"/api/v1/admin/withdrawals/{withdrawal_id}/evidence",
+            headers={"X-Admin-Id": admin_user_id},
+        )
+        assert evidence.status_code == 200
+        payload = evidence.json()
+        assert payload["withdrawal"]["providerTxnId"] == "wechat-transfer-20260929-001"
+        assert payload["wallet"]["availableBalance"] == 7500
+        assert payload["wallet"]["frozenBalance"] == 0
+        assert [entry["entryType"] for entry in payload["ledger"]] == [
+            "WITHDRAWAL_FROZEN",
+            "WITHDRAWAL_COMPLETED",
+        ]
+
+
+def test_admin_withdrawal_evidence_returns_404_for_unknown_id():
+    with TestClient(app) as client:
+        client.get("/api/v1/dev/bootstrap")
+        identities = client.get("/api/v1/dev/demo-identities").json()
+        admin_user_id = identities["admin"]["userId"]
+
+        response = client.get(
+            "/api/v1/admin/withdrawals/00000000-0000-0000-0000-000000000001/evidence",
+            headers={"X-Admin-Id": admin_user_id},
+        )
+        assert response.status_code == 404
+        assert response.json()["detail"] == "WITHDRAWAL_NOT_FOUND"

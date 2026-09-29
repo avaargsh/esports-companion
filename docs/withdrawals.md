@@ -68,3 +68,16 @@ The completion endpoint requires the real external payout/transfer reference. Th
 reference is persisted as `provider_txn_id` and is immutable once the
 withdrawal reaches `COMPLETED`. Retrying completion with the same reference is
 idempotent; a conflicting reference is rejected.
+
+
+## Reconciliation evidence
+
+PLATFORM operators can inspect:
+
+```http
+GET /api/v1/admin/withdrawals/{id}/evidence
+```
+
+The response combines the withdrawal record, current Wallet snapshot and the
+withdrawal-specific Ledger entries. This is a read-only audit surface; it does
+not introduce another accounting source of truth.

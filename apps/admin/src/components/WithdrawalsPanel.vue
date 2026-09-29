@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from "vue"
 
 import { adminRequest } from "../api"
+import WithdrawalEvidencePanel from "./WithdrawalEvidencePanel.vue"
 
 type Withdrawal = {
   id: string
@@ -17,6 +18,7 @@ type Withdrawal = {
 const items = ref<Withdrawal[]>([])
 const error = ref("")
 const busyId = ref("")
+const evidenceId = ref("")
 
 const pending = computed(() => items.value.filter(item => item.status === "PENDING"))
 const pendingAmount = computed(() => pending.value.reduce((sum,item)=>sum+item.amount,0))
@@ -102,10 +104,17 @@ onMounted(load)
               <button class="reject" :disabled="!!busyId" @click="act(item,'reject')">拒绝</button>
             </template>
             <small v-else>{{ item.providerTxnId || item.failureReason || "已处理" }}</small>
+            <button class="evidence" @click="evidenceId = item.id">对账</button>
           </span>
         </div>
       </div>
     </section>
+
+    <WithdrawalEvidencePanel
+      v-if="evidenceId"
+      :withdrawal-id="evidenceId"
+      @close="evidenceId = ''"
+    />
   </section>
 </template>
 
@@ -135,4 +144,5 @@ button { border:0; border-radius:9px; padding:7px 9px; cursor:pointer; font-size
 button:disabled { opacity:.45; cursor:not-allowed; }
 .complete { background:#6c5ce7; color:#fff; }
 .reject { background:#f2f1f5; color:#686872; }
+.evidence { border:1px solid #dfdee7; background:#fff; color:#6c5ce7; }
 </style>
