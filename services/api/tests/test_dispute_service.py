@@ -1,5 +1,7 @@
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+import threading
 from uuid import uuid4
 
 import pytest
@@ -368,3 +370,40 @@ def test_provider_refund_id_cannot_complete_two_refunds():
 
         assert db.get(Refund, second_refund.id).status == "PENDING"
         assert OrderService.get(db, second_order_id).status == "REFUNDING"
+
+
+def test_concurrent_dispute_open_replays_same_record():
+    order_id, customer_id, _player_id = _accepted_order()
+    idempotency_key = f"dispute:{uuid4()}"
+    barrier = threading.Barrier(2)
+
+    def open_once():
+        with SessionLocal() as db:
+            barrier.wait(timeout=5)
+            dispute = DisputeService.open(
+                db,
+                order_id=order_id,
+                actor_user_id=customer_id,
+                reason_code="SERVICE_QUALITY",
+                description="concurrent open",
+                idempotency_key=idempotency_key,
+            )
+            return dispute.id
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        ids = [
+            future.result(timeout=10)
+            for future in [pool.submit(open_once), pool.submit(open_once)]
+        ]
+
+    assert ids[0] == ids[1]
+    with SessionLocal() as db:
+        rows = list(
+            db.scalars(
+                select(Dispute).where(
+                    Dispute.idempotency_key == idempotency_key
+                )
+            )
+        )
+        assert len(rows) == 1
+        assert OrderService.get(db, order_id).status == "DISPUTED"

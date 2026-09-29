@@ -34,12 +34,24 @@ class SettlementService:
 
     @staticmethod
     def settle(db: Session, order: Order) -> Settlement:
-        existing = db.scalar(select(Settlement).where(Settlement.order_id == order.id))
+        locked_order = db.scalar(
+            select(Order)
+            .where(Order.id == order.id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        if not locked_order:
+            raise LookupError("ORDER_NOT_FOUND")
+
+        existing = db.scalar(
+            select(Settlement).where(Settlement.order_id == locked_order.id)
+        )
         if existing:
             return existing
-        if order.status != OrderStatus.COMPLETED.value:
+        if locked_order.status != OrderStatus.COMPLETED.value:
             raise ValueError("ORDER_NOT_COMPLETED")
 
+        order = locked_order
         assignment = DispatchService.active_assignment(db, order.id)
         player = db.get(PlayerProfile, assignment.player_id)
         if not player:
