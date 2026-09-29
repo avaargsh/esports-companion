@@ -132,7 +132,9 @@ class PendingProvider:
     def create_payment(self, *, order, idempotency_key, payer_subject=None):
         return PaymentIntent(
             provider="WECHAT",
-            provider_txn_id="prepay-1",
+            # Exercise recovery where a pending row already carries the final
+            # provider transaction id. It must not be mistaken for a replay.
+            provider_txn_id="wx-txn-1",
             status="PENDING",
             raw_payload={"prepayId": "prepay-1"},
             client_payload={"package": "prepay_id=prepay-1"},
