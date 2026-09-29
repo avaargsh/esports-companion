@@ -97,6 +97,11 @@ async function createDesignatedOrder() {
       </view>
     </view>
 
+    <view class="designated-notice">
+      <text class="designated-title">指定该大神</text>
+      <text>选择 Offering 后创建的是指定订单；支付成功后直接绑定该大神，不进入公开抢单池。</text>
+    </view>
+
     <view class="section">
       <view class="section-title">选择服务</view>
       <view
@@ -159,7 +164,7 @@ async function createDesignatedOrder() {
         :loading="creating"
         @click="createDesignatedOrder"
       >
-        指定下单
+        {{ player.service_status === "AVAILABLE" ? "指定下单" : "大神暂不可接单" }}
       </button>
     </view>
   </view>
@@ -176,6 +181,8 @@ async function createDesignatedOrder() {
 .online { padding: 6rpx 12rpx; border-radius: 999rpx; background: rgba(71,209,130,.15); color: #65e39b; font-size: 18rpx; }
 .rating { margin-top: 10rpx; color: #c5c4cf; font-size: 21rpx; }
 .bio { margin-top: 16rpx; color: #aaaab4; font-size: 22rpx; line-height: 1.6; }
+.designated-notice { margin-top:24rpx; padding:22rpx 24rpx; border-radius:24rpx; background:#f1efff; color:#6c5ce7; font-size:20rpx; line-height:1.55; }
+.designated-title { display:block; margin-bottom:5rpx; font-weight:800; }
 .section { margin-top: 34rpx; }
 .section-title { margin-bottom: 18rpx; font-size: 29rpx; font-weight: 800; }
 .skill-list { display: flex; flex-wrap: wrap; gap: 12rpx; }
