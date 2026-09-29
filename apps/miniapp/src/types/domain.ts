@@ -143,3 +143,18 @@ export type OrderEvent = {
   actor_type: string
   created_at: string
 }
+
+
+export type Withdrawal = {
+  id: string
+  user_id: string
+  wallet_id: string
+  amount: number
+  status: "PENDING" | "COMPLETED" | "REJECTED" | string
+  provider: string
+  provider_txn_id?: string | null
+  failure_reason?: string | null
+  created_at: string
+  completed_at?: string | null
+  rejected_at?: string | null
+}
