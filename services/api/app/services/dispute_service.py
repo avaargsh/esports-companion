@@ -82,7 +82,26 @@ class DisputeService:
                 "heldAmount": dispute.held_amount,
             },
         )
-        db.commit()
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            existing = db.scalar(
+                select(Dispute).where(Dispute.idempotency_key == idempotency_key)
+            )
+            if existing:
+                if (
+                    existing.order_id != order_id
+                    or existing.opened_by_user_id != actor_user_id
+                ):
+                    raise ValueError("IDEMPOTENCY_KEY_REUSED")
+                return existing
+            existing = db.scalar(
+                select(Dispute).where(Dispute.order_id == order_id)
+            )
+            if existing:
+                raise ValueError("ORDER_ALREADY_DISPUTED")
+            raise
         db.refresh(dispute)
         return dispute
 
