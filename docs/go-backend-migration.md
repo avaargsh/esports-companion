@@ -26,6 +26,28 @@ FastAPI       Go API
    reconstructable acceleration
 ```
 
+## Branch integration policy
+
+The Go migration has its own integration line:
+
+```text
+refactor/go-backend-foundation
+        ^
+        |
+   PR only from
+ feat/go-* / fix/go-*
+```
+
+Rules:
+
+- Go feature/fix branches are created from `refactor/go-backend-foundation`;
+- their pull requests target `refactor/go-backend-foundation`, never `main`;
+- do not merge a child Go branch directly into the Python/main line;
+- the Go integration branch is the only place where migration slices are composed;
+- retargeting or merging the Go integration branch outward happens only as an explicit cutover/release action.
+
+This keeps unfinished migration work isolated while still allowing small reviewable Go PRs.
+
 ## Non-negotiable invariants
 
 The Go path inherits the current backend rules:
@@ -112,8 +134,7 @@ Port first:
 
 Why first: low write risk and easy response-level parity testing.
 
-Acceptance: replay the same fixtures against Python and Go and compare status,
-JSON schema and authorization behavior.
+Acceptance: the CI parity job boots FastAPI and Go against the same seeded PostgreSQL/Redis state, then compares HTTP status and JSON payloads for the migrated routes.
 
 ### M2 - Auth/session
 

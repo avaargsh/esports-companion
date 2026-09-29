@@ -1,4 +1,4 @@
-.PHONY: up down logs migrate seed test go-test go-build go-run smoke verify miniapp-build miniapp-staging-build admin-build prod-build prod-up prod-down prod-logs prod-backup prod-restore-drill staging-preflight staging-build staging-up staging-down staging-logs staging-check staging-wechat-evidence
+.PHONY: up down logs migrate seed test go-test go-build go-run go-parity smoke verify miniapp-build miniapp-staging-build admin-build prod-build prod-up prod-down prod-logs prod-backup prod-restore-drill staging-preflight staging-build staging-up staging-down staging-logs staging-check staging-wechat-evidence
 
 up:
 	docker compose up --build -d
@@ -26,6 +26,9 @@ go-build:
 
 go-run:
 	cd services/api-go && go run ./cmd/api
+
+go-parity:
+	python3 scripts/go_read_parity.py
 
 smoke:
 	python3 scripts/smoke_demo.py

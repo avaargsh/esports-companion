@@ -16,7 +16,9 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/avaargsh/esports-companion/services/api-go/internal/config"
+	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/catalog"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/health"
+	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/marketplace"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/platform/httpx"
 	metricsx "github.com/avaargsh/esports-companion/services/api-go/internal/platform/metrics"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/platform/postgresx"
@@ -64,6 +66,9 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	router.Get("/readyz", checker.Ready)
 	router.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
 
+	catalogHandler := catalog.NewHandler(catalog.NewRepository(pg))
+	marketplaceHandler := marketplace.NewHandler(marketplace.NewRepository(pg))
+
 	router.Route("/api/v1", func(r chi.Router) {
 		r.Get("/runtime", func(w http.ResponseWriter, _ *http.Request) {
 			payload, _ := json.Marshal(map[string]string{
@@ -73,6 +78,8 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			})
 			httpx.JSON(w, http.StatusOK, string(payload))
 		})
+		catalogHandler.Register(r)
+		marketplaceHandler.Register(r)
 	})
 
 	server := &http.Server{
