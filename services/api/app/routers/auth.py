@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -5,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.db import get_db
 from app.providers.registry import get_auth_provider
-from app.security import Principal, current_principal
+from app.security import Principal, current_principal, require_session
 from app.services.auth_service import AuthService
 from app.services.session_service import SessionService
 
@@ -50,6 +52,15 @@ class MeResponse(BaseModel):
     userId: str
     roles: list[str]
     status: str
+
+
+class SessionResponse(BaseModel):
+    sessionId: str
+    provider: str
+    current: bool
+    createdAt: datetime
+    lastUsedAt: datetime | None
+    expiresAt: datetime
 
 
 @router.post("/wechat/login", response_model=LoginResponse)
@@ -123,6 +134,40 @@ def logout(
     SessionService.revoke_refresh(
         db,
         refresh_token=body.refreshToken,
+    )
+    return None
+
+
+@router.get("/sessions", response_model=list[SessionResponse])
+def sessions(
+    principal: Principal = Depends(require_session),
+    db: Session = Depends(get_db),
+):
+    rows = SessionService.list_active_sessions(
+        db,
+        user_id=principal.user_id,
+    )
+    return [
+        SessionResponse(
+            sessionId=str(row.id),
+            provider=row.provider,
+            current=row.id == principal.session_id,
+            createdAt=row.created_at,
+            lastUsedAt=row.last_used_at,
+            expiresAt=row.expires_at,
+        )
+        for row in rows
+    ]
+
+
+@router.post("/logout-all", status_code=204)
+def logout_all(
+    principal: Principal = Depends(require_session),
+    db: Session = Depends(get_db),
+):
+    SessionService.revoke_all_for_user(
+        db,
+        user_id=principal.user_id,
     )
     return None
 

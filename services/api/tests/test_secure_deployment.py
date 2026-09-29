@@ -4,8 +4,9 @@ import pytest
 from fastapi import HTTPException
 
 from app.config import settings
+from app.models import User
 from app.routers import dev, orders, realtime
-from app.security import _legacy_headers_allowed
+from app.security import Principal, _legacy_headers_allowed, require_session
 
 
 class FakeWebSocket:
@@ -46,3 +47,18 @@ def test_staging_websocket_query_identity_is_disabled(monkeypatch):
         db=None,
     )
     assert identity is None
+
+
+def test_session_management_rejects_legacy_principal():
+    principal = Principal(
+        user=User(id=uuid4(), nickname="legacy-user"),
+        roles=("USER",),
+        session_id=None,
+        legacy=True,
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        require_session(principal)
+
+    assert exc.value.status_code == 401
+    assert exc.value.detail == "SESSION_AUTH_REQUIRED"

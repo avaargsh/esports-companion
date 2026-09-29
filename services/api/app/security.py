@@ -66,6 +66,14 @@ def current_principal(
     raise HTTPException(401, "AUTHENTICATION_REQUIRED")
 
 
+def require_session(
+    principal: Principal = Depends(current_principal),
+) -> Principal:
+    if principal.legacy or principal.session_id is None:
+        raise HTTPException(401, "SESSION_AUTH_REQUIRED")
+    return principal
+
+
 def current_user_id(
     principal: Principal = Depends(current_principal),
 ) -> uuid.UUID:
