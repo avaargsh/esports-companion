@@ -42,3 +42,19 @@ jobs:
       - run: python -m app.seed
       - run: ruff check app tests
       - run: pytest -q
+
+  miniapp:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/miniapp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: apps/miniapp/package.json
+      - run: npm install
+      - run: npm run type-check
+      - run: npm run build:mp-weixin
