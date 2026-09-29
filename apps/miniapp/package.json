@@ -11,7 +11,7 @@
     "@dcloudio/uni-app": "3.0.0-5020620260917001",
     "@dcloudio/uni-components": "3.0.0-5020620260917001",
     "@dcloudio/uni-mp-weixin": "3.0.0-5020620260917001",
-    "pinia": "4.0.3",
+    "pinia": "2.1.7",
     "vue": "3.4.21"
   },
   "devDependencies": {
