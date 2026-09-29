@@ -220,6 +220,24 @@ class LedgerEntry(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class Withdrawal(Base, TimestampMixin):
+    __tablename__ = "withdrawals"
+    __table_args__ = (
+        UniqueConstraint("idempotency_key", name="uq_withdrawal_idempotency"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    wallet_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("wallets.id"))
+    amount: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(32), default="PENDING", index=True)
+    provider: Mapped[str] = mapped_column(String(32), default="MANUAL")
+    provider_txn_id: Mapped[str | None] = mapped_column(String(128))
+    failure_reason: Mapped[str | None] = mapped_column(String(256))
+    idempotency_key: Mapped[str] = mapped_column(String(128))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    rejected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class Settlement(Base, TimestampMixin):
     __tablename__ = "settlements"
     __table_args__ = (UniqueConstraint("idempotency_key", name="uq_settlement_idempotency"),)
