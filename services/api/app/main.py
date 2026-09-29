@@ -3,12 +3,12 @@ from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from redis.exceptions import RedisError
-from sqlalchemy import text
-from sqlalchemy.exc import SQLAlchemyError
+
+from app.config import settings
 
 from app.db import SessionLocal
-from app.infrastructure import redis_client
+from app.health import router as health_router
+from app.observability import RequestLoggingMiddleware, configure_logging
 from app.order_timeout import run_timeout_scanner
 from app.realtime import run_outbox_publisher
 from app.refund_reconcile import run_refund_reconcile_worker
@@ -48,18 +48,20 @@ async def lifespan(app: FastAPI):
                 await task
 
 
+configure_logging()
+
 app = FastAPI(
     title="esports-companion API",
-    version="0.1.0",
+    version="0.2.0",
     lifespan=lifespan,
+    docs_url="/docs" if settings.expose_api_docs else None,
+    redoc_url="/redoc" if settings.expose_api_docs else None,
+    openapi_url="/openapi.json" if settings.expose_api_docs else None,
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -79,26 +81,8 @@ app.include_router(admin_router)
 app.include_router(admin_disputes_router)
 app.include_router(admin_catalog_router)
 app.include_router(auth_router)
-app.include_router(dev_router)
+if not settings.is_production:
+    app.include_router(dev_router)
 app.include_router(realtime_router)
-
-
-@app.get("/health")
-def health():
-    db_ok = False
-    redis_ok = False
-    try:
-        with SessionLocal() as db:
-            db.execute(text("select 1"))
-            db_ok = True
-    except SQLAlchemyError:
-        db_ok = False
-    try:
-        redis_ok = bool(redis_client.ping())
-    except RedisError:
-        redis_ok = False
-    return {
-        "status": "ok" if db_ok and redis_ok else "degraded",
-        "postgres": db_ok,
-        "redis": redis_ok,
-    }
+app.include_router(health_router)
+app.add_middleware(RequestLoggingMiddleware)
