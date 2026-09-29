@@ -106,3 +106,23 @@ latency_ms
 
 Request bodies, bearer tokens, WeChat login codes and payment credentials are
 not logged.
+
+
+## Operational backlog metrics
+
+A read-only PostgreSQL scanner exports:
+
+```text
+esports_operational_metrics_scan_success
+esports_outbox_pending
+esports_outbox_oldest_pending_seconds
+esports_refunds_inflight
+esports_refunds_oldest_inflight_seconds
+esports_withdrawals_pending
+esports_withdrawals_oldest_pending_seconds
+esports_disputes_open
+esports_disputes_oldest_open_seconds
+```
+
+These gauges back the reference alert rules in
+`deploy/observability/alerts.yml`.

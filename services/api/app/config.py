@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     refund_reconcile_scan_seconds: int = 60
     refund_reconcile_min_age_seconds: int = 30
     refund_reconcile_batch_size: int = 20
+    operational_metrics_scan_seconds: int = 15
 
     wechat_app_id: str = ""
     wechat_app_secret: str = ""

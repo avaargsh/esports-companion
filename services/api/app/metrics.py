@@ -25,6 +25,42 @@ ORDER_TRANSITIONS = Counter(
     "Order state transitions attempted through the domain state machine.",
     ["from_status", "to_status", "event_type"],
 )
+OPERATIONAL_METRICS_SCAN_SUCCESS = Gauge(
+    "esports_operational_metrics_scan_success",
+    "Whether the latest PostgreSQL operational metrics scan succeeded.",
+)
+OUTBOX_PENDING = Gauge(
+    "esports_outbox_pending",
+    "Pending transactional outbox events.",
+)
+OUTBOX_OLDEST_PENDING_SECONDS = Gauge(
+    "esports_outbox_oldest_pending_seconds",
+    "Age in seconds of the oldest pending outbox event.",
+)
+REFUNDS_INFLIGHT = Gauge(
+    "esports_refunds_inflight",
+    "Refunds waiting for provider completion or reconciliation.",
+)
+REFUNDS_OLDEST_INFLIGHT_SECONDS = Gauge(
+    "esports_refunds_oldest_inflight_seconds",
+    "Age in seconds of the oldest in-flight refund.",
+)
+WITHDRAWALS_PENDING = Gauge(
+    "esports_withdrawals_pending",
+    "Withdrawals waiting for completion or rejection.",
+)
+WITHDRAWALS_OLDEST_PENDING_SECONDS = Gauge(
+    "esports_withdrawals_oldest_pending_seconds",
+    "Age in seconds of the oldest pending withdrawal.",
+)
+DISPUTES_OPEN = Gauge(
+    "esports_disputes_open",
+    "Open or resolving disputes.",
+)
+DISPUTES_OLDEST_OPEN_SECONDS = Gauge(
+    "esports_disputes_oldest_open_seconds",
+    "Age in seconds of the oldest open/resolving dispute.",
+)
 
 
 def stable_route(scope: dict) -> str:

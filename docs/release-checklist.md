@@ -40,7 +40,9 @@ Use this before exposing a production deployment to real users or money.
 - [ ] `/metrics` is scraped only from the private service network and is not public through ingress.
 - [ ] OTLP trace export is configured to an approved Collector/backend, or tracing is explicitly disabled by operational decision.
 - [ ] `COMMIT_SHA` is populated for each release.
-- [ ] Alerts exist for API 5xx, readiness failures, callback failures, stuck outbox events, stuck refunds and database capacity.
+- [ ] `promtool` validation is green for Prometheus config and alert rules.
+- [ ] Alertmanager/notification routing is connected for API down, 5xx, latency, stuck outbox/refund/withdrawal and dispute aging alerts.
+- [ ] Reference alert thresholds have been reviewed against the actual traffic profile and business SLA.
 - [ ] Time synchronization is healthy; WeChat signature verification depends on timestamp windows.
 
 ## Acceptance

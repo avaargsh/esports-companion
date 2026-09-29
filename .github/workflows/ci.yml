@@ -217,10 +217,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Validate Prometheus scrape config
+      - name: Validate Prometheus config and alert rules
         run: |
           docker run --rm \
             --entrypoint /bin/promtool \
-            -v "$PWD/deploy/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro" \
+            -v "$PWD/deploy/observability:/etc/prometheus:ro" \
             prom/prometheus:v3.15.0 \
             check config /etc/prometheus/prometheus.yml
+          docker run --rm \
+            --entrypoint /bin/promtool \
+            -v "$PWD/deploy/observability:/etc/prometheus:ro" \
+            prom/prometheus:v3.15.0 \
+            check rules /etc/prometheus/alerts.yml

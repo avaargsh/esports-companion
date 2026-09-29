@@ -9,6 +9,7 @@ from app.config import settings
 from app.health import router as health_router
 from app.metrics import router as metrics_router
 from app.observability import RequestLoggingMiddleware, configure_logging
+from app.operational_metrics import run_operational_metrics_worker
 from app.telemetry import configure_tracing
 from app.order_timeout import run_timeout_scanner
 from app.realtime import run_outbox_publisher
@@ -39,6 +40,7 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(run_outbox_publisher()),
         asyncio.create_task(run_timeout_scanner()),
         asyncio.create_task(run_refund_reconcile_worker()),
+        asyncio.create_task(run_operational_metrics_worker()),
     ]
     try:
         yield
