@@ -213,6 +213,12 @@ class DisputeService:
         if not refund:
             raise LookupError("REFUND_NOT_FOUND")
         if refund.status == "COMPLETED":
+            if (
+                provider_refund_id
+                and refund.provider_refund_id
+                and refund.provider_refund_id != provider_refund_id.strip()
+            ):
+                raise ValueError("REFUND_PROVIDER_ID_MISMATCH")
             return refund
         if refund.status not in {"PENDING", "SUBMITTING", "PROCESSING"}:
             raise ValueError("REFUND_NOT_COMPLETABLE")
