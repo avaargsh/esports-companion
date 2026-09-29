@@ -72,7 +72,10 @@ class ManualRefundProvider:
         )
 
 
-HttpTransport = Callable[[str, dict[str, str], bytes, float], tuple[int, dict]]
+HttpTransport = Callable[
+    [str, dict[str, str], bytes, float],
+    tuple[int, Mapping[str, str], bytes],
+]
 QueryTransport = Callable[
     [str, dict[str, str], float],
     tuple[int, Mapping[str, str], bytes],
@@ -164,7 +167,7 @@ class WeChatRefundProvider:
             nonce=nonce,
             body=body,
         )
-        status, response = self.transport(
+        status, response_headers, response_body = self.transport(
             f"{self.api_base_url}{self.REFUND_PATH}",
             {
                 "Authorization": authorization,
@@ -175,9 +178,20 @@ class WeChatRefundProvider:
             body,
             self.timeout_seconds,
         )
+        try:
+            response = json.loads(response_body) if response_body else {}
+        except json.JSONDecodeError as exc:
+            raise ValueError("WECHAT_REFUND_INVALID_JSON") from exc
+        if not isinstance(response, dict):
+            raise ValueError("WECHAT_REFUND_INVALID_RESPONSE")
         if status < 200 or status >= 300:
             code = response.get("code", "UNKNOWN")
             raise ValueError(f"WECHAT_REFUND_HTTP_ERROR:{status}:{code}")
+
+        self._verify_response_signature(
+            headers=response_headers,
+            body=response_body,
+        )
 
         provider_refund_id = response.get("refund_id")
         out_refund_no = response.get("out_refund_no")
@@ -292,9 +306,9 @@ class WeChatRefundProvider:
         signature = lowered.get("wechatpay-signature")
         serial = lowered.get("wechatpay-serial")
         if not timestamp or not nonce or not signature or not serial:
-            raise ValueError("WECHAT_REFUND_QUERY_SIGNATURE_HEADERS_MISSING")
+            raise ValueError("WECHAT_REFUND_RESPONSE_SIGNATURE_HEADERS_MISSING")
         if self._normalize_serial(serial) != self.platform_cert_serial:
-            raise ValueError("WECHAT_REFUND_QUERY_CERT_SERIAL_UNKNOWN")
+            raise ValueError("WECHAT_REFUND_RESPONSE_CERT_SERIAL_UNKNOWN")
 
         message = timestamp.encode() + b"\n" + nonce.encode() + b"\n" + body + b"\n"
         try:
@@ -305,7 +319,7 @@ class WeChatRefundProvider:
                 hashes.SHA256(),
             )
         except (InvalidSignature, ValueError) as exc:
-            raise ValueError("WECHAT_REFUND_QUERY_SIGNATURE_INVALID") from exc
+            raise ValueError("WECHAT_REFUND_RESPONSE_SIGNATURE_INVALID") from exc
 
     @staticmethod
     def _normalize_serial(value: str) -> str:
@@ -369,22 +383,20 @@ class WeChatRefundProvider:
         headers: dict[str, str],
         body: bytes,
         timeout_seconds: float,
-    ) -> tuple[int, dict]:
+    ) -> tuple[int, Mapping[str, str], bytes]:
         request = Request(url, data=body, headers=headers, method="POST")
         try:
             with urlopen(request, timeout=timeout_seconds) as response:  # nosec B310
-                status = getattr(response, "status", 200)
-                raw = response.read().decode("utf-8")
+                return (
+                    getattr(response, "status", 200),
+                    dict(response.headers.items()),
+                    response.read(),
+                )
         except HTTPError as exc:
-            status = exc.code
-            raw = exc.read().decode("utf-8") if exc.fp else "{}"
+            return (
+                exc.code,
+                dict(exc.headers.items()) if exc.headers else {},
+                exc.read() if exc.fp else b"{}",
+            )
         except URLError as exc:
             raise ValueError("WECHAT_REFUND_NETWORK_ERROR") from exc
-
-        try:
-            payload = json.loads(raw) if raw else {}
-        except json.JSONDecodeError as exc:
-            raise ValueError("WECHAT_REFUND_INVALID_JSON") from exc
-        if not isinstance(payload, dict):
-            raise ValueError("WECHAT_REFUND_INVALID_RESPONSE")
-        return status, payload
