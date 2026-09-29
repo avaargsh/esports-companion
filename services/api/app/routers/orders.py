@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db import get_db
+from app.domain.order_state_machine import OrderStatus
 from app.infrastructure import redis_client
 from app.schemas import OrderCreate, OrderOut
 from app.services.order_service import MockPaymentService, OrderNotFound, OrderService
@@ -71,6 +72,34 @@ def cancel(
         order = OrderService.get(db, order_id)
         order = OrderService.cancel(db, order, user_id)
         redis_client.zrem(f"order_pool:{order.game_id}", str(order.id))
+        return order
+    except OrderNotFound as exc:
+        raise HTTPException(404, "ORDER_NOT_FOUND") from exc
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@router.post("/{order_id}/confirm", response_model=OrderOut)
+def confirm(
+    order_id: uuid.UUID,
+    user_id: uuid.UUID = Depends(demo_user_id),
+    db: Session = Depends(get_db),
+):
+    try:
+        order = OrderService.get(db, order_id)
+        if order.user_id != user_id:
+            raise PermissionError("ORDER_NOT_OWNED")
+        OrderService.transition(
+            db,
+            order,
+            OrderStatus.COMPLETED,
+            event_type="USER_CONFIRMED_FINISH",
+            actor_type="USER",
+            actor_id=str(user_id),
+        )
+        db.commit()
         return order
     except OrderNotFound as exc:
         raise HTTPException(404, "ORDER_NOT_FOUND") from exc

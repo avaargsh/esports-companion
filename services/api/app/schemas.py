@@ -41,3 +41,21 @@ class OrderOut(BaseModel):
     platform_fee: int
     version: int
     model_config = {"from_attributes": True}
+
+
+class PlayerApply(BaseModel):
+    display_name: str = Field(min_length=1, max_length=80)
+    bio: str = Field(default="", max_length=500)
+
+
+class PlayerOut(BaseModel):
+    id: uuid.UUID
+    user_id: uuid.UUID
+    display_name: str
+    verification_status: str
+    service_status: str
+    model_config = {"from_attributes": True}
+
+
+class ClaimRequest(BaseModel):
+    expected_version: int = Field(ge=0)
