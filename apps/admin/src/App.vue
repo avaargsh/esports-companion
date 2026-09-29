@@ -1,8 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue"
 
-import { adminRequest } from "./api"
+import {
+  adminRequest,
+  clearAdminSession,
+  getAdminAuthMode,
+  isAdminSessionReady
+} from "./api"
+import AdminSessionPanel from "./components/AdminSessionPanel.vue"
+import AftercarePanel from "./components/AftercarePanel.vue"
 import CatalogPanel from "./components/CatalogPanel.vue"
+import WithdrawalsPanel from "./components/WithdrawalsPanel.vue"
 
 type Player = {
   id: string
@@ -48,10 +56,12 @@ type Settlement = {
   status: string
 }
 
-type Tab = "dashboard" | "players" | "skills" | "catalog" | "orders" | "settlements"
+type Tab = "dashboard" | "players" | "skills" | "catalog" | "orders" | "aftercare" | "withdrawals" | "settlements"
 
 const tab = ref<Tab>("dashboard")
-const loading = ref(true)
+const authMode = getAdminAuthMode()
+const authReady = ref(isAdminSessionReady())
+const loading = ref(authReady.value)
 const error = ref("")
 const players = ref<Player[]>([])
 const orders = ref<Order[]>([])
@@ -64,6 +74,8 @@ const nav = [
   { key: "skills" as const, label: "技能认证", icon: "证" },
   { key: "catalog" as const, label: "服务目录", icon: "目" },
   { key: "orders" as const, label: "订单管理", icon: "单" },
+  { key: "aftercare" as const, label: "售后工作台", icon: "售" },
+  { key: "withdrawals" as const, label: "提现审核", icon: "提" },
   { key: "settlements" as const, label: "结算中心", icon: "¥" }
 ]
 
@@ -122,7 +134,22 @@ async function reviewSkill(skill: PlayerSkillReview, action: "approve" | "reject
   }
 }
 
-onMounted(load)
+async function onAdminSessionReady() {
+  authReady.value = true
+  await load()
+}
+
+function logoutAdmin() {
+  clearAdminSession()
+  authReady.value = false
+  error.value = ""
+  loading.value = false
+}
+
+onMounted(() => {
+  if (authReady.value) void load()
+  else loading.value = false
+})
 </script>
 
 <template>
@@ -150,7 +177,8 @@ onMounted(load)
 
       <div class="sidebar-foot">
         <span class="dot"></span>
-        Demo Mode
+        {{ authMode === "demo" ? "Demo Mode" : "Bearer Operator" }}
+        <button v-if="authMode === 'bearer' && authReady" class="logout" @click="logoutAdmin">退出</button>
       </div>
     </aside>
 
@@ -163,6 +191,9 @@ onMounted(load)
         <button class="refresh" @click="load">刷新数据</button>
       </header>
 
+      <AdminSessionPanel v-if="!authReady" @ready="onAdminSessionReady" />
+
+      <template v-else>
       <div v-if="error" class="alert">{{ error }}</div>
       <div v-if="loading" class="loading">正在同步 Marketplace 状态...</div>
 
@@ -315,7 +346,10 @@ onMounted(load)
         </div>
       </section>
 
-      <section v-else class="panel">
+      <AftercarePanel v-else-if="tab === 'aftercare'" />
+      <WithdrawalsPanel v-else-if="tab === 'withdrawals'" />
+
+      <section v-else-if="tab === 'settlements'" class="panel">
         <div class="panel-head">
           <div>
             <h2>结算查看</h2>
@@ -336,6 +370,7 @@ onMounted(load)
           </div>
         </div>
       </section>
+      </template>
     </main>
   </div>
 </template>
@@ -364,6 +399,7 @@ nav button.active { background: #292833; color: white; }
 .nav-icon { display: inline-grid; width: 28px; height: 28px; margin-right: 9px; place-items: center; border-radius: 9px; background: #24232c; font-size: 12px; }
 nav button.active .nav-icon { background: #6c5ce7; }
 .sidebar-foot { margin-top: auto; padding: 14px; border-radius: 14px; background: #202028; color: #9c9ca8; font-size: 12px; }
+.sidebar-foot .logout { float:right; border:0; padding:0; background:transparent; color:#b8b8c2; cursor:pointer; font-size:11px; }
 .dot { display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: #22c55e; }
 main { padding: 42px 50px 70px; }
 header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 32px; }
