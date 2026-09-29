@@ -48,6 +48,11 @@ AUTH_PROVIDER
 PAYMENT_PROVIDER
 REFUND_PROVIDER
 SESSION_SIGNING_KEY / SESSION_SIGNING_KEY_FILE
+ACCESS_TOKEN_TTL_SECONDS
+REFRESH_TOKEN_TTL_SECONDS
+WECHAT_APP_ID
+WECHAT_APP_SECRET / WECHAT_APP_SECRET_FILE
+WECHAT_AUTH_TIMEOUT_SECONDS
 ```
 
 Pool tuning:
@@ -69,20 +74,31 @@ The loader accepts the current Python-style
 - `GET /readyz`
 - `GET /metrics`
 - `GET /api/v1/runtime`
+- `POST /api/v1/auth/wechat/login`
+- `POST /api/v1/auth/refresh`
+- `POST /api/v1/auth/logout`
+- `GET /api/v1/auth/me`
 - `GET /api/v1/games`
 - `GET /api/v1/games/{game_id}/skus`
 - `GET /api/v1/players`
 - `GET /api/v1/players/{player_id}`
 
-The M1 catalog/marketplace routes are compatibility targets. FastAPI remains the
-reference implementation until the migration cutover.
+The M1 catalog/marketplace routes and M2 auth/session routes are compatibility
+targets. FastAPI remains the reference implementation until the migration
+cutover. Auth sessions intentionally share the existing PostgreSQL tables and
+HS256 token contract so FastAPI- and Go-issued sessions remain interoperable.
 
-Run the dual-runtime response check after starting both APIs against the same
-database:
+Run the dual-runtime compatibility checks after starting both APIs against the
+same database:
 
 ```bash
 make go-parity
 ```
+
+The parity target checks M1 read responses plus M2 cross-runtime authentication:
+FastAPI-issued access/refresh tokens must work through Go, Go-issued tokens must
+work through FastAPI, and refresh-token reuse/logout revocations must be visible
+from both runtimes.
 
 Marketplace list reads use a bounded batch strategy rather than copying the
 reference implementation's per-player N+1 query pattern. The observable filter

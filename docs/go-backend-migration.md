@@ -143,12 +143,18 @@ Acceptance: the CI parity job boots FastAPI and Go against the same seeded Postg
 Port:
 
 - WeChat code2Session provider;
-- user binding;
-- access/refresh sessions;
-- USER / PLAYER / PLATFORM roles;
-- refresh rotation + descendant-family revocation on token reuse.
+- user binding with unique(openid) race recovery;
+- access/refresh sessions using the existing HS256 claim contract;
+- USER / PLAYER / PLATFORM roles recomputed from PostgreSQL;
+- refresh rotation under row lock;
+- descendant-family revocation on refresh-token reuse;
+- logout and /auth/me compatibility.
 
-Acceptance: existing auth contract tests become implementation-neutral.
+Acceptance: FastAPI and Go run against the same database and signing key. CI
+must prove both directions of interoperability: FastAPI-issued tokens are
+accepted/rotated by Go, Go-issued tokens are accepted/rotated by FastAPI, and
+revocation/reuse containment performed by either runtime is immediately visible
+to the other.
 
 ### M3 - Order/dispatch
 

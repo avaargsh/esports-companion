@@ -29,6 +29,7 @@ go-run:
 
 go-parity:
 	python3 scripts/go_read_parity.py
+	python3 scripts/go_auth_parity.py
 
 smoke:
 	python3 scripts/smoke_demo.py
