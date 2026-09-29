@@ -8,9 +8,9 @@ Current queues:
 - Player application review
 - Skill/evidence review
 - Catalog management
-- Order lookup
-- Dispute/refund workbench
-- Withdrawal review and manual-payout confirmation
+- Order lookup with OrderEvent + chat evidence drawer
+- Dispute/refund workbench linked to the same evidence view
+- Withdrawal review with mandatory external payout reference
 - Settlement inspection
 
 ## Local demo mode
