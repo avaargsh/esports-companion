@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from "vue"
 
 import { adminRequest } from "./api"
+import CatalogPanel from "./components/CatalogPanel.vue"
 
 type Player = {
   id: string
@@ -33,7 +34,7 @@ type Settlement = {
   status: string
 }
 
-type Tab = "dashboard" | "players" | "orders" | "settlements"
+type Tab = "dashboard" | "players" | "catalog" | "orders" | "settlements"
 
 const tab = ref<Tab>("dashboard")
 const loading = ref(true)
@@ -45,6 +46,7 @@ const settlements = ref<Settlement[]>([])
 const nav = [
   { key: "dashboard" as const, label: "概览", icon: "◫" },
   { key: "players" as const, label: "陪玩审核", icon: "人" },
+  { key: "catalog" as const, label: "服务目录", icon: "目" },
   { key: "orders" as const, label: "订单管理", icon: "单" },
   { key: "settlements" as const, label: "结算中心", icon: "¥" }
 ]
@@ -218,6 +220,8 @@ onMounted(load)
           </div>
         </div>
       </section>
+
+      <CatalogPanel v-else-if="tab === 'catalog'" />
 
       <section v-else-if="tab === 'orders'" class="panel">
         <div class="panel-head">
