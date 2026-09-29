@@ -9,6 +9,7 @@ from app.models import (
     Game,
     LedgerEntry,
     PlayerProfile,
+    ProviderOffering,
     ServiceSKU,
     Settlement,
     User,
