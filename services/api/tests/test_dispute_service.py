@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import uuid4
 
+import pytest
 from sqlalchemy import func, select
 
 from app.config import settings
@@ -74,6 +75,51 @@ def _finish_requested_order():
         DispatchService.start(db, order=order, player_id=player.id)
         DispatchService.finish(db, order=order, player_id=player.id)
         return order.id, customer.id, player_user.id, platform.id
+
+
+
+def _accepted_order():
+    suffix = uuid4().hex[:8]
+    with SessionLocal() as db:
+        customer = User(nickname=f"race-customer-{suffix}")
+        player_user = User(nickname=f"race-player-{suffix}")
+        game = Game(code=f"race-{suffix}", name="Dispatch Dispute Race")
+        db.add_all([customer, player_user, game])
+        db.flush()
+        player = PlayerProfile(
+            user_id=player_user.id,
+            display_name="Race Player",
+            verification_status="APPROVED",
+            service_status="AVAILABLE",
+        )
+        sku = ServiceSKU(
+            game_id=game.id,
+            name="Race SKU",
+            service_type="ENTERTAINMENT",
+            duration_minutes=60,
+            price=3000,
+            platform_fee_rate=Decimal("0.2000"),
+        )
+        db.add_all([player, sku])
+        db.flush()
+        db.add(
+            ProviderOffering(
+                player_id=player.id,
+                sku_id=sku.id,
+                status="ACTIVE",
+            )
+        )
+        db.commit()
+
+        order = OrderService.create_order(db, user_id=customer.id, sku_id=sku.id)
+        MockPaymentService.pay(db, order, f"race-pay-{suffix}")
+        DispatchService.claim(
+            db,
+            order_id=order.id,
+            player_id=player.id,
+            expected_version=order.version,
+        )
+        return order.id, customer.id, player.id
 
 
 def test_dispute_freezes_auto_confirm_and_is_idempotent():
@@ -198,3 +244,63 @@ def test_platform_refund_resolution_never_credits_provider_wallet():
             .select_from(Refund)
             .where(Refund.order_id == order_id)
         ) == 1
+
+
+def test_stale_start_cannot_overwrite_disputed_order():
+    order_id, customer_id, player_id = _accepted_order()
+
+    with SessionLocal() as stale_db:
+        stale_order = OrderService.get(stale_db, order_id)
+
+        with SessionLocal() as dispute_db:
+            DisputeService.open(
+                dispute_db,
+                order_id=order_id,
+                actor_user_id=customer_id,
+                reason_code="SERVICE_QUALITY",
+                description="race with start",
+                idempotency_key=f"dispute:{uuid4()}",
+            )
+
+        with pytest.raises(ValueError, match="DISPUTED.*IN_SERVICE"):
+            DispatchService.start(
+                stale_db,
+                order=stale_order,
+                player_id=player_id,
+            )
+        stale_db.rollback()
+
+    with SessionLocal() as db:
+        assert OrderService.get(db, order_id).status == "DISPUTED"
+
+
+def test_stale_finish_cannot_overwrite_disputed_order():
+    order_id, customer_id, player_id = _accepted_order()
+
+    with SessionLocal() as db:
+        order = OrderService.get(db, order_id)
+        DispatchService.start(db, order=order, player_id=player_id)
+
+    with SessionLocal() as stale_db:
+        stale_order = OrderService.get(stale_db, order_id)
+
+        with SessionLocal() as dispute_db:
+            DisputeService.open(
+                dispute_db,
+                order_id=order_id,
+                actor_user_id=customer_id,
+                reason_code="SERVICE_QUALITY",
+                description="race with finish",
+                idempotency_key=f"dispute:{uuid4()}",
+            )
+
+        with pytest.raises(ValueError, match="DISPUTED.*FINISH_REQUESTED"):
+            DispatchService.finish(
+                stale_db,
+                order=stale_order,
+                player_id=player_id,
+            )
+        stale_db.rollback()
+
+    with SessionLocal() as db:
+        assert OrderService.get(db, order_id).status == "DISPUTED"
