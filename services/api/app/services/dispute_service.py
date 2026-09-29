@@ -18,6 +18,7 @@ from app.services.settlement_service import SettlementService
 
 class DisputeService:
     OPENABLE_STATUSES = {
+        OrderStatus.MATCHING.value,
         OrderStatus.ACCEPTED.value,
         OrderStatus.IN_SERVICE.value,
         OrderStatus.FINISH_REQUESTED.value,
@@ -95,6 +96,15 @@ class DisputeService:
         if dispute.status == "RESOLVED" and dispute.resolution == "RELEASE_PROVIDER":
             return dispute
 
+        active_assignment = db.scalar(
+            select(OrderAssignment).where(
+                OrderAssignment.order_id == order.id,
+                OrderAssignment.status == "ACTIVE",
+            )
+        )
+        if not active_assignment:
+            raise ValueError("DISPUTE_HAS_NO_PROVIDER_TO_RELEASE")
+
         dispute.status = "RESOLVED"
         dispute.resolution = "RELEASE_PROVIDER"
         dispute.resolved_by_user_id = admin_user_id
@@ -141,6 +151,18 @@ class DisputeService:
         )
         if not order or order.status != OrderStatus.DISPUTED.value:
             raise ValueError("ORDER_NOT_DISPUTED")
+
+        assignment = db.scalar(
+            select(OrderAssignment)
+            .where(
+                OrderAssignment.order_id == order.id,
+                OrderAssignment.status == "ACTIVE",
+            )
+            .with_for_update()
+        )
+        if assignment:
+            assignment.status = "RELEASED"
+            assignment.released_at = datetime.now(timezone.utc)
 
         refund = Refund(
             order_id=order.id,

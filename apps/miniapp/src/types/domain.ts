@@ -1,3 +1,9 @@
+export type OrderAction =
+  | "PAY"
+  | "CANCEL"
+  | "REQUEST_REFUND"
+  | "OPEN_DISPUTE"
+
 export type OrderStatus =
   | "WAITING_PAYMENT"
   | "PAID"
@@ -28,6 +34,16 @@ export type ServiceSku = {
   price: number
 }
 
+export type ServicePlayer = {
+  id: string
+  display_name: string
+  avatar_url?: string | null
+  rating: number
+  service_status: string
+  binding: "ASSIGNED" | "DESIGNATED"
+  assigned_by?: string | null
+}
+
 export type Order = {
   id: string
   order_no: string
@@ -42,6 +58,8 @@ export type Order = {
   player_amount: number
   platform_fee: number
   version: number
+  service_player?: ServicePlayer | null
+  available_actions?: OrderAction[]
 }
 
 export type Wallet = {

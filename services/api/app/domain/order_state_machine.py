@@ -19,8 +19,12 @@ class OrderStatus(StrEnum):
 ALLOWED_TRANSITIONS = {
     OrderStatus.WAITING_PAYMENT: {OrderStatus.PAID, OrderStatus.CANCELLED},
     OrderStatus.PAID: {OrderStatus.MATCHING, OrderStatus.REFUNDING},
-    OrderStatus.MATCHING: {OrderStatus.ACCEPTED, OrderStatus.CANCELLED, OrderStatus.REFUNDING},
-    OrderStatus.ACCEPTED: {OrderStatus.IN_SERVICE, OrderStatus.CANCELLED, OrderStatus.DISPUTED},
+    OrderStatus.MATCHING: {OrderStatus.ACCEPTED, OrderStatus.DISPUTED},
+    OrderStatus.ACCEPTED: {
+        OrderStatus.MATCHING,
+        OrderStatus.IN_SERVICE,
+        OrderStatus.DISPUTED,
+    },
     OrderStatus.IN_SERVICE: {OrderStatus.FINISH_REQUESTED, OrderStatus.DISPUTED},
     OrderStatus.FINISH_REQUESTED: {OrderStatus.COMPLETED, OrderStatus.DISPUTED},
     OrderStatus.COMPLETED: {OrderStatus.SETTLED},

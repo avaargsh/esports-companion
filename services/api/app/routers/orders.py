@@ -5,9 +5,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
+from app.domain.order_state_machine import OrderStatus
 from app.infrastructure import redis_client
-from app.models import Order
-from app.schemas import OrderCreate, OrderOut, PaymentPrepareOut
+from app.models import Order, OrderAssignment, PlayerProfile, User
+from app.schemas import OrderCreate, OrderDetailOut, OrderOut, PaymentPrepareOut
 from app.providers.registry import get_payment_provider
 from app.services.completion_service import CompletionService
 from app.services.order_service import OrderNotFound, OrderService
@@ -15,6 +16,50 @@ from app.services.payment_service import PaymentService
 from app.security import Principal, current_principal, current_user_id
 
 router = APIRouter(prefix="/api/v1/orders", tags=["orders"])
+
+
+def _available_actions(order: Order) -> list[str]:
+    if order.status == OrderStatus.WAITING_PAYMENT.value:
+        return ["PAY", "CANCEL"]
+    if order.status == OrderStatus.MATCHING.value:
+        return ["REQUEST_REFUND"]
+    if order.status == OrderStatus.ACCEPTED.value:
+        return ["REQUEST_REFUND", "OPEN_DISPUTE"]
+    if order.status in {
+        OrderStatus.IN_SERVICE.value,
+        OrderStatus.FINISH_REQUESTED.value,
+    }:
+        return ["OPEN_DISPUTE"]
+    return []
+
+
+def _order_detail(db: Session, order: Order) -> dict:
+    assignment = db.scalar(
+        select(OrderAssignment).where(
+            OrderAssignment.order_id == order.id,
+            OrderAssignment.status == "ACTIVE",
+        )
+    )
+    player_id = assignment.player_id if assignment else order.designated_player_id
+    service_player = None
+    if player_id:
+        player = db.get(PlayerProfile, player_id)
+        if player:
+            user = db.get(User, player.user_id)
+            service_player = {
+                "id": player.id,
+                "display_name": player.display_name,
+                "avatar_url": user.avatar_url if user else None,
+                "rating": float(player.rating),
+                "service_status": player.service_status,
+                "binding": "ASSIGNED" if assignment else "DESIGNATED",
+                "assigned_by": assignment.assigned_by if assignment else None,
+            }
+
+    payload = OrderOut.model_validate(order).model_dump()
+    payload["service_player"] = service_player
+    payload["available_actions"] = _available_actions(order)
+    return payload
 
 
 @router.get("", response_model=list[OrderOut])
@@ -52,7 +97,7 @@ def create_order(
         raise HTTPException(409, str(exc)) from exc
 
 
-@router.get("/{order_id}", response_model=OrderOut)
+@router.get("/{order_id}", response_model=OrderDetailOut)
 def get_order(
     order_id: uuid.UUID,
     principal: Principal = Depends(current_principal),
@@ -61,7 +106,7 @@ def get_order(
     try:
         order = OrderService.get(db, order_id)
         if order.user_id == principal.user_id or "PLATFORM" in principal.roles:
-            return order
+            return _order_detail(db, order)
 
         if "PLAYER" in principal.roles:
             from app.models import OrderAssignment, PlayerProfile
@@ -80,7 +125,7 @@ def get_order(
                     )
                 )
                 if assignment:
-                    return order
+                    return _order_detail(db, order)
         raise PermissionError("ORDER_ACCESS_DENIED")
     except OrderNotFound as exc:
         raise HTTPException(404, "ORDER_NOT_FOUND") from exc

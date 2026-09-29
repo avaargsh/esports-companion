@@ -15,6 +15,7 @@ const busy = ref(false)
 const rating = ref(5)
 const review = ref("")
 const reviewed = ref(false)
+const aftercareReason = ref("")
 let socket: UniApp.SocketTask | null = null
 
 const meta = computed(() =>
@@ -109,6 +110,38 @@ async function run(action: "pay" | "cancel" | "confirm") {
   }
 }
 
+async function requestAftercare(action: "refund" | "dispute") {
+  if (!order.value || busy.value) return
+  busy.value = true
+  try {
+    await request(
+      `/orders/${order.value.id}/disputes`,
+      {
+        method: "POST",
+        userId: customerUserId.value,
+        headers: { "Idempotency-Key": `miniapp-dispute-${order.value.id}` },
+        data: {
+          reason_code: action === "refund" ? "CANCEL_BEFORE_SERVICE" : "SERVICE_ISSUE",
+          description: aftercareReason.value.trim()
+        }
+      }
+    )
+    aftercareReason.value = ""
+    uni.showToast({
+      title: action === "refund" ? "退款申请已提交，等待平台处理" : "已申请平台介入",
+      icon: "none"
+    })
+    await reload()
+  } catch (error) {
+    uni.showToast({
+      title: error instanceof Error ? error.message : "提交失败",
+      icon: "none"
+    })
+  } finally {
+    busy.value = false
+  }
+}
+
 async function submitReview() {
   if (!order.value || reviewed.value || busy.value) return
   busy.value = true
@@ -148,6 +181,30 @@ async function submitReview() {
       <view class="order-no">{{ order.order_no }}</view>
     </view>
 
+    <view v-if="order.service_player" class="section-card provider-card">
+      <view class="section-title">
+        {{ order.service_player.binding === "ASSIGNED" ? "服务大神" : "已指定大神" }}
+      </view>
+      <view class="provider-row">
+        <image
+          v-if="order.service_player.avatar_url"
+          class="provider-avatar"
+          :src="order.service_player.avatar_url"
+          mode="aspectFill"
+        />
+        <view v-else class="provider-avatar fallback">
+          {{ order.service_player.display_name.slice(0, 1) }}
+        </view>
+        <view class="provider-copy">
+          <view class="provider-name">{{ order.service_player.display_name }}</view>
+          <view class="provider-meta">
+            {{ order.service_player.rating > 0 ? order.service_player.rating.toFixed(1) + " ★" : "新大神" }}
+            · {{ order.service_player.service_status === "AVAILABLE" ? "在线" : "服务中" }}
+          </view>
+        </view>
+      </view>
+    </view>
+
     <view class="section-card">
       <view class="section-title">费用明细</view>
       <view class="row">
@@ -185,6 +242,39 @@ async function submitReview() {
       确认服务完成
     </button>
 
+    <view
+      v-if="order.available_actions?.includes('REQUEST_REFUND') || order.available_actions?.includes('OPEN_DISPUTE')"
+      class="section-card aftercare-card"
+    >
+      <view class="section-title">需要帮助？</view>
+      <view class="aftercare-hint">
+        退款和服务争议都会进入平台审核；审核通过后再执行退款或继续结算。
+      </view>
+      <textarea
+        v-model="aftercareReason"
+        maxlength="500"
+        placeholder="简单说明原因，便于平台后续处理"
+      />
+      <view class="aftercare-actions">
+        <button
+          v-if="order.available_actions?.includes('REQUEST_REFUND')"
+          class="ghost danger"
+          :disabled="busy"
+          @click="requestAftercare('refund')"
+        >
+          申请退款
+        </button>
+        <button
+          v-if="order.available_actions?.includes('OPEN_DISPUTE')"
+          class="ghost"
+          :disabled="busy"
+          @click="requestAftercare('dispute')"
+        >
+          申请平台介入
+        </button>
+      </view>
+    </view>
+
     <view v-if="order.status === 'SETTLED' && !reviewed" class="section-card review-card">
       <view class="section-title">评价本次服务</view>
       <view class="stars">
@@ -220,6 +310,12 @@ async function submitReview() {
 .order-no { margin-top: 20rpx; color: #858590; font-size: 19rpx; }
 .section-card { margin-top: 22rpx; padding: 30rpx; border-radius: 30rpx; background: #fff; }
 .section-title { font-size: 28rpx; font-weight: 700; }
+.provider-row { display: flex; align-items: center; gap: 20rpx; margin-top: 20rpx; }
+.provider-avatar { width: 86rpx; height: 86rpx; border-radius: 26rpx; flex-shrink: 0; }
+.provider-avatar.fallback { display: flex; align-items: center; justify-content: center; background: #17171f; color: #fff; font-size: 30rpx; font-weight: 800; }
+.provider-copy { flex: 1; min-width: 0; }
+.provider-name { font-size: 27rpx; font-weight: 700; }
+.provider-meta { margin-top: 8rpx; color: #92929d; font-size: 20rpx; }
 .row { display: flex; justify-content: space-between; align-items: center; margin-top: 22rpx; color: #686872; font-size: 24rpx; }
 .strong { color: #15151b; font-size: 31rpx; font-weight: 800; }
 .notice { margin-top: 22rpx; padding: 28rpx; border-radius: 28rpx; background: #f0edff; color: #6c5ce7; font-size: 23rpx; line-height: 1.6; }
@@ -231,6 +327,11 @@ async function submitReview() {
 .primary, .ghost { height: 86rpx; line-height: 86rpx; border-radius: 26rpx; font-size: 26rpx; font-weight: 700; }
 .primary { background: #6c5ce7; color: #fff; }
 .ghost { background: #fff; color: #686872; }
+.ghost.danger { color: #d05252; border: 1rpx solid #f2d2d2; }
+.aftercare-hint { color: #92929d; font-size: 21rpx; line-height: 1.6; }
+.aftercare-card textarea { width: 100%; height: 130rpx; margin-top: 18rpx; padding: 18rpx; border-radius: 20rpx; background: #f7f7fb; box-sizing: border-box; font-size: 22rpx; }
+.aftercare-actions { display: flex; gap: 16rpx; margin-top: 16rpx; }
+.aftercare-actions button { flex: 1; margin: 0; }
 .full { margin-top: 26rpx; width: 100%; }
 .review-card textarea { width: 100%; height: 150rpx; margin-top: 18rpx; padding: 18rpx; border-radius: 20rpx; background: #f7f7fb; box-sizing: border-box; font-size: 23rpx; }
 .stars { margin-top: 18rpx; display: flex; gap: 12rpx; }
