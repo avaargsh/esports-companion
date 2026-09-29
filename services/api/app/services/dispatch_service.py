@@ -153,32 +153,48 @@ class DispatchService:
 
     @staticmethod
     def start(db: Session, *, order: Order, player_id: uuid.UUID) -> Order:
-        assignment = DispatchService.active_assignment(db, order.id)
+        locked_order = db.scalar(
+            select(Order)
+            .where(Order.id == order.id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        if not locked_order:
+            raise LookupError("ORDER_NOT_FOUND")
+        assignment = DispatchService.active_assignment(db, locked_order.id)
         if assignment.player_id != player_id:
             raise PermissionError("NOT_ORDER_PLAYER")
         OrderService.transition(
             db,
-            order,
+            locked_order,
             OrderStatus.IN_SERVICE,
             event_type="SERVICE_STARTED",
             actor_type="PLAYER",
             actor_id=str(player_id),
         )
         db.commit()
-        return order
+        return locked_order
 
     @staticmethod
     def finish(db: Session, *, order: Order, player_id: uuid.UUID) -> Order:
-        assignment = DispatchService.active_assignment(db, order.id)
+        locked_order = db.scalar(
+            select(Order)
+            .where(Order.id == order.id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        if not locked_order:
+            raise LookupError("ORDER_NOT_FOUND")
+        assignment = DispatchService.active_assignment(db, locked_order.id)
         if assignment.player_id != player_id:
             raise PermissionError("NOT_ORDER_PLAYER")
         OrderService.transition(
             db,
-            order,
+            locked_order,
             OrderStatus.FINISH_REQUESTED,
             event_type="FINISH_REQUESTED",
             actor_type="PLAYER",
             actor_id=str(player_id),
         )
         db.commit()
-        return order
+        return locked_order
