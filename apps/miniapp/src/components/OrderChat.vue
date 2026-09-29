@@ -83,7 +83,7 @@ watch(
     <view class="chat-head">
       <view>
         <view class="chat-title">订单沟通</view>
-        <view class="chat-hint">仅当前订单参与方可见，不支持好友或私聊关系。</view>
+        <view class="chat-hint">只用于本单服务沟通，订单结束后保留为记录。</view>
       </view>
       <text class="chat-count">{{ messages.length }}</text>
     </view>
@@ -135,30 +135,8 @@ watch(
 </template>
 
 <style scoped>
-.chat { margin-top: 22rpx; padding: 28rpx; border-radius: 30rpx; background: #fff; color: #17171f; }
-.chat.dark { background: #181820; color: #fff; }
-.chat-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20rpx; }
-.chat-title { font-size: 28rpx; font-weight: 750; }
-.chat-hint { margin-top: 7rpx; color: #92929d; font-size: 19rpx; line-height: 1.5; }
-.chat-count { min-width: 44rpx; height: 44rpx; line-height: 44rpx; padding: 0 10rpx; border-radius: 999rpx; background: #f1efff; color: #6c5ce7; text-align: center; font-size: 18rpx; }
-.dark .chat-count { background: rgba(108,92,231,.18); color: #9e92ff; }
-.message-list { height: 380rpx; margin-top: 22rpx; padding: 8rpx 0; }
-.message-row { display: flex; flex-direction: column; align-items: flex-start; margin: 16rpx 0; }
-.message-row.mine { align-items: flex-end; }
-.message-meta { margin-bottom: 6rpx; color: #a0a0aa; font-size: 17rpx; }
-.bubble { max-width: 82%; padding: 16rpx 20rpx; border-radius: 20rpx 20rpx 20rpx 6rpx; background: #f4f4f8; font-size: 22rpx; line-height: 1.55; word-break: break-word; }
-.mine .bubble { border-radius: 20rpx 20rpx 6rpx 20rpx; background: #6c5ce7; color: #fff; }
-.dark .bubble { background: #25252e; color: #e8e8ed; }
-.dark .mine .bubble { background: #6c5ce7; color: #fff; }
-.chat-empty, .chat-error, .read-only { margin-top: 22rpx; padding: 24rpx; border-radius: 20rpx; text-align: center; font-size: 20rpx; }
-.chat-empty { color: #92929d; background: #f8f8fb; }
-.read-only { padding: 18rpx; border-radius: 18rpx; color: #92929d; background: #f8f8fb; text-align: center; font-size: 19rpx; }
-.dark .chat-empty { background: #212129; color: #777784; }
-.dark .read-only { background: #212129; color: #777784; }
-.chat-error { background: #fff0f0; color: #c63d3d; }
-.composer { display: flex; align-items: flex-end; gap: 14rpx; margin-top: 20rpx; }
-.composer textarea { flex: 1; min-height: 70rpx; max-height: 180rpx; padding: 17rpx 20rpx; border-radius: 20rpx; background: #f7f7fb; box-sizing: border-box; font-size: 22rpx; }
-.dark .composer textarea { background: #25252e; color: #fff; }
-.send { width: 132rpx; height: 70rpx; line-height: 70rpx; margin: 0; border-radius: 20rpx; background: #6c5ce7; color: #fff; font-size: 22rpx; }
-.send[disabled] { opacity: .45; }
+.chat{margin-top:16rpx;padding:25rpx;border:1rpx solid rgba(20,20,30,.035);border-radius:29rpx;background:#fff;color:var(--ink);box-shadow:var(--shadow-card)}.chat.dark{border-color:rgba(255,255,255,.05);background:#191920;color:#fff;box-shadow:none}.chat-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18rpx}.chat-title{font-size:24rpx;font-weight:780}.chat-hint{margin-top:6rpx;color:var(--muted);font-size:17rpx;line-height:1.5}.chat-count{min-width:38rpx;height:38rpx;padding:0 8rpx;line-height:38rpx;border-radius:999rpx;background:var(--brand-soft);color:var(--brand);text-align:center;font-size:15rpx;font-weight:700}.dark .chat-count{background:rgba(103,87,230,.14);color:#aa9df8}
+.message-list{height:350rpx;margin-top:18rpx;padding:5rpx 0}.message-row{display:flex;flex-direction:column;align-items:flex-start;margin:13rpx 0}.message-row.mine{align-items:flex-end}.message-meta{margin-bottom:5rpx;color:#9998a2;font-size:15rpx}.bubble{max-width:82%;padding:14rpx 18rpx;border-radius:19rpx 19rpx 19rpx 6rpx;background:#f2f2f6;font-size:20rpx;line-height:1.55;word-break:break-word}.mine .bubble{border-radius:19rpx 19rpx 6rpx 19rpx;background:#6757e6;color:#fff}.dark .bubble{background:#24242d;color:#e3e1e8}.dark .mine .bubble{background:#6757e6;color:#fff}
+.chat-empty,.chat-error,.read-only{margin-top:18rpx;padding:20rpx;border-radius:18rpx;text-align:center;font-size:18rpx}.chat-empty,.read-only{background:#f7f7fa;color:var(--muted)}.dark .chat-empty,.dark .read-only{background:#23232b;color:#777582}.chat-error{background:var(--danger-soft);color:var(--danger)}
+.composer{display:flex;align-items:flex-end;gap:10rpx;margin-top:17rpx}.composer textarea{flex:1;min-height:66rpx;max-height:170rpx;padding:15rpx 18rpx;border-radius:19rpx;background:#f7f7fa;font-size:20rpx}.dark .composer textarea{background:#23232c;color:#fff}.send{width:116rpx;height:66rpx;margin:0;line-height:66rpx;border-radius:19rpx;background:#6757e6;color:#fff;font-size:19rpx;font-weight:740}.send[disabled]{opacity:.4}
 </style>
