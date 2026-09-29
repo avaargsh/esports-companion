@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     auth_provider: str = "mock"
     payment_provider: str = "mock"
 
+    wechat_app_id: str = ""
+    wechat_app_secret: str = ""
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 

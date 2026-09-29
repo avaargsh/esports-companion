@@ -46,7 +46,7 @@ Login API
   -> AuthService
        -> AuthProvider
             -> MockAuthProvider
-            -> WeChatAuthProvider (next)
+            -> WeChatAuthProvider
 ```
 
 The adapter converts an external provider identity into a stable internal
@@ -60,5 +60,20 @@ POST /api/v1/auth/wechat/login
 ```
 
 In development, `AUTH_PROVIDER=mock` accepts deterministic demo codes such as
-`demo-customer`. Production configuration must provide a real WeChat adapter;
-the registry deliberately refuses unknown/unimplemented providers.
+`demo-customer`.
+
+With `AUTH_PROVIDER=wechat`, `WeChatAuthProvider` exchanges the Mini Program
+login code through WeChat code2Session and maps the returned `openid` /
+`unionid` to the internal `user_id`. The returned `session_key` remains
+server-side provider session material: it is never returned as the application's
+authentication token and is not used as a marketplace aggregate identifier.
+
+Required settings:
+
+```text
+AUTH_PROVIDER=wechat
+WECHAT_APP_ID=...
+WECHAT_APP_SECRET=...
+```
+
+Unknown providers and missing WeChat credentials fail closed.
