@@ -21,9 +21,6 @@ func NewRepository(db *pgxpool.Pool) Repository {
 	return Repository{db: db}
 }
 
-type candidate struct {
-	Player
-}
 
 func (r Repository) ListPlayers(ctx context.Context, q ListQuery) ([]Player, error) {
 	candidates, err := r.listCandidates(ctx, q.Limit)
