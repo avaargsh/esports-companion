@@ -12,9 +12,11 @@
       "DOM"
     ],
     "types": [
+      "@dcloudio/types",
       "vite/client",
       "node"
-    ]
+    ],
+    "skipLibCheck": true
   },
   "include": [
     "src/**/*.ts",
