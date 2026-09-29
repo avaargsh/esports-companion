@@ -1,6 +1,6 @@
 # WeChat Mini Program
 
-Target stack: UniApp + Vue 3 + TypeScript + Pinia.
+Target stack: UniApp + Vue 3 + TypeScript.
 
 One Mini Program contains both Customer and Player workspaces.
 
