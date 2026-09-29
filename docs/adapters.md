@@ -35,3 +35,30 @@ It is synchronous and returns `SUCCESS`, which keeps the local Golden Slice cred
 ## Next production adapter
 
 A WeChat provider should normally return a pending payment/client payload when payment is created. Durable success must be established from the verified server callback, not from the Mini Program client success callback.
+
+
+## Authentication boundary
+
+Authentication follows the same rule:
+
+```text
+Login API
+  -> AuthService
+       -> AuthProvider
+            -> MockAuthProvider
+            -> WeChatAuthProvider (next)
+```
+
+The adapter converts an external provider identity into a stable internal
+`user_id`. Marketplace domains must never use `openid` as their aggregate
+identifier.
+
+The v0.2 contract already exposes:
+
+```http
+POST /api/v1/auth/wechat/login
+```
+
+In development, `AUTH_PROVIDER=mock` accepts deterministic demo codes such as
+`demo-customer`. Production configuration must provide a real WeChat adapter;
+the registry deliberately refuses unknown/unimplemented providers.

@@ -24,18 +24,32 @@ def main():
 
         customer = db.scalar(select(User).where(User.nickname == "Demo Customer"))
         if not customer:
-            customer = User(nickname="Demo Customer", role="USER", status="ACTIVE")
+            customer = User(
+                openid="mock:customer",
+                nickname="Demo Customer",
+                role="USER",
+                status="ACTIVE",
+            )
             db.add(customer)
             db.flush()
+        elif not customer.openid:
+            customer.openid = "mock:customer"
 
         demo_players = []
         for index in range(3):
             nickname = f"Demo Player {index + 1}"
             user = db.scalar(select(User).where(User.nickname == nickname))
             if not user:
-                user = User(nickname=nickname, role="USER", status="ACTIVE")
+                user = User(
+                    openid=f"mock:player:{index + 1}",
+                    nickname=nickname,
+                    role="USER",
+                    status="ACTIVE",
+                )
                 db.add(user)
                 db.flush()
+            elif not user.openid:
+                user.openid = f"mock:player:{index + 1}"
             profile = db.scalar(
                 select(PlayerProfile).where(PlayerProfile.user_id == user.id)
             )

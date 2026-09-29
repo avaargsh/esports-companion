@@ -11,6 +11,7 @@ from app.db import SessionLocal
 from app.infrastructure import redis_client
 from app.realtime import run_outbox_publisher
 from app.routers.admin import router as admin_router
+from app.routers.auth import router as auth_router
 from app.routers.catalog import router as catalog_router
 from app.routers.dev import router as dev_router
 from app.routers.orders import router as orders_router
@@ -53,6 +54,7 @@ app.include_router(player_router)
 app.include_router(wallet_router)
 app.include_router(reviews_router)
 app.include_router(admin_router)
+app.include_router(auth_router)
 app.include_router(dev_router)
 app.include_router(realtime_router)
 
