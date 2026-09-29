@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, select
 
@@ -9,6 +9,9 @@ from app.db import SessionLocal
 from app.metrics import (
     DISPUTES_OLDEST_OPEN_SECONDS,
     DISPUTES_OPEN,
+    FINISH_REQUESTS_OLDEST_SECONDS,
+    FINISH_REQUESTS_OVERDUE,
+    FINISH_REQUESTS_PENDING,
     OPERATIONAL_METRICS_SCAN_SUCCESS,
     OUTBOX_OLDEST_PENDING_SECONDS,
     OUTBOX_PENDING,
@@ -17,7 +20,7 @@ from app.metrics import (
     WITHDRAWALS_OLDEST_PENDING_SECONDS,
     WITHDRAWALS_PENDING,
 )
-from app.models import Dispute, OutboxEvent, Refund, Withdrawal
+from app.models import Dispute, Order, OutboxEvent, Refund, Withdrawal
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +74,30 @@ def refresh_operational_metrics(*, now: datetime | None = None) -> None:
                 ).where(Dispute.status.in_(["OPEN", "RESOLVING"]))
             ).one()
 
+            finish_count, finish_oldest = db.execute(
+                select(
+                    func.count(Order.id),
+                    func.min(Order.finish_requested_at),
+                ).where(Order.status == "FINISH_REQUESTED")
+            ).one()
+            finish_deadline = (
+                effective_now
+                - timedelta(
+                    seconds=max(
+                        1,
+                        settings.finish_confirm_timeout_seconds
+                        + settings.order_timeout_scan_seconds,
+                    )
+                )
+            )
+            finish_overdue = db.scalar(
+                select(func.count(Order.id)).where(
+                    Order.status == "FINISH_REQUESTED",
+                    Order.finish_requested_at.is_not(None),
+                    Order.finish_requested_at < finish_deadline,
+                )
+            )
+
         OUTBOX_PENDING.set(outbox_count or 0)
         OUTBOX_OLDEST_PENDING_SECONDS.set(
             _age_seconds(effective_now, outbox_oldest)
@@ -86,6 +113,11 @@ def refresh_operational_metrics(*, now: datetime | None = None) -> None:
         DISPUTES_OPEN.set(dispute_count or 0)
         DISPUTES_OLDEST_OPEN_SECONDS.set(
             _age_seconds(effective_now, dispute_oldest)
+        )
+        FINISH_REQUESTS_PENDING.set(finish_count or 0)
+        FINISH_REQUESTS_OVERDUE.set(finish_overdue or 0)
+        FINISH_REQUESTS_OLDEST_SECONDS.set(
+            _age_seconds(effective_now, finish_oldest)
         )
         OPERATIONAL_METRICS_SCAN_SUCCESS.set(1)
     except Exception:
