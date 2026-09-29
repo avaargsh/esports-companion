@@ -221,6 +221,10 @@ class PaymentService:
             event_type="ORDER_ENTERED_MATCHING",
             actor_type="SYSTEM",
         )
+        if order.designated_player_id:
+            from app.services.dispatch_service import DispatchService
+
+            DispatchService.assign_designated(db, order=order)
 
 
 class MockPaymentService:

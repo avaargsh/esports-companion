@@ -132,6 +132,9 @@ class Order(Base, TimestampMixin):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
     game_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("games.id"))
     sku_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("service_skus.id"))
+    designated_player_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("player_profiles.id"), index=True
+    )
     status: Mapped[str] = mapped_column(String(32), default="WAITING_PAYMENT", index=True)
     quantity: Mapped[int] = mapped_column(Integer, default=1)
     unit_price: Mapped[int] = mapped_column(Integer)

@@ -2,17 +2,23 @@
 import { onMounted, ref } from "vue"
 
 import { request } from "../../api/client"
-import type { Game } from "../../types/domain"
+import type { Game, PublicPlayer } from "../../types/domain"
 
 const games = ref<Game[]>([])
+const players = ref<PublicPlayer[]>([])
 const loading = ref(true)
 const failed = ref(false)
 
-async function loadGames() {
+async function loadHome() {
   loading.value = true
   failed.value = false
   try {
-    games.value = await request<Game[]>("/games")
+    const [gameItems, playerItems] = await Promise.all([
+      request<Game[]>("/games"),
+      request<PublicPlayer[]>("/players?limit=6")
+    ])
+    games.value = gameItems
+    players.value = playerItems
   } catch {
     failed.value = true
   } finally {
@@ -20,12 +26,16 @@ async function loadGames() {
   }
 }
 
-onMounted(() => { void loadGames() })
+onMounted(() => { void loadHome() })
 
 function openGame(game: Game) {
   uni.navigateTo({
     url: `/pages/game/index?id=${game.id}&name=${encodeURIComponent(game.name)}`
   })
+}
+
+function openPlayer(player: PublicPlayer) {
+  uni.navigateTo({ url: `/pages/player/index?id=${player.id}` })
 }
 
 function openPlayerWorkspace() {
@@ -51,7 +61,7 @@ function openPlayerWorkspace() {
       </view>
 
       <view v-if="loading" class="empty-card">正在加载服务…</view>
-      <view v-else-if="failed" class="empty-card" @click="loadGames">加载失败，点此重试</view>
+      <view v-else-if="failed" class="empty-card" @click="loadHome">加载失败，点此重试</view>
       <view v-else class="game-grid">
         <view v-for="game in games" :key="game.id" class="game-card" @click="openGame(game)">
           <view class="game-icon">{{ game.name.slice(0, 1) }}</view>
@@ -71,14 +81,28 @@ function openPlayerWorkspace() {
         <text class="section-title">推荐大神</text>
         <text class="section-link">榜单能力待接入</text>
       </view>
-      <view class="provider-card">
-        <view class="avatar">P</view>
+      <view v-if="!loading && players.length === 0" class="empty-card">暂无可接单大神</view>
+      <view
+        v-for="player in players"
+        :key="player.id"
+        class="provider-card"
+        @click="openPlayer(player)"
+      >
+        <image v-if="player.avatar_url" class="avatar-image" :src="player.avatar_url" mode="aspectFill" />
+        <view v-else class="avatar">{{ player.display_name.slice(0, 1) }}</view>
         <view class="provider-main">
           <view class="provider-title">
-            <text class="provider-name">Demo Player</text>
+            <text class="provider-name">{{ player.display_name }}</text>
             <text class="online">可接单</text>
           </view>
-          <text class="provider-desc">当前为产品占位卡，后续接评分与服务档案</text>
+          <text class="provider-desc">
+            {{ player.rating > 0 ? player.rating.toFixed(1) + "分" : "新大神" }}
+            · {{ player.review_count }} 条评价
+            · {{ player.offerings[0]?.game_name }}
+          </text>
+          <text v-if="player.offerings[0]" class="provider-price">
+            ¥{{ (player.offerings[0].price / 100).toFixed(2) }} 起
+          </text>
         </view>
       </view>
     </view>
@@ -104,11 +128,13 @@ function openPlayerWorkspace() {
 .trust-strip { margin-top: 28rpx; padding: 24rpx; display: flex; justify-content: space-between; border-radius: 28rpx; background: #fff; }
 .trust-strip view { display: flex; align-items: center; gap: 8rpx; color: #686872; font-size: 20rpx; }
 .dot { width: 34rpx; height: 34rpx; border-radius: 50%; background: #f0edff; color: #6c5ce7; display: inline-flex; align-items: center; justify-content: center; font-size: 18rpx; font-weight: 700; }
-.provider-card { display: flex; align-items: center; gap: 22rpx; padding: 28rpx; border-radius: 32rpx; background: #fff; }
+.provider-card { display: flex; align-items: center; gap: 22rpx; padding: 28rpx; margin-bottom: 16rpx; border-radius: 32rpx; background: #fff; }
+.avatar-image { width: 96rpx; height: 96rpx; border-radius: 30rpx; }
 .avatar { width: 96rpx; height: 96rpx; border-radius: 30rpx; background: #17171f; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 36rpx; font-weight: 800; }
 .provider-main { flex: 1; min-width: 0; }
 .provider-title { display: flex; align-items: center; gap: 12rpx; }
 .provider-name { font-size: 29rpx; font-weight: 700; }
 .online { padding: 6rpx 12rpx; border-radius: 999rpx; background: #eafbf2; color: #22a665; font-size: 18rpx; }
 .provider-desc { display: block; margin-top: 10rpx; color: #92929d; font-size: 21rpx; }
+.provider-price { display: block; margin-top: 8rpx; color: #6c5ce7; font-size: 23rpx; font-weight: 700; }
 </style>
