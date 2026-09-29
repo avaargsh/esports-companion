@@ -12,6 +12,7 @@ import AftercarePanel from "./components/AftercarePanel.vue"
 import CatalogPanel from "./components/CatalogPanel.vue"
 import WithdrawalsPanel from "./components/WithdrawalsPanel.vue"
 import OrderEvidencePanel from "./components/OrderEvidencePanel.vue"
+import OperationsQueuePanel from "./components/OperationsQueuePanel.vue"
 
 type Player = {
   id: string
@@ -57,9 +58,9 @@ type Settlement = {
   status: string
 }
 
-type Tab = "dashboard" | "players" | "skills" | "catalog" | "orders" | "aftercare" | "withdrawals" | "settlements"
+type Tab = "operations" | "dashboard" | "players" | "skills" | "catalog" | "orders" | "aftercare" | "withdrawals" | "settlements"
 
-const tab = ref<Tab>("dashboard")
+const tab = ref<Tab>("operations")
 const authMode = getAdminAuthMode()
 const authReady = ref(isAdminSessionReady())
 const loading = ref(authReady.value)
@@ -71,6 +72,7 @@ const skills = ref<PlayerSkillReview[]>([])
 const evidenceOrderId = ref("")
 
 const nav = [
+  { key: "operations" as const, label: "运营待办", icon: "!" },
   { key: "dashboard" as const, label: "概览", icon: "◫" },
   { key: "players" as const, label: "陪玩审核", icon: "人" },
   { key: "skills" as const, label: "技能认证", icon: "证" },
@@ -198,6 +200,8 @@ onMounted(() => {
       <template v-else>
       <div v-if="error" class="alert">{{ error }}</div>
       <div v-if="loading" class="loading">正在同步 Marketplace 状态...</div>
+
+      <OperationsQueuePanel v-else-if="tab === 'operations'" />
 
       <template v-else-if="tab === 'dashboard'">
         <section class="metric-grid">
