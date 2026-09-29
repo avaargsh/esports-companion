@@ -18,13 +18,17 @@ def main():
     with SessionLocal() as db:
         platform = db.scalar(select(User).where(User.role == "PLATFORM"))
         if not platform:
-            db.add(User(nickname="Platform", role="PLATFORM", status="ACTIVE"))
+            platform = User(nickname="Platform", role="PLATFORM", status="ACTIVE")
+            db.add(platform)
+            db.flush()
 
         customer = db.scalar(select(User).where(User.nickname == "Demo Customer"))
         if not customer:
             customer = User(nickname="Demo Customer", role="USER", status="ACTIVE")
             db.add(customer)
+            db.flush()
 
+        demo_players = []
         for index in range(3):
             nickname = f"Demo Player {index + 1}"
             user = db.scalar(select(User).where(User.nickname == nickname))
@@ -32,14 +36,19 @@ def main():
                 user = User(nickname=nickname, role="USER", status="ACTIVE")
                 db.add(user)
                 db.flush()
-                db.add(
-                    PlayerProfile(
-                        user_id=user.id,
-                        display_name=nickname,
-                        verification_status="APPROVED",
-                        service_status="AVAILABLE",
-                    )
+            profile = db.scalar(
+                select(PlayerProfile).where(PlayerProfile.user_id == user.id)
+            )
+            if not profile:
+                profile = PlayerProfile(
+                    user_id=user.id,
+                    display_name=nickname,
+                    verification_status="APPROVED",
+                    service_status="AVAILABLE",
                 )
+                db.add(profile)
+                db.flush()
+            demo_players.append((user, profile))
 
         for index, (code, name) in enumerate(GAMES):
             game = db.scalar(select(Game).where(Game.code == code))
@@ -67,6 +76,9 @@ def main():
         db.commit()
         customer = db.scalar(select(User).where(User.nickname == "Demo Customer"))
         print(f"demo_user_id={customer.id}")
+        print(f"demo_admin_id={platform.id}")
+        for user, profile in demo_players:
+            print(f"demo_player_user_id={user.id} player_profile_id={profile.id}")
 
 
 if __name__ == "__main__":

@@ -1,11 +1,14 @@
 import uuid
 
 from fastapi import APIRouter, Depends, Header, HTTPException
+from redis.exceptions import RedisError
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.domain.order_state_machine import OrderStatus
 from app.infrastructure import redis_client
+from app.models import Order
 from app.schemas import OrderCreate, OrderOut
 from app.services.order_service import MockPaymentService, OrderNotFound, OrderService
 from app.services.settlement_service import SettlementService
@@ -15,6 +18,21 @@ router = APIRouter(prefix="/api/v1/orders", tags=["orders"])
 
 def demo_user_id(x_user_id: uuid.UUID = Header(alias="X-User-Id")) -> uuid.UUID:
     return x_user_id
+
+
+@router.get("", response_model=list[OrderOut])
+def list_orders(
+    user_id: uuid.UUID = Depends(demo_user_id),
+    db: Session = Depends(get_db),
+):
+    return list(
+        db.scalars(
+            select(Order)
+            .where(Order.user_id == user_id)
+            .order_by(Order.created_at.desc())
+            .limit(100)
+        )
+    )
 
 
 @router.post("", response_model=OrderOut, status_code=201)
@@ -52,10 +70,13 @@ def mock_pay(
     try:
         order = OrderService.get(db, order_id)
         order = MockPaymentService.pay(db, order, idempotency_key)
-        redis_client.zadd(
-            f"order_pool:{order.game_id}",
-            {str(order.id): order.created_at.timestamp()},
-        )
+        try:
+            redis_client.zadd(
+                f"order_pool:{order.game_id}",
+                {str(order.id): order.created_at.timestamp()},
+            )
+        except RedisError:
+            pass
         return order
     except OrderNotFound as exc:
         raise HTTPException(404, "ORDER_NOT_FOUND") from exc
@@ -72,7 +93,10 @@ def cancel(
     try:
         order = OrderService.get(db, order_id)
         order = OrderService.cancel(db, order, user_id)
-        redis_client.zrem(f"order_pool:{order.game_id}", str(order.id))
+        try:
+            redis_client.zrem(f"order_pool:{order.game_id}", str(order.id))
+        except RedisError:
+            pass
         return order
     except OrderNotFound as exc:
         raise HTTPException(404, "ORDER_NOT_FOUND") from exc

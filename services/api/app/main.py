@@ -11,6 +11,7 @@ from app.infrastructure import redis_client
 from app.realtime import run_outbox_publisher
 from app.routers.admin import router as admin_router
 from app.routers.catalog import router as catalog_router
+from app.routers.dev import router as dev_router
 from app.routers.orders import router as orders_router
 from app.routers.player import router as player_router
 from app.routers.realtime import router as realtime_router
@@ -35,6 +36,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 app.include_router(catalog_router)
+app.include_router(dev_router)
 app.include_router(orders_router)
 app.include_router(player_router)
 app.include_router(wallet_router)
