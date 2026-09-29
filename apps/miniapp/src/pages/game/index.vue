@@ -3,6 +3,8 @@ import { computed, ref } from "vue"
 import { onLoad } from "@dcloudio/uni-app"
 import { request } from "../../api/client"
 import { getDemoIdentities } from "../../api/demo"
+import CheckoutBar from "../../components/CheckoutBar.vue"
+import EmptyState from "../../components/EmptyState.vue"
 import type { Order, ServiceSku } from "../../types/domain"
 
 const gameId=ref("")
@@ -12,17 +14,33 @@ const selectedId=ref("")
 const remark=ref("")
 const quantity=ref(1)
 const creating=ref(false)
+const loading=ref(true)
+const failed=ref(false)
 
 const selected=computed(()=>skus.value.find(i=>i.id===selectedId.value)??null)
 const totalAmount=computed(()=>(selected.value?.price||0)*quantity.value)
 function changeQuantity(delta:number){ quantity.value=Math.min(10,Math.max(1,quantity.value+delta)) }
 
+async function loadSkus(){
+  if(!gameId.value)return
+  loading.value=true
+  failed.value=false
+  try{
+    skus.value=await request<ServiceSku[]>(`/games/${gameId.value}/skus`)
+    selectedId.value=skus.value[0]?.id??""
+  }catch(error){
+    failed.value=true
+    uni.showToast({title:error instanceof Error?error.message:"服务加载失败",icon:"none"})
+  }finally{
+    loading.value=false
+  }
+}
+
 onLoad(async query=>{
   gameId.value=String(query?.id??"")
   gameName.value=decodeURIComponent(String(query?.name??"选择服务"))
-  if(!gameId.value)return
-  skus.value=await request<ServiceSku[]>(`/games/${gameId.value}/skus`)
-  selectedId.value=skus.value[0]?.id??""
+  if(!gameId.value){failed.value=true;loading.value=false;return}
+  await loadSkus()
 })
 
 async function createOrder(){
@@ -52,9 +70,30 @@ async function createOrder(){
 
     <view class="service-title">
       <text>选择服务</text>
-      <text class="count">{{ skus.length }} 个套餐</text>
+      <text class="count">{{ loading ? "加载中" : skus.length + " 个套餐" }}</text>
     </view>
 
+    <view v-if="loading" class="sku-list">
+      <view v-for="n in 3" :key="n" class="sku-skeleton skeleton"></view>
+    </view>
+
+    <EmptyState
+      v-else-if="failed"
+      title="服务暂时没加载出来"
+      description="检查网络后再试一次"
+      action="重新加载"
+      symbol="↻"
+      @action="loadSkus"
+    />
+
+    <EmptyState
+      v-else-if="!skus.length"
+      title="这个游戏暂时没有可售服务"
+      description="可以返回首页看看其它游戏"
+      symbol="·"
+    />
+
+    <template v-else>
     <view class="sku-list">
       <view
         v-for="sku in skus"
@@ -99,16 +138,16 @@ async function createOrder(){
     <view class="promise">
       <text>平台担保交易</text><text>·</text><text>服务完成后结算</text><text>·</text><text>支持订单售后</text>
     </view>
+    </template>
 
-    <view class="footer">
-      <view>
-        <text class="pay-label">合计</text>
-        <text v-if="selected" class="total"><small>¥</small>{{ (totalAmount/100).toFixed(2) }}</text>
-      </view>
-      <button class="buy" :disabled="!selected" :loading="creating" @click="createOrder">
-        确认下单
-      </button>
-    </view>
+    <CheckoutBar
+      :cents="totalAmount"
+      :note="selected ? selected.name + ' · × ' + quantity : ''"
+      primary-text="确认下单"
+      :loading="creating"
+      :disabled="!selected || loading || failed"
+      @primary="createOrder"
+    />
   </view>
 </template>
 
@@ -121,6 +160,7 @@ async function createOrder(){
 .service-title { display:flex;align-items:center;justify-content:space-between;margin-bottom:15rpx;font-size:24rpx;font-weight:780; }
 .count { color:var(--muted);font-size:18rpx;font-weight:500; }
 .sku-list { display:flex;flex-direction:column;gap:12rpx; }
+.sku-skeleton { height:116rpx;border-radius:30rpx; }
 .sku-card {
   display:flex;align-items:center;gap:18rpx;padding:25rpx;border:2rpx solid transparent;
   border-radius:30rpx;background:#fff;box-shadow:var(--shadow-card);
@@ -135,7 +175,7 @@ async function createOrder(){
 .sku-name { display:block;font-size:25rpx;font-weight:780; }
 .meta { display:block;margin-top:7rpx;color:var(--muted);font-size:19rpx; }
 .price { color:var(--ink);font-size:34rpx;font-weight:850; }
-.price small,.total small { font-size:18rpx;font-weight:700; }
+.price small { font-size:18rpx;font-weight:700; }
 .option-card,.remark-card {
   margin-top:18rpx;padding:26rpx 28rpx;border-radius:30rpx;background:#fff;box-shadow:var(--shadow-card);
 }
@@ -155,16 +195,4 @@ textarea {
   width:100%;height:130rpx;margin-top:16rpx;padding:18rpx;border-radius:20rpx;background:#f7f7fa;font-size:21rpx;
 }
 .promise { display:flex;justify-content:center;gap:9rpx;margin-top:22rpx;color:var(--muted-2);font-size:15rpx; }
-.footer {
-  position:fixed;left:0;right:0;bottom:0;z-index:10;display:flex;align-items:center;justify-content:space-between;
-  padding:18rpx 28rpx calc(18rpx + env(safe-area-inset-bottom));border-top:1rpx solid var(--line);
-  background:rgba(255,255,255,.96);backdrop-filter:blur(18rpx);
-}
-.pay-label { display:block;color:var(--muted);font-size:18rpx; }
-.total { display:block;margin-top:2rpx;font-size:36rpx;font-weight:850;letter-spacing:-1rpx; }
-.buy {
-  width:310rpx;height:84rpx;margin:0;line-height:84rpx;border-radius:25rpx;background:var(--ink);color:#fff;
-  font-size:25rpx;font-weight:780;
-}
-.buy[disabled]{opacity:.4}
 </style>

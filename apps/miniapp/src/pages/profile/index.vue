@@ -72,7 +72,7 @@ async function applyPlayer(){
 </script>
 
 <template>
-  <view class="safe-page profile-page">
+  <view class="safe-page custom-safe-page profile-page">
     <view class="heading">
       <text class="title">我的</text>
       <text class="subtitle">订单、身份和服务入口都在这里。</text>

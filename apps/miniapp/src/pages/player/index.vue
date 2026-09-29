@@ -3,6 +3,8 @@ import { computed, ref } from "vue"
 import { onLoad } from "@dcloudio/uni-app"
 import { request } from "../../api/client"
 import { getDemoIdentities } from "../../api/demo"
+import CheckoutBar from "../../components/CheckoutBar.vue"
+import EmptyState from "../../components/EmptyState.vue"
 import type { Order, PublicOffering, PublicPlayer } from "../../types/domain"
 
 const playerId=ref("")
@@ -11,6 +13,7 @@ const selectedOfferingId=ref("")
 const remark=ref("")
 const quantity=ref(1)
 const loading=ref(true)
+const failed=ref(false)
 const creating=ref(false)
 
 const selectedOffering=computed<PublicOffering|null>(()=>
@@ -26,6 +29,7 @@ onLoad(async query=>{
     player.value=await request<PublicPlayer>(`/players/${playerId.value}`)
     selectedOfferingId.value=player.value.offerings[0]?.id??""
   }catch(error){
+    failed.value=true
     uni.showToast({title:error instanceof Error?error.message:"大神资料加载失败",icon:"none"})
   }finally{loading.value=false}
 })
@@ -53,7 +57,15 @@ async function createDesignatedOrder(){
     <view v-for="n in 3" :key="n" class="row-skeleton skeleton"></view>
   </view>
 
-  <view v-else-if="player" class="page">
+  <view v-else-if="failed || !player" class="safe-page">
+    <EmptyState
+      title="大神资料暂时没加载出来"
+      description="可以返回找大神列表后再试一次"
+      symbol="↻"
+    />
+  </view>
+
+  <view v-else class="page">
     <view class="profile-hero">
       <view class="glow"></view>
       <view class="profile-row">
@@ -160,18 +172,14 @@ async function createDesignatedOrder(){
       </view>
     </view>
 
-    <view class="footer">
-      <view>
-        <text class="footer-label">合计</text>
-        <text v-if="selectedOffering" class="footer-price"><small>¥</small>{{ (totalAmount/100).toFixed(2) }}</text>
-      </view>
-      <button
-        class="buy"
-        :disabled="!selectedOffering || player.service_status!=='AVAILABLE'"
-        :loading="creating"
-        @click="createDesignatedOrder"
-      >{{ player.service_status==="AVAILABLE" ? "指定下单" : "大神暂不可接单" }}</button>
-    </view>
+    <CheckoutBar
+      :cents="totalAmount"
+      :note="selectedOffering ? selectedOffering.game_name + ' · ' + selectedOffering.sku_name : ''"
+      :primary-text="player.service_status==='AVAILABLE' ? '指定下单' : '大神暂不可接单'"
+      :loading="creating"
+      :disabled="!selectedOffering || player.service_status!=='AVAILABLE'"
+      @primary="createDesignatedOrder"
+    />
   </view>
 </template>
 
@@ -219,6 +227,4 @@ async function createDesignatedOrder(){
 .stepper{display:flex;align-items:center;gap:18rpx}.stepper button{width:58rpx;height:58rpx;margin:0;padding:0;line-height:58rpx;border-radius:18rpx;background:var(--brand-soft);color:var(--brand);font-size:28rpx}.stepper button[disabled]{opacity:.35}.stepper text{min-width:34rpx;text-align:center;font-size:27rpx;font-weight:800}
 textarea{width:100%;height:130rpx;margin-top:15rpx;padding:18rpx;border-radius:20rpx;background:#f7f7fa;font-size:21rpx}
 .reviews-section{padding-bottom:4rpx}.review{margin-bottom:12rpx;padding:23rpx;border-radius:26rpx;background:#fff}.review-top{display:flex;align-items:center;justify-content:space-between}.review-rating{color:#e9aa2d;font-size:21rpx;letter-spacing:2rpx}.review-score{color:var(--muted);font-size:17rpx}.review-content{display:block;margin-top:10rpx;color:var(--ink-2);font-size:20rpx;line-height:1.55}.review-empty{padding:40rpx;border-radius:26rpx;background:#fff;color:var(--muted);text-align:center;font-size:20rpx}
-.footer{position:fixed;left:0;right:0;bottom:0;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:18rpx 28rpx calc(18rpx + env(safe-area-inset-bottom));border-top:1rpx solid var(--line);background:rgba(255,255,255,.96);backdrop-filter:blur(18rpx)}
-.footer-label{display:block;color:var(--muted);font-size:18rpx}.footer-price{display:block;margin-top:2rpx;font-size:35rpx;font-weight:850}.buy{width:310rpx;height:84rpx;margin:0;line-height:84rpx;border-radius:25rpx;background:var(--ink);color:#fff;font-size:25rpx;font-weight:780}.buy[disabled]{opacity:.4}
 </style>

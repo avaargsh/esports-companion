@@ -62,6 +62,10 @@ button::after {
   padding: 28rpx 28rpx calc(44rpx + env(safe-area-inset-bottom));
 }
 
+.custom-safe-page {
+  padding-top: calc(var(--status-bar-height) + 24rpx);
+}
+
 .surface-card {
   border: 1rpx solid rgba(20, 20, 30, .035);
   border-radius: var(--radius-lg);

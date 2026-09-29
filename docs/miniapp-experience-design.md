@@ -40,3 +40,20 @@ system on a dark surface.
 
 The pages should compose these primitives rather than redefining the same card
 language independently.
+
+
+## Mobile shell hardening
+
+The UX branch now treats safe areas and transactional controls as shared
+infrastructure:
+
+- custom tab pages use the UniApp status-bar CSS variable instead of fixed top
+  padding;
+- quick-match and designated-player purchase flows share one CheckoutBar;
+- service selection has explicit loading, error and empty states;
+- the checkout control always shows total price plus the currently selected
+  service;
+- order filters surface category counts to reduce unnecessary taps.
+
+The goal is consistent behavior on real devices, not a larger component
+catalog.

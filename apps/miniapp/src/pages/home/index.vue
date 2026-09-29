@@ -49,7 +49,7 @@ function quickOrder() {
 </script>
 
 <template>
-  <view class="safe-page home">
+  <view class="safe-page custom-safe-page home">
     <view class="topbar">
       <view>
         <text class="hello">今天想玩点什么？</text>
