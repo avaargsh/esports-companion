@@ -1,6 +1,28 @@
 <script setup lang="ts">
+import { onShow } from "@dcloudio/uni-app"
+import { ref } from "vue"
+
+import { getDemoIdentities } from "../../api/demo"
+
+const nickname = ref("Demo Customer")
+const playerName = ref("Demo Player")
+
+onShow(async () => {
+  try {
+    const identities = await getDemoIdentities()
+    nickname.value = identities.customer.nickname
+    playerName.value = identities.players[0]?.displayName ?? "尚无陪玩身份"
+  } catch {
+    // Keep local demo labels when backend is unavailable.
+  }
+})
+
 function openPlayerWorkspace() {
   uni.navigateTo({ url: "/pages-player/workbench/index" })
+}
+
+function openOrders() {
+  uni.switchTab({ url: "/pages/orders/index" })
 }
 </script>
 
@@ -9,8 +31,8 @@ function openPlayerWorkspace() {
     <view class="profile-card">
       <view class="avatar">U</view>
       <view>
-        <view class="name">Demo Customer</view>
-        <view class="hint">Mock WeChat Login</view>
+        <view class="name">{{ nickname }}</view>
+        <view class="hint">Mock WeChat Login · {{ playerName }}</view>
       </view>
     </view>
 
@@ -19,7 +41,7 @@ function openPlayerWorkspace() {
         <text>陪玩工作台</text>
         <text class="arrow">›</text>
       </view>
-      <view class="menu-item">
+      <view class="menu-item" @click="openOrders">
         <text>我的订单</text>
         <text class="arrow">›</text>
       </view>
