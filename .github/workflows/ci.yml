@@ -131,3 +131,75 @@ jobs:
       - name: Show API logs on failure
         if: failure()
         run: cat /tmp/esports-api.log
+
+
+  backup-restore:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: esports
+          POSTGRES_PASSWORD: esports
+          POSTGRES_DB: esports_backup_source
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U esports -d esports_backup_source"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+    env:
+      SOURCE_DATABASE_URL: postgresql+psycopg://esports:esports@localhost:5432/esports_backup_source
+      RESTORE_DATABASE_URL: postgresql+psycopg://esports:esports@localhost:5432/esports_backup_restore
+      REDIS_URL: redis://localhost:6379/0
+      APP_ENV: test
+      PGPASSWORD: esports
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install PostgreSQL client and API
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+          pip install -e services/api
+      - name: Prepare source database
+        working-directory: services/api
+        env:
+          DATABASE_URL: ${{ env.SOURCE_DATABASE_URL }}
+        run: |
+          alembic upgrade head
+          python -m app.seed
+      - name: Backup source database
+        env:
+          DATABASE_URL: ${{ env.SOURCE_DATABASE_URL }}
+        run: ./scripts/db_backup.sh /tmp/esports.dump
+      - name: Create restore target
+        run: createdb -h localhost -U esports esports_backup_restore
+      - name: Restore backup
+        env:
+          TARGET_DATABASE_URL: ${{ env.RESTORE_DATABASE_URL }}
+          RESTORE_CONFIRM: RESTORE_TO_TARGET
+        run: ./scripts/db_restore.sh /tmp/esports.dump
+      - name: Verify restored schema and seed data
+        env:
+          DATABASE_URL: ${{ env.RESTORE_DATABASE_URL }}
+        run: python scripts/db_verify.py
+      - name: Start API on restored database
+        working-directory: services/api
+        env:
+          DATABASE_URL: ${{ env.RESTORE_DATABASE_URL }}
+        run: |
+          uvicorn app.main:app --host 127.0.0.1 --port 8000 > /tmp/restore-api.log 2>&1 &
+          echo $! > /tmp/restore-api.pid
+      - name: Run Golden Slice against restored database
+        run: python3 scripts/smoke_demo.py
+      - name: Show restored API logs on failure
+        if: failure()
+        run: cat /tmp/restore-api.log || true

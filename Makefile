@@ -1,4 +1,4 @@
-.PHONY: up down logs migrate seed test smoke verify miniapp-build admin-build prod-build prod-up prod-down prod-logs
+.PHONY: up down logs migrate seed test smoke verify miniapp-build admin-build prod-build prod-up prod-down prod-logs prod-backup prod-restore-drill
 
 up:
 	docker compose up --build -d
@@ -42,3 +42,11 @@ prod-down:
 
 prod-logs:
 	docker compose --env-file .env.production -f deploy/compose/production.yml logs -f api
+
+
+prod-backup:
+	./scripts/prod_backup.sh
+
+prod-restore-drill:
+	@test -n "$(BACKUP)" || (echo "usage: make prod-restore-drill BACKUP=backups/file.dump" && exit 64)
+	./scripts/prod_restore_drill.sh "$(BACKUP)"

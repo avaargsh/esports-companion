@@ -24,8 +24,9 @@ Use this before exposing a production deployment to real users or money.
 ## Data and money
 
 - [ ] Alembic migration tested against a copy of production-like data.
-- [ ] PostgreSQL backup policy enabled.
-- [ ] A restore drill has been completed and timed.
+- [ ] PostgreSQL backup policy enabled and backup artifacts are stored off-host.
+- [ ] `backup-restore` CI is green.
+- [ ] `make prod-restore-drill BACKUP=...` has been completed against the release backup and timed.
 - [ ] Redis loss has been tested; durable order/money state remains reconstructable.
 - [ ] Payment callback idempotency tested.
 - [ ] Refund callback + query reconciliation tested.

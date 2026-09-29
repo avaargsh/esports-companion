@@ -12,3 +12,6 @@ dist/
 /deploy/secrets/*
 !/deploy/secrets/README.md
 .env.production
+
+# local database backups
+/backups/
