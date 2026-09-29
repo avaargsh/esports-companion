@@ -27,21 +27,23 @@ async function reload() {
 }
 
 function connectRealtime() {
-  socket = uni.connectSocket({
+  const task = uni.connectSocket({
     url: API_ORIGIN.replace(/^http/, "ws") + "/ws"
-  })
-  socket.onOpen(() => {
+  }) as unknown as UniApp.SocketTask
+  socket = task
+
+  task.onOpen(() => {
     socketConnected.value = true
-    socket?.send({
+    task.send({
       data: JSON.stringify({
         type: "subscribe",
         channels: [`order:${orderId.value}`]
       })
     })
   })
-  socket.onClose(() => { socketConnected.value = false })
-  socket.onError(() => { socketConnected.value = false })
-  socket.onMessage(message => {
+  task.onClose(() => { socketConnected.value = false })
+  task.onError(() => { socketConnected.value = false })
+  task.onMessage(message => {
     try {
       const payload = JSON.parse(String(message.data))
       if (payload.type === "order.status_changed") void reload()
@@ -62,15 +64,16 @@ onLoad(async query => {
 onUnload(() => socket?.close({}))
 
 async function run(action: "pay" | "cancel" | "confirm") {
-  if (!order.value || busy.value) return
+  const current = order.value
+  if (!current || busy.value) return
   busy.value = true
   try {
     if (action === "pay") {
       order.value = await request<Order>(
-        `/orders/${order.value.id}/mock-pay`,
+        `/orders/${current.id}/mock-pay`,
         {
           method: "POST",
-          headers: { "Idempotency-Key": `miniapp-${order.value.id}` }
+          headers: { "Idempotency-Key": `miniapp-${current.id}` }
         }
       )
       uni.showToast({ title: "支付成功", icon: "success" })
@@ -78,7 +81,7 @@ async function run(action: "pay" | "cancel" | "confirm") {
 
     if (action === "cancel") {
       order.value = await request<Order>(
-        `/orders/${order.value.id}/cancel`,
+        `/orders/${current.id}/cancel`,
         {
           method: "POST",
           userId: customerUserId.value
@@ -88,7 +91,7 @@ async function run(action: "pay" | "cancel" | "confirm") {
 
     if (action === "confirm") {
       order.value = await request<Order>(
-        `/orders/${order.value.id}/confirm`,
+        `/orders/${current.id}/confirm`,
         {
           method: "POST",
           userId: customerUserId.value
@@ -107,10 +110,11 @@ async function run(action: "pay" | "cancel" | "confirm") {
 }
 
 async function submitReview() {
-  if (!order.value || reviewed.value || busy.value) return
+  const current = order.value
+  if (!current || reviewed.value || busy.value) return
   busy.value = true
   try {
-    await request(`/orders/${order.value.id}/reviews`, {
+    await request(`/orders/${current.id}/reviews`, {
       method: "POST",
       userId: customerUserId.value,
       data: {
