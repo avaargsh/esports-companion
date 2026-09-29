@@ -21,7 +21,7 @@ Customer
 
 - **UniApp WeChat Mini Program** — customer and provider workspaces in one app
 - **FastAPI modular monolith** — Auth, Catalog, Player, Order, Dispatch, Wallet, Review, Realtime
-- **Web Admin** — provider verification, catalog, orders, settlement, disputes/refunds
+- **Web Admin** — provider/skill review, catalog, orders, disputes/refunds, withdrawal operations and settlement inspection
 - **PostgreSQL source of truth** — state, audit, money and idempotency
 - **Redis acceleration** — reconstructable order-pool/realtime state
 - **WeChat adapters** — code2Session auth, JSAPI payment, signed payment callback, refund API/callback/query reconciliation
@@ -152,7 +152,7 @@ Production Compose:
 - uses a read-only API filesystem;
 - binds API to localhost by default for a TLS reverse proxy.
 
-See [Production Readiness](docs/production-readiness.md), [Production Compose](docs/production-compose.md), and [Metrics and OpenTelemetry](docs/observability.md).
+See [Runtime Modes](docs/runtime-modes.md), [Operations](docs/operations.md), [Production Readiness](docs/production-readiness.md), [Production Compose](docs/production-compose.md), and [Metrics and OpenTelemetry](docs/observability.md).
 
 ## Repository layout
 
@@ -175,6 +175,8 @@ docs/
   architecture.md
   order-state-machine.md
   invariants.md
+  runtime-modes.md
+  operations.md
   production-readiness.md
   production-compose.md
   wechat-setup.md
