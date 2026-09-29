@@ -9,6 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.db import SessionLocal
 from app.infrastructure import redis_client
+from app.order_timeout import run_timeout_scanner
 from app.realtime import run_outbox_publisher
 from app.routers.admin import router as admin_router
 from app.routers.admin_catalog import router as admin_catalog_router
@@ -28,13 +29,18 @@ from app.routers.withdrawals import router as withdrawals_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    task = asyncio.create_task(run_outbox_publisher())
+    tasks = [
+        asyncio.create_task(run_outbox_publisher()),
+        asyncio.create_task(run_timeout_scanner()),
+    ]
     try:
         yield
     finally:
-        task.cancel()
-        with suppress(asyncio.CancelledError):
-            await task
+        for task in tasks:
+            task.cancel()
+        for task in tasks:
+            with suppress(asyncio.CancelledError):
+                await task
 
 
 app = FastAPI(
