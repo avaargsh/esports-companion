@@ -85,7 +85,7 @@ def require_player(
 ) -> Principal:
     if "PLAYER" not in principal.roles:
         raise HTTPException(403, "PLAYER_REQUIRED")
-    return principal
+    return require_session(principal)
 
 
 def require_platform(
@@ -93,4 +93,4 @@ def require_platform(
 ) -> Principal:
     if "PLATFORM" not in principal.roles:
         raise HTTPException(403, "PLATFORM_REQUIRED")
-    return principal
+    return require_session(principal)
