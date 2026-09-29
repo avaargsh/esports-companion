@@ -5,8 +5,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import Order, PlayerProfile, Settlement
+from app.models import Order, PlayerProfile, Settlement, Withdrawal
 from app.security import Principal, require_platform
+from app.services.withdrawal_service import WithdrawalService
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
@@ -105,3 +106,70 @@ def list_settlements(
         }
         for item in settlements
     ]
+
+
+
+@router.get("/withdrawals")
+def list_withdrawals(
+    principal: Principal = Depends(require_platform),
+    db: Session = Depends(get_db),
+):
+    rows = list(
+        db.scalars(
+            select(Withdrawal)
+            .order_by(Withdrawal.created_at.desc())
+            .limit(100)
+        )
+    )
+    return [
+        {
+            "id": str(item.id),
+            "userId": str(item.user_id),
+            "amount": item.amount,
+            "status": item.status,
+            "provider": item.provider,
+            "providerTxnId": item.provider_txn_id,
+            "failureReason": item.failure_reason,
+            "createdAt": item.created_at,
+        }
+        for item in rows
+    ]
+
+
+@router.post("/withdrawals/{withdrawal_id}/complete")
+def complete_withdrawal(
+    withdrawal_id: uuid.UUID,
+    principal: Principal = Depends(require_platform),
+    db: Session = Depends(get_db),
+):
+    try:
+        item = WithdrawalService.complete(
+            db,
+            withdrawal_id=withdrawal_id,
+            provider_txn_id=f"manual:{withdrawal_id}",
+        )
+        return {"id": str(item.id), "status": item.status}
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@router.post("/withdrawals/{withdrawal_id}/reject")
+def reject_withdrawal(
+    withdrawal_id: uuid.UUID,
+    reason: str = Query(default="REJECTED_BY_PLATFORM", max_length=256),
+    principal: Principal = Depends(require_platform),
+    db: Session = Depends(get_db),
+):
+    try:
+        item = WithdrawalService.reject(
+            db,
+            withdrawal_id=withdrawal_id,
+            reason=reason,
+        )
+        return {"id": str(item.id), "status": item.status}
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
