@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.infrastructure import redis_client
 from app.models import Order, PlayerProfile
-from app.schemas import ClaimRequest, OrderOut, PlayerApply, PlayerOut
+from app.schemas import ClaimRequest, OrderOut, PlayerApply, PlayerOut, PlayerUpdate
 from app.services.dispatch_service import (
     AssignmentNotFound,
     DispatchService,
@@ -58,6 +58,28 @@ def profile(
     db: Session = Depends(get_db),
 ):
     return get_player(db, user_id)
+
+
+@router.patch("/profile", response_model=PlayerOut)
+def update_profile(
+    body: PlayerUpdate,
+    user_id: uuid.UUID = Depends(demo_user_id),
+    db: Session = Depends(get_db),
+):
+    player = get_player(db, user_id)
+    if body.display_name is not None:
+        player.display_name = body.display_name
+    if body.bio is not None:
+        player.bio = body.bio
+    if body.service_status is not None:
+        if body.service_status not in {"OFFLINE", "AVAILABLE"}:
+            raise HTTPException(409, "INVALID_SERVICE_STATUS")
+        if body.service_status == "AVAILABLE" and player.verification_status != "APPROVED":
+            raise HTTPException(409, "PLAYER_NOT_APPROVED")
+        player.service_status = body.service_status
+    db.commit()
+    db.refresh(player)
+    return player
 
 
 @router.get("/order-pool", response_model=list[OrderOut])

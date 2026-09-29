@@ -48,6 +48,12 @@ class PlayerApply(BaseModel):
     bio: str = Field(default="", max_length=500)
 
 
+class PlayerUpdate(BaseModel):
+    display_name: str | None = Field(default=None, min_length=1, max_length=80)
+    bio: str | None = Field(default=None, max_length=500)
+    service_status: str | None = None
+
+
 class PlayerOut(BaseModel):
     id: uuid.UUID
     user_id: uuid.UUID
