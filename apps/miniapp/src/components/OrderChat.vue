@@ -10,10 +10,12 @@ const props = withDefaults(
     userId: string
     refreshKey?: number
     dark?: boolean
+    writable?: boolean
   }>(),
   {
     refreshKey: 0,
-    dark: false
+    dark: false,
+    writable: true
   }
 )
 
@@ -41,7 +43,7 @@ async function load() {
 
 async function send() {
   const text = content.value.trim()
-  if (!text || sending.value || !props.orderId || !props.userId) return
+  if (!text || sending.value || !props.orderId || !props.userId || !props.writable) return
 
   sending.value = true
   error.value = ""
@@ -112,7 +114,7 @@ watch(
       </view>
     </scroll-view>
 
-    <view class="composer">
+    <view v-if="writable" class="composer">
       <textarea
         v-model="content"
         maxlength="1000"
@@ -128,6 +130,7 @@ watch(
         发送
       </button>
     </view>
+    <view v-else class="read-only">订单已结束，会话保留为只读售后记录。</view>
   </view>
 </template>
 
@@ -147,9 +150,11 @@ watch(
 .mine .bubble { border-radius: 20rpx 20rpx 6rpx 20rpx; background: #6c5ce7; color: #fff; }
 .dark .bubble { background: #25252e; color: #e8e8ed; }
 .dark .mine .bubble { background: #6c5ce7; color: #fff; }
-.chat-empty, .chat-error { margin-top: 22rpx; padding: 24rpx; border-radius: 20rpx; text-align: center; font-size: 20rpx; }
+.chat-empty, .chat-error, .read-only { margin-top: 22rpx; padding: 24rpx; border-radius: 20rpx; text-align: center; font-size: 20rpx; }
 .chat-empty { color: #92929d; background: #f8f8fb; }
+.read-only { padding: 18rpx; border-radius: 18rpx; color: #92929d; background: #f8f8fb; text-align: center; font-size: 19rpx; }
 .dark .chat-empty { background: #212129; color: #777784; }
+.dark .read-only { background: #212129; color: #777784; }
 .chat-error { background: #fff0f0; color: #c63d3d; }
 .composer { display: flex; align-items: flex-end; gap: 14rpx; margin-top: 20rpx; }
 .composer textarea { flex: 1; min-height: 70rpx; max-height: 180rpx; padding: 17rpx 20rpx; border-radius: 20rpx; background: #f7f7fb; box-sizing: border-box; font-size: 22rpx; }

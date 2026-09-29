@@ -24,7 +24,20 @@ const meta = computed(() =>
   order.value ? orderStatusMeta(order.value.status) : null
 )
 
-const chatEnabled = computed(() =>
+const chatVisible = computed(() =>
+  [
+    "ACCEPTED",
+    "IN_SERVICE",
+    "FINISH_REQUESTED",
+    "COMPLETED",
+    "SETTLED",
+    "DISPUTED",
+    "REFUNDING",
+    "REFUNDED"
+  ].includes(order.value?.status ?? "")
+)
+
+const chatWritable = computed(() =>
   ["ACCEPTED", "IN_SERVICE", "FINISH_REQUESTED", "DISPUTED"].includes(
     order.value?.status ?? ""
   )
@@ -254,10 +267,11 @@ async function submitReview() {
     </button>
 
     <OrderChat
-      v-if="chatEnabled"
+      v-if="chatVisible"
       :order-id="order.id"
       :user-id="customerUserId"
       :refresh-key="chatRefreshKey"
+      :writable="chatWritable"
     />
 
     <view

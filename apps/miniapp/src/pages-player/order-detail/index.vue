@@ -20,7 +20,20 @@ const meta = computed(() =>
   order.value ? orderStatusMeta(order.value.status) : null
 )
 
-const chatEnabled = computed(() =>
+const chatVisible = computed(() =>
+  [
+    "ACCEPTED",
+    "IN_SERVICE",
+    "FINISH_REQUESTED",
+    "COMPLETED",
+    "SETTLED",
+    "DISPUTED",
+    "REFUNDING",
+    "REFUNDED"
+  ].includes(order.value?.status ?? "")
+)
+
+const chatWritable = computed(() =>
   ["ACCEPTED", "IN_SERVICE", "FINISH_REQUESTED", "DISPUTED"].includes(
     order.value?.status ?? ""
   )
@@ -131,10 +144,11 @@ onUnload(() => socket?.close({}))
     </view>
 
     <OrderChat
-      v-if="chatEnabled"
+      v-if="chatVisible"
       :order-id="order.id"
       :user-id="playerUserId"
       :refresh-key="chatRefreshKey"
+      :writable="chatWritable"
       dark
     />
 
