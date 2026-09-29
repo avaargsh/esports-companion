@@ -61,6 +61,7 @@ def profile(
 
 
 @router.patch("/profile", response_model=PlayerOut)
+@router.put("/profile", response_model=PlayerOut)
 def update_profile(
     body: PlayerUpdate,
     user_id: uuid.UUID = Depends(demo_user_id),

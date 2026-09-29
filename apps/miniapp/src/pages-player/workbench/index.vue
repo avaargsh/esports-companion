@@ -35,7 +35,7 @@ async function toggleStatus() {
   busy.value = true
   try {
     profile.value = await request<Player>("/player/profile", {
-      method: "PATCH",
+      method: "PUT",
       userId: playerUserId.value,
       data: { service_status: online.value ? "OFFLINE" : "AVAILABLE" }
     })

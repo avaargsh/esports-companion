@@ -26,18 +26,20 @@ async function reload() {
 }
 
 function connectRealtime() {
-  socket = uni.connectSocket({
-    url: API_ORIGIN.replace(/^http/, "ws") + "/ws"
+  const task = uni.connectSocket({
+    url: API_ORIGIN.replace(/^http/, "ws") + "/ws",
+    success: () => undefined
   })
-  socket.onOpen(() => {
-    socket?.send({
+  socket = task
+  task.onOpen(() => {
+    task.send({
       data: JSON.stringify({
         type: "subscribe",
         channels: [`order:${orderId.value}`]
       })
     })
   })
-  socket.onMessage((message) => {
+  task.onMessage((message) => {
     try {
       const payload = JSON.parse(String(message.data))
       if (payload.type === "order.status_changed") reload()
