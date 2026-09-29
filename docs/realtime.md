@@ -53,8 +53,15 @@ POST /api/v1/orders/{order_id}/messages
 
 Order chat is deliberately scoped to fulfillment. Sending starts only after an
 active assignment exists and is limited to active service/dispute states.
-Historical participants may continue to read the messages they were party to,
-but a released player cannot continue sending.
+Message visibility follows the assignment participation window. Customers and
+PLATFORM can read the complete order conversation; each player only sees
+messages created between that assignment's acceptance and release. A
+replacement player does not inherit the previous player's private conversation,
+and a released player cannot see later messages or continue sending.
+
+Realtime delivery re-checks current order participants at publish time, not only
+when the socket subscribes. This prevents a player whose assignment is released
+while a WebSocket is still open from receiving later order or chat events.
 
 This remains a single-instance publisher. Production multi-instance delivery
 should move the outbox consumer to a dedicated worker or Redis Streams/message

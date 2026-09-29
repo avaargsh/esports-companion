@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select
@@ -201,6 +202,7 @@ def test_former_assigned_player_can_read_history_but_cannot_send():
                 )
             )
             assignment.status = "RELEASED"
+            assignment.released_at = datetime.now(timezone.utc)
             db.commit()
 
         history = client.get(
@@ -221,6 +223,103 @@ def test_former_assigned_player_can_read_history_but_cannot_send():
         assert blocked.status_code == 403
         assert blocked.json()["detail"] == "ORDER_MESSAGE_ACCESS_DENIED"
 
+
+
+def test_reassigned_players_only_read_their_own_participation_window():
+    with TestClient(app) as client:
+        demo, _game, sku = _bootstrap(client)
+        customer_id = demo["customerUserId"]
+        first_player_user_id = demo["playerUserId"]
+        identities = client.get("/api/v1/dev/demo-identities").json()
+        second_player_user_id = identities["players"][1]["userId"]
+
+        matching = _create_matching_order(client, customer_id, sku["id"])
+        order_id = matching["id"]
+        _claim(
+            client,
+            order_id=order_id,
+            player_user_id=first_player_user_id,
+            version=matching["version"],
+        )
+
+        first_message = client.post(
+            f"/api/v1/orders/{order_id}/messages",
+            headers={"X-User-Id": first_player_user_id},
+            json={
+                "client_message_id": f"first-window-{uuid.uuid4()}",
+                "content": "第一位陪玩的会话",
+            },
+        )
+        assert first_message.status_code == 201
+
+        with SessionLocal() as db:
+            first_player = db.scalar(
+                select(PlayerProfile).where(
+                    PlayerProfile.user_id == uuid.UUID(first_player_user_id)
+                )
+            )
+            second_player = db.scalar(
+                select(PlayerProfile).where(
+                    PlayerProfile.user_id == uuid.UUID(second_player_user_id)
+                )
+            )
+            first_assignment = db.scalar(
+                select(OrderAssignment).where(
+                    OrderAssignment.order_id == uuid.UUID(order_id),
+                    OrderAssignment.player_id == first_player.id,
+                    OrderAssignment.status == "ACTIVE",
+                )
+            )
+            first_assignment.status = "RELEASED"
+            first_assignment.released_at = datetime.now(timezone.utc)
+            db.add(
+                OrderAssignment(
+                    order_id=uuid.UUID(order_id),
+                    player_id=second_player.id,
+                    status="ACTIVE",
+                    assigned_by="SYSTEM",
+                    accepted_at=datetime.now(timezone.utc),
+                )
+            )
+            db.commit()
+
+        second_message = client.post(
+            f"/api/v1/orders/{order_id}/messages",
+            headers={"X-User-Id": second_player_user_id},
+            json={
+                "client_message_id": f"second-window-{uuid.uuid4()}",
+                "content": "第二位陪玩的会话",
+            },
+        )
+        assert second_message.status_code == 201
+
+        first_history = client.get(
+            f"/api/v1/orders/{order_id}/messages",
+            headers={"X-User-Id": first_player_user_id},
+        )
+        assert first_history.status_code == 200
+        assert [item["content"] for item in first_history.json()] == [
+            "第一位陪玩的会话"
+        ]
+
+        second_history = client.get(
+            f"/api/v1/orders/{order_id}/messages",
+            headers={"X-User-Id": second_player_user_id},
+        )
+        assert second_history.status_code == 200
+        assert [item["content"] for item in second_history.json()] == [
+            "第二位陪玩的会话"
+        ]
+
+        customer_history = client.get(
+            f"/api/v1/orders/{order_id}/messages",
+            headers={"X-User-Id": customer_id},
+        )
+        assert customer_history.status_code == 200
+        assert [item["content"] for item in customer_history.json()] == [
+            "第一位陪玩的会话",
+            "第二位陪玩的会话",
+        ]
 
 
 def test_terminal_order_keeps_message_history_but_rejects_new_messages():
