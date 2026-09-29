@@ -336,6 +336,11 @@ class Refund(Base, TimestampMixin):
         UniqueConstraint("dispute_id", name="uq_refund_dispute"),
         UniqueConstraint("idempotency_key", name="uq_refund_idempotency"),
         UniqueConstraint("out_refund_no", name="uq_refund_out_refund_no"),
+        UniqueConstraint(
+            "provider",
+            "provider_refund_id",
+            name="uq_refund_provider_refund_id",
+        ),
     )
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
     order_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("orders.id"), index=True)
