@@ -95,8 +95,8 @@ onMounted(load)
     <section class="panel">
       <header>
         <div>
-          <h2>争议工作队列</h2>
-          <p>只处理 OPEN 争议。放款给陪玩或批准退款都会留下资金与审计记录。</p>
+          <h2>售后争议</h2>
+          <p>处理用户售后争议；无论继续结算还是退款都会保留审计记录。</p>
         </div>
         <button class="ghost" @click="load">刷新</button>
       </header>
@@ -114,7 +114,7 @@ onMounted(load)
           <small>冻结 ¥{{ (item.held_amount/100).toFixed(2) }} · {{ new Date(item.created_at).toLocaleString() }}</small>
         </div>
         <div v-if="item.status === 'OPEN'" class="case-actions">
-          <button class="secondary" :disabled="!!busyId" @click="resolveDispute(item,'release')">释放给陪玩</button>
+          <button class="secondary" :disabled="!!busyId" @click="resolveDispute(item,'release')">继续结算</button>
           <button class="danger" :disabled="!!busyId" @click="resolveDispute(item,'refund')">批准退款</button>
         </div>
         <div v-else class="resolution">{{ item.resolution || "已处理" }}</div>
@@ -125,13 +125,13 @@ onMounted(load)
       <header>
         <div>
           <h2>退款追踪</h2>
-          <p>Provider 退款以查询/回调结果为准；运营台不直接伪造成功状态。</p>
+          <p>退款状态以支付渠道查询或回调为准，运营台不手工修改成功状态。</p>
         </div>
         <span class="count">{{ refunds.length }} 笔</span>
       </header>
       <div v-if="!refunds.length" class="empty">暂无退款记录</div>
       <div class="table" v-else>
-        <div class="row head"><span>订单 / 退款</span><span>金额</span><span>Provider</span><span>状态</span><span>操作</span></div>
+        <div class="row head"><span>订单 / 退款</span><span>金额</span><span>退款渠道</span><span>状态</span><span>操作</span></div>
         <div v-for="item in refunds" :key="item.id" class="row">
           <span><b>{{ item.order_id.slice(0,10) }}</b><small>{{ item.id.slice(0,10) }}</small></span>
           <span>¥{{ (item.amount/100).toFixed(2) }}</span>

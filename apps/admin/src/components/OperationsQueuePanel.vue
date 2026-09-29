@@ -98,17 +98,17 @@ onMounted(load)
   <section class="ops-home">
     <div class="hero">
       <div>
-        <span class="eyebrow">OPERATIONS CONTROL</span>
+        <span class="eyebrow">OPERATIONS</span>
         <h2>运营待办</h2>
-        <p>只展示超过参考 SLA 的异常项；数据直接来自 PostgreSQL durable state。</p>
+        <p>只展示超时或需要优先处理的异常项。</p>
       </div>
       <div class="hero-actions">
         <div>
-          <span>已超 SLA</span>
+          <span>已超时</span>
           <strong>{{ breachedTotal }}</strong>
         </div>
         <div class="critical">
-          <span>Critical</span>
+          <span>高优先级</span>
           <strong>{{ criticalTotal }}</strong>
         </div>
         <button @click="load">刷新</button>
@@ -129,8 +129,8 @@ onMounted(load)
         </div>
         <strong>{{ category.breachedCount }} / {{ category.count }}</strong>
         <small>
-          oldest {{ duration(category.oldestAgeSeconds) }}
-          · SLA {{ duration(category.slaSeconds) }}
+          最久 {{ duration(category.oldestAgeSeconds) }}
+          · 参考时限 {{ duration(category.slaSeconds) }}
         </small>
       </article>
     </div>
@@ -139,14 +139,14 @@ onMounted(load)
       <header>
         <div>
           <h3>异常队列</h3>
-          <p>按 severity 和超时倍数排序，优先处理最影响资金与交付正确性的项目。</p>
+          <p>优先展示最影响交付和资金处理的异常项。</p>
         </div>
         <span>{{ data.items.length }} 项</span>
       </header>
 
-      <div v-if="loading" class="empty">正在计算运营 SLA…</div>
+      <div v-if="loading" class="empty">正在加载运营待办…</div>
       <div v-else-if="!data.items.length" class="healthy">
-        <b>当前没有 SLA breach</b>
+        <b>当前没有超时待办</b>
         <span>仍需按正常运营节奏处理未超时的争议、提现和退款。</span>
       </div>
 
@@ -170,14 +170,14 @@ onMounted(load)
 
         <span class="age">
           <b>{{ duration(item.ageSeconds) }}</b>
-          <small>{{ ageRatio(item).toFixed(1) }}× SLA</small>
+          <small>超时 {{ ageRatio(item).toFixed(1) }}×</small>
           <em>{{ item.status }}</em>
         </span>
       </button>
     </section>
 
     <footer>
-      Generated {{ data.generatedAt ? new Date(data.generatedAt).toLocaleString() : "—" }}
+      更新时间 {{ data.generatedAt ? new Date(data.generatedAt).toLocaleString() : "—" }}
     </footer>
 
     <OrderEvidencePanel

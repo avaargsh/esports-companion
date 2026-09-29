@@ -78,21 +78,21 @@ onMounted(load)
     <div class="summary">
       <article><span>待审核</span><strong>{{ pending.length }}</strong></article>
       <article><span>待打款金额</span><strong>¥{{ (pendingAmount/100).toFixed(2) }}</strong></article>
-      <article><span>处理模式</span><strong class="manual">MANUAL</strong></article>
+      <article><span>处理方式</span><strong class="manual">人工审核</strong></article>
     </div>
 
     <section class="panel">
       <header>
         <div>
           <h2>提现审核</h2>
-          <p>申请时资金已从 available 冻结；确认完成必须填写真实外部打款流水号。</p>
+          <p>申请后金额会冻结；确认打款完成时必须填写真实外部流水号。</p>
         </div>
         <button class="ghost" @click="load">刷新</button>
       </header>
 
       <div v-if="!items.length" class="empty">暂无提现记录</div>
       <div v-else class="table">
-        <div class="row head"><span>用户 / 申请</span><span>金额</span><span>Provider</span><span>状态</span><span>操作</span></div>
+        <div class="row head"><span>用户 / 申请</span><span>金额</span><span>渠道</span><span>状态</span><span>操作</span></div>
         <div v-for="item in items" :key="item.id" class="row">
           <span><b>{{ item.userId.slice(0,10) }}</b><small>{{ new Date(item.createdAt).toLocaleString() }}</small></span>
           <span class="amount">¥{{ (item.amount/100).toFixed(2) }}</span>
