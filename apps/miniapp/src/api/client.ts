@@ -8,7 +8,7 @@ export async function request<T>(
   path: string,
   options: {
     method?: Method
-    data?: unknown
+    data?: UniApp.RequestOptions["data"]
     userId?: string
     adminId?: string
     headers?: Record<string, string>
@@ -16,7 +16,7 @@ export async function request<T>(
 ): Promise<T> {
   const response = await uni.request({
     url: API_BASE_URL + path,
-    method: options.method ?? "GET",
+    method: (options.method ?? "GET") as UniApp.RequestOptions["method"],
     data: options.data,
     header: {
       "Content-Type": "application/json",
