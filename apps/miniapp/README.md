@@ -74,3 +74,31 @@ the client in `wechat` mode.
 
 The released Mini Program must configure the HTTPS request domain and WSS
 socket domain in the WeChat platform.
+
+
+## Product paths
+
+Customer:
+
+```text
+Home
+  -> Game / pooled service
+  -> Discover verified player
+  -> Player profile / Offering
+  -> designated order
+  -> payment / fulfillment / chat / evidence / aftercare
+```
+
+Player:
+
+```text
+Workbench
+  -> order pool / service orders
+  -> Offering + Skill management
+  -> settled Wallet balance
+  -> withdrawal request / history
+```
+
+Withdrawals currently use a MANUAL payout boundary. Submitting a withdrawal freezes available balance; the platform operator only marks it complete after an actual external payout.
+
+See [Runtime Modes](../../docs/runtime-modes.md) for dev/staging/production switches.
