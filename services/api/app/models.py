@@ -253,6 +253,11 @@ class Withdrawal(Base, TimestampMixin):
     __tablename__ = "withdrawals"
     __table_args__ = (
         UniqueConstraint("idempotency_key", name="uq_withdrawal_idempotency"),
+        UniqueConstraint(
+            "provider",
+            "provider_txn_id",
+            name="uq_withdrawal_provider_txn",
+        ),
     )
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
