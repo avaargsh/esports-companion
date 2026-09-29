@@ -38,6 +38,10 @@ function openPlayer(player: PublicPlayer) {
   uni.navigateTo({ url: `/pages/player/index?id=${player.id}` })
 }
 
+function openDiscover() {
+  uni.navigateTo({ url: "/pages/discover/index" })
+}
+
 function openPlayerWorkspace() {
   uni.navigateTo({ url: "/pages-player/workbench/index" })
 }
@@ -51,7 +55,10 @@ function openPlayerWorkspace() {
         <view class="title">今晚一起上分</view>
         <view class="subtitle">选游戏 · 选服务 · 即时匹配</view>
       </view>
-      <button class="workspace-button" @click="openPlayerWorkspace">我是陪玩</button>
+      <view class="hero-actions">
+        <button class="discover-button" @click="openDiscover">发现大神</button>
+        <button class="workspace-button" @click="openPlayerWorkspace">我是陪玩</button>
+      </view>
     </view>
 
     <view class="section">
@@ -79,7 +86,7 @@ function openPlayerWorkspace() {
     <view class="section">
       <view class="section-head">
         <text class="section-title">推荐大神</text>
-        <text class="section-link">榜单能力待接入</text>
+        <text class="section-link" @click="openDiscover">查看全部 ›</text>
       </view>
       <view v-if="!loading && players.length === 0" class="empty-card">暂无可接单大神</view>
       <view
@@ -115,7 +122,10 @@ function openPlayerWorkspace() {
 .eyebrow { font-size: 20rpx; opacity: .72; letter-spacing: 3rpx; }
 .title { margin-top: 18rpx; font-size: 48rpx; font-weight: 800; }
 .subtitle { margin-top: 12rpx; font-size: 25rpx; opacity: .9; }
-.workspace-button { margin: 34rpx 0 0; width: 210rpx; height: 70rpx; line-height: 70rpx; border-radius: 23rpx; background: rgba(255,255,255,.17); color: #fff; font-size: 24rpx; }
+.hero-actions { display:flex; gap:14rpx; margin-top:34rpx; }
+.hero-actions button { margin:0; height:70rpx; line-height:70rpx; border-radius:23rpx; font-size:23rpx; }
+.discover-button { width:210rpx; background:#fff; color:#5f50d7; font-weight:750; }
+.workspace-button { width:190rpx; background:rgba(255,255,255,.17); color:#fff; }
 .section { margin-top: 40rpx; }
 .section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 22rpx; }
 .section-title { font-size: 32rpx; font-weight: 700; }
