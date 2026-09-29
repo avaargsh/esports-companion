@@ -1,11 +1,10 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.domain.order_state_machine import OrderStatus, ensure_transition
-from app.models import Order, OrderEvent, OutboxEvent, PaymentTransaction, ServiceSKU
+from app.models import Order, OrderEvent, OutboxEvent, ServiceSKU
 
 
 class OrderNotFound(LookupError):
@@ -148,47 +147,3 @@ class OrderService:
             )
         )
 
-
-class MockPaymentService:
-    @staticmethod
-    def pay(db: Session, order: Order, idempotency_key: str) -> Order:
-        existing = db.scalar(
-            select(PaymentTransaction).where(
-                PaymentTransaction.idempotency_key == idempotency_key
-            )
-        )
-        if existing:
-            if existing.order_id != order.id:
-                raise ValueError("IDEMPOTENCY_KEY_REUSED")
-            return order
-        if order.status != OrderStatus.WAITING_PAYMENT.value:
-            raise ValueError("ORDER_NOT_WAITING_PAYMENT")
-
-        db.add(
-            PaymentTransaction(
-                order_id=order.id,
-                provider="MOCK",
-                provider_txn_id=f"mock_{uuid.uuid4().hex}",
-                idempotency_key=idempotency_key,
-                amount=order.total_amount,
-                status="SUCCESS",
-                raw_payload={"mode": "mock"},
-            )
-        )
-        OrderService.transition(
-            db,
-            order,
-            OrderStatus.PAID,
-            event_type="PAYMENT_SUCCESS",
-            actor_type="PAYMENT",
-            payload={"provider": "MOCK"},
-        )
-        OrderService.transition(
-            db,
-            order,
-            OrderStatus.MATCHING,
-            event_type="ORDER_ENTERED_MATCHING",
-            actor_type="SYSTEM",
-        )
-        db.commit()
-        return order

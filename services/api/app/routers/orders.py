@@ -9,7 +9,9 @@ from app.domain.order_state_machine import OrderStatus
 from app.infrastructure import redis_client
 from app.models import Order
 from app.schemas import OrderCreate, OrderOut
-from app.services.order_service import MockPaymentService, OrderNotFound, OrderService
+from app.providers.registry import get_payment_provider
+from app.services.order_service import OrderNotFound, OrderService
+from app.services.payment_service import PaymentService
 from app.services.settlement_service import SettlementService
 
 router = APIRouter(prefix="/api/v1/orders", tags=["orders"])
@@ -69,7 +71,12 @@ def mock_pay(
 ):
     try:
         order = OrderService.get(db, order_id)
-        order = MockPaymentService.pay(db, order, idempotency_key)
+        order = PaymentService.create_payment(
+            db,
+            order=order,
+            provider=get_payment_provider("mock"),
+            idempotency_key=idempotency_key,
+        )
         try:
             redis_client.zadd(
                 f"order_pool:{order.game_id}",
