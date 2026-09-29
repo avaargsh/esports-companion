@@ -56,10 +56,16 @@ def test_refresh_rotates_and_revokes_old_access_session():
         assert current_session.revoked_at is None
         assert roles == ("USER",)
 
-        with pytest.raises(ValueError, match="REFRESH_TOKEN_REVOKED"):
+        with pytest.raises(ValueError, match="REFRESH_TOKEN_REUSED"):
             SessionService.rotate_refresh(
                 db,
                 refresh_token=first.refresh_token,
+            )
+
+        with pytest.raises(ValueError, match="ACCESS_SESSION_REVOKED"):
+            SessionService.authenticate_access(
+                db,
+                access_token=rotated.access_token,
             )
 
 
