@@ -1,0 +1,16 @@
+name: esports-companion
+version: 0.1.0
+currency: CNY
+categories:
+  - code: wzry
+    name: 王者荣耀
+  - code: lol
+    name: 英雄联盟
+  - code: delta_force
+    name: 三角洲行动
+  - code: valorant
+    name: 无畏契约
+defaults:
+  duration_minutes: 60
+  price: 3000
+  platform_fee_rate: 0.20
