@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from decimal import Decimal
 
 from pydantic import BaseModel, Field
@@ -67,7 +68,7 @@ class OrderEventOut(BaseModel):
     from_status: str | None
     to_status: str | None
     actor_type: str
-    created_at: str
+    created_at: datetime
 
     model_config = {"from_attributes": True}
 
