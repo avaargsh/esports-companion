@@ -14,6 +14,7 @@ class Settings(BaseSettings):
 
     finish_confirm_timeout_seconds: int = 1800
     order_timeout_scan_seconds: int = 30
+    order_timeout_batch_size: int = 50
 
     wechat_app_id: str = ""
     wechat_app_secret: str = ""

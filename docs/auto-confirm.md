@@ -1,36 +1,25 @@
-# Finish Auto-confirm
+# Automatic Finish Confirmation
 
-A completed service should not remain in `FINISH_REQUESTED` forever when the customer does not respond.
+A player finishing service moves the order into `FINISH_REQUESTED`.
+The customer may confirm immediately. Otherwise a backend worker confirms the
+order after the configured timeout.
 
-Default policy:
-
-```text
-FINISH_REQUESTED
-  + 30 minutes without customer action
-  -> AUTO_CONFIRM_FINISH
-  -> COMPLETED
-  -> existing SettlementService
-  -> SETTLED
-```
-
-Configuration:
+Defaults:
 
 ```text
 FINISH_CONFIRM_TIMEOUT_SECONDS=1800
 ORDER_TIMEOUT_SCAN_SECONDS=30
+ORDER_TIMEOUT_BATCH_SIZE=50
 ```
 
-## Correctness
+PostgreSQL is authoritative. Eligibility is derived from
+`status=FINISH_REQUESTED` plus `finish_requested_at`; Redis timers are not
+used for correctness.
 
-The scanner discovers due order IDs, then locks and re-validates each order before changing state. Only an order that is still `FINISH_REQUESTED` and still past its deadline may be auto-confirmed.
+Workers use `FOR UPDATE SKIP LOCKED` so multiple API instances can scan safely.
+Manual confirmation and automatic confirmation share the same locked
+`COMPLETED -> Settlement -> SETTLED` path. Settlement remains idempotent by its
+existing per-order unique constraint.
 
-This protects against races with:
-
-- customer confirmation;
-- dispute opening;
-- administrative state changes;
-- multiple timeout scanners.
-
-Settlement remains idempotent through the existing unique settlement invariant.
-
-v0.2 uses an in-process scanner to keep the open-source deployment small. A larger deployment can move the same service method into a dedicated scheduler/worker without changing order semantics.
+Orders that moved to `DISPUTED` are automatically excluded because the worker
+only selects `FINISH_REQUESTED`.

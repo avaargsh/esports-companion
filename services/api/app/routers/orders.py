@@ -5,14 +5,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.domain.order_state_machine import OrderStatus
 from app.infrastructure import redis_client
 from app.models import Order
 from app.schemas import OrderCreate, OrderOut, PaymentPrepareOut
 from app.providers.registry import get_payment_provider
+from app.services.completion_service import CompletionService
 from app.services.order_service import OrderNotFound, OrderService
 from app.services.payment_service import PaymentService
-from app.services.settlement_service import SettlementService
 from app.security import Principal, current_principal, current_user_id
 
 router = APIRouter(prefix="/api/v1/orders", tags=["orders"])
@@ -196,19 +195,11 @@ def confirm(
     db: Session = Depends(get_db),
 ):
     try:
-        order = OrderService.get(db, order_id)
-        if order.user_id != user_id:
-            raise PermissionError("ORDER_NOT_OWNED")
-        OrderService.transition(
+        return CompletionService.confirm_by_user(
             db,
-            order,
-            OrderStatus.COMPLETED,
-            event_type="USER_CONFIRMED_FINISH",
-            actor_type="USER",
-            actor_id=str(user_id),
+            order_id=order_id,
+            user_id=user_id,
         )
-        SettlementService.settle(db, order)
-        return order
     except OrderNotFound as exc:
         raise HTTPException(404, "ORDER_NOT_FOUND") from exc
     except PermissionError as exc:
