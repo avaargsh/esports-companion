@@ -8,9 +8,10 @@ from app.config import settings
 from app.db import SessionLocal
 from app.main import app
 from app.models import Game, Order, OutboxEvent, ServiceSKU, User
+from app.services.operations_queue_service import build_operations_queue
 
 
-def test_operations_queue_surfaces_sla_breaches_and_finish_request():
+def test_operations_queue_surfaces_sla_breaches_without_persisting_fixture():
     now = datetime.now(timezone.utc)
     suffix = uuid4().hex[:8]
 
@@ -67,20 +68,10 @@ def test_operations_queue_surfaces_sla_breaches_and_finish_request():
             created_at=now - timedelta(minutes=3),
         )
         db.add(outbox)
-        db.commit()
+        db.flush()
+
+        payload = build_operations_queue(db, now=now)
         order_id = str(order.id)
-
-    with TestClient(app) as client:
-        client.get("/api/v1/dev/bootstrap")
-        identities = client.get("/api/v1/dev/demo-identities").json()
-        admin_user_id = identities["admin"]["userId"]
-
-        response = client.get(
-            "/api/v1/admin/operations/queue",
-            headers={"X-Admin-Id": admin_user_id},
-        )
-        assert response.status_code == 200
-        payload = response.json()
 
         kinds = {item["kind"] for item in payload["items"]}
         assert "OUTBOX" in kinds
@@ -91,18 +82,31 @@ def test_operations_queue_surfaces_sla_breaches_and_finish_request():
         )
 
         finish_category = next(
-            item for item in payload["categories"]
+            item
+            for item in payload["categories"]
             if item["kind"] == "FINISH_REQUESTED"
         )
         assert finish_category["count"] >= 1
         assert finish_category["breachedCount"] >= 1
 
+        db.rollback()
 
-def test_operations_queue_requires_platform_role():
+
+def test_operations_queue_endpoint_requires_platform_role():
     with TestClient(app) as client:
         demo = client.get("/api/v1/dev/bootstrap").json()
-        response = client.get(
+        identities = client.get("/api/v1/dev/demo-identities").json()
+
+        platform = client.get(
+            "/api/v1/admin/operations/queue",
+            headers={"X-Admin-Id": identities["admin"]["userId"]},
+        )
+        assert platform.status_code == 200
+        assert "categories" in platform.json()
+        assert "items" in platform.json()
+
+        customer = client.get(
             "/api/v1/admin/operations/queue",
             headers={"X-User-Id": demo["customerUserId"]},
         )
-        assert response.status_code == 403
+        assert customer.status_code == 403
