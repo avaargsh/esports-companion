@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://redis:6379/0"
     auth_provider: str = "mock"
     payment_provider: str = "mock"
+    refund_provider: str = "manual"
 
     session_signing_key: str = "dev-only-change-me-use-at-least-32-bytes"
     access_token_ttl_seconds: int = 900
@@ -23,6 +24,7 @@ class Settings(BaseSettings):
     wechat_mch_cert_serial: str = ""
     wechat_mch_private_key: str = ""
     wechat_notify_url: str = ""
+    wechat_refund_notify_url: str = ""
     wechat_pay_api_base_url: str = "https://api.mch.weixin.qq.com"
     wechat_pay_api_v3_key: str = ""
     wechat_pay_platform_cert_serial: str = ""

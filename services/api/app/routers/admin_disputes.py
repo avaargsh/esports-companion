@@ -7,8 +7,10 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.models import Dispute, Refund
 from app.schemas import DisputeOut, RefundComplete, RefundOut
+from app.providers.registry import get_refund_provider
 from app.security import Principal, require_platform
 from app.services.dispute_service import DisputeService
+from app.services.refund_service import RefundService
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin-disputes"])
 
@@ -50,10 +52,35 @@ def approve_refund(
     db: Session = Depends(get_db),
 ):
     try:
-        return DisputeService.approve_refund(
+        refund = DisputeService.approve_refund(
             db,
             dispute_id=dispute_id,
             admin_user_id=principal.user_id,
+        )
+        return RefundService.submit(
+            db,
+            refund_id=refund.id,
+            provider=get_refund_provider(),
+            actor_user_id=principal.user_id,
+        )
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@router.post("/refunds/{refund_id}/submit", response_model=RefundOut)
+def submit_refund(
+    refund_id: uuid.UUID,
+    principal: Principal = Depends(require_platform),
+    db: Session = Depends(get_db),
+):
+    try:
+        return RefundService.submit(
+            db,
+            refund_id=refund_id,
+            provider=get_refund_provider(),
+            actor_user_id=principal.user_id,
         )
     except LookupError as exc:
         raise HTTPException(404, str(exc)) from exc

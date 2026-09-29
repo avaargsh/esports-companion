@@ -170,7 +170,9 @@ class DisputeService:
             amount=order.total_amount,
             status="PENDING",
             provider="MANUAL",
+            out_refund_no=f"RFD_{uuid.uuid4().hex}",
             idempotency_key=f"order:{order.id}:refund",
+            raw_payload={},
         )
         db.add(refund)
         dispute.status = "RESOLVING"
@@ -200,7 +202,7 @@ class DisputeService:
         *,
         refund_id: uuid.UUID,
         provider_refund_id: str,
-        admin_user_id: uuid.UUID,
+        admin_user_id: uuid.UUID | None,
     ) -> Refund:
         refund = db.scalar(
             select(Refund)
@@ -211,8 +213,8 @@ class DisputeService:
             raise LookupError("REFUND_NOT_FOUND")
         if refund.status == "COMPLETED":
             return refund
-        if refund.status != "PENDING":
-            raise ValueError("REFUND_NOT_PENDING")
+        if refund.status not in {"PENDING", "SUBMITTING", "PROCESSING"}:
+            raise ValueError("REFUND_NOT_COMPLETABLE")
 
         dispute = db.scalar(
             select(Dispute)
@@ -238,13 +240,15 @@ class DisputeService:
         dispute.resolved_by_user_id = admin_user_id
         dispute.resolved_at = now
 
+        actor_type = "PLATFORM" if admin_user_id else "PAYMENT"
+        actor_id = str(admin_user_id) if admin_user_id else None
         OrderService.transition(
             db,
             order,
             OrderStatus.REFUNDED,
             event_type="REFUND_COMPLETED",
-            actor_type="PLATFORM",
-            actor_id=str(admin_user_id),
+            actor_type=actor_type,
+            actor_id=actor_id,
             payload={
                 "disputeId": str(dispute.id),
                 "refundId": str(refund.id),

@@ -254,6 +254,7 @@ class RefundOut(BaseModel):
     amount: int
     status: str
     provider: str
+    out_refund_no: str | None
     provider_refund_id: str | None
     completed_at: object | None
     model_config = {"from_attributes": True}

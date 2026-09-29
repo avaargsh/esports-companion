@@ -307,6 +307,7 @@ class Refund(Base, TimestampMixin):
         UniqueConstraint("order_id", name="uq_refund_order"),
         UniqueConstraint("dispute_id", name="uq_refund_dispute"),
         UniqueConstraint("idempotency_key", name="uq_refund_idempotency"),
+        UniqueConstraint("out_refund_no", name="uq_refund_out_refund_no"),
     )
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
     order_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("orders.id"), index=True)
@@ -314,7 +315,9 @@ class Refund(Base, TimestampMixin):
     amount: Mapped[int] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(String(32), default="PENDING", index=True)
     provider: Mapped[str] = mapped_column(String(32), default="MANUAL")
+    out_refund_no: Mapped[str | None] = mapped_column(String(64))
     provider_refund_id: Mapped[str | None] = mapped_column(String(128))
     failure_reason: Mapped[str | None] = mapped_column(String(256))
     idempotency_key: Mapped[str] = mapped_column(String(128))
+    raw_payload: Mapped[dict] = mapped_column(JSON, default=dict)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
