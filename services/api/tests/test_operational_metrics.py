@@ -87,6 +87,7 @@ def test_operational_metrics_are_derived_from_postgres():
         )
         db.add(finish_order)
         db.flush()
+        finish_order_id = finish_order.id
 
         dispute = Dispute(
             order_id=order.id,
@@ -141,3 +142,9 @@ def test_operational_metrics_are_derived_from_postgres():
     assert FINISH_REQUESTS_PENDING._value.get() >= 1
     assert FINISH_REQUESTS_OVERDUE._value.get() >= 1
     assert FINISH_REQUESTS_OLDEST_SECONDS._value.get() >= 3600
+
+    with SessionLocal() as db:
+        finish_order = db.get(Order, finish_order_id)
+        if finish_order:
+            db.delete(finish_order)
+            db.commit()
