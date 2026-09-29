@@ -1,15 +1,11 @@
 <script setup lang="ts">
-import { onShow } from "@dcloudio/uni-app"
 import { ref } from "vue"
+import { onShow } from "@dcloudio/uni-app"
+
 import { request } from "../../api/client"
 import { getDemoIdentities } from "../../api/demo"
-
-type Order = {
-  id: string
-  order_no: string
-  status: string
-  player_amount: number
-}
+import type { Order } from "../../types/domain"
+import { orderStatusMeta } from "../../utils/order"
 
 const orders = ref<Order[]>([])
 
@@ -29,22 +25,32 @@ onShow(() => { void load() })
 
 <template>
   <view class="page">
-    <view v-if="orders.length === 0" class="empty">暂无服务订单</view>
-    <view v-for="item in orders" :key="item.id" class="card" @click="openOrder(item.id)">
+    <view v-if="orders.length === 0" class="empty">暂无待履约服务订单</view>
+    <view
+      v-for="item in orders"
+      :key="item.id"
+      class="card"
+      @click="openOrder(item.id)"
+    >
       <view>
         <view class="number">{{ item.order_no }}</view>
-        <view class="status">{{ item.status }}</view>
+        <view class="status">{{ orderStatusMeta(item.status).label }}</view>
       </view>
-      <view class="income">¥{{ (item.player_amount / 100).toFixed(2) }}</view>
+      <view class="income">
+        <text>本单收入</text>
+        <b>¥{{ (item.player_amount / 100).toFixed(2) }}</b>
+      </view>
     </view>
   </view>
 </template>
 
 <style scoped>
-.page { padding: 28rpx; }
-.empty { margin-top: 120rpx; color: #92929d; text-align: center; font-size: 24rpx; }
-.card { margin-bottom: 20rpx; padding: 30rpx; border-radius: 30rpx; background: white; display: flex; align-items: center; justify-content: space-between; }
-.number { font-size: 23rpx; font-weight: 700; }
-.status { margin-top: 10rpx; color: #6c5ce7; font-size: 22rpx; }
-.income { color: #15151b; font-size: 32rpx; font-weight: 800; }
+.page { min-height: 100vh; padding: 28rpx; background: #0f0f15; box-sizing: border-box; }
+.empty { margin-top: 120rpx; color: #777784; text-align: center; font-size: 24rpx; }
+.card { margin-bottom: 18rpx; padding: 30rpx; border-radius: 30rpx; background: #181820; color: #fff; display: flex; align-items: center; justify-content: space-between; }
+.number { color: #aaaab4; font-size: 21rpx; }
+.status { margin-top: 10rpx; font-size: 29rpx; font-weight: 700; }
+.income { text-align: right; }
+.income text { display: block; color: #777784; font-size: 18rpx; }
+.income b { display: block; margin-top: 6rpx; color: #9f91ff; font-size: 31rpx; }
 </style>

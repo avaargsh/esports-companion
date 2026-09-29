@@ -1,19 +1,19 @@
 <script setup lang="ts">
-import { onShow } from "@dcloudio/uni-app"
 import { ref } from "vue"
+import { onShow } from "@dcloudio/uni-app"
 
 import { getDemoIdentities } from "../../api/demo"
 
 const nickname = ref("Demo Customer")
-const playerName = ref("Demo Player")
+const playerName = ref("")
 
 onShow(async () => {
   try {
     const identities = await getDemoIdentities()
     nickname.value = identities.customer.nickname
-    playerName.value = identities.players[0]?.displayName ?? "尚无陪玩身份"
+    playerName.value = identities.players[0]?.displayName ?? ""
   } catch {
-    // Keep local demo labels when backend is unavailable.
+    // Keep the page usable if the backend is temporarily unavailable.
   }
 })
 
@@ -29,21 +29,37 @@ function openOrders() {
 <template>
   <view class="page">
     <view class="profile-card">
-      <view class="avatar">U</view>
+      <view class="avatar">{{ nickname.slice(0, 1).toUpperCase() }}</view>
       <view>
         <view class="name">{{ nickname }}</view>
-        <view class="hint">Mock WeChat Login · {{ playerName }}</view>
+        <view class="hint">开发环境模拟微信身份</view>
       </view>
     </view>
 
+    <view class="role-card" @click="openPlayerWorkspace">
+      <view>
+        <text class="role-label">陪玩工作台</text>
+        <text class="role-desc">
+          {{ playerName ? playerName + " · 查看接单与收益" : "未找到 Demo Player，请先运行 seed" }}
+        </text>
+      </view>
+      <text class="arrow light">›</text>
+    </view>
+
     <view class="menu">
-      <view class="menu-item" @click="openPlayerWorkspace">
-        <text>陪玩工作台</text>
+      <view class="menu-item" @click="openOrders">
+        <view>
+          <text class="menu-title">我的订单</text>
+          <text class="menu-desc">查看匹配、服务与结算状态</text>
+        </view>
         <text class="arrow">›</text>
       </view>
-      <view class="menu-item" @click="openOrders">
-        <text>我的订单</text>
-        <text class="arrow">›</text>
+      <view class="menu-item">
+        <view>
+          <text class="menu-title">客服与争议</text>
+          <text class="menu-desc">后续接退款 / DISPUTED 流程</text>
+        </view>
+        <text class="soon">待接入</text>
       </view>
     </view>
   </view>
@@ -51,11 +67,19 @@ function openOrders() {
 
 <style scoped>
 .page { padding: 28rpx; }
-.profile-card { display: flex; gap: 22rpx; align-items: center; padding: 34rpx; background: white; border-radius: 32rpx; }
-.avatar { width: 104rpx; height: 104rpx; border-radius: 32rpx; background: #6c5ce7; color: white; display: flex; align-items: center; justify-content: center; font-size: 38rpx; font-weight: 800; }
+.profile-card { display: flex; gap: 22rpx; align-items: center; padding: 34rpx; background: #fff; border-radius: 32rpx; }
+.avatar { width: 104rpx; height: 104rpx; border-radius: 32rpx; background: #6c5ce7; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 38rpx; font-weight: 800; }
 .name { font-size: 32rpx; font-weight: 700; }
 .hint { margin-top: 8rpx; color: #92929d; font-size: 22rpx; }
-.menu { margin-top: 30rpx; overflow: hidden; border-radius: 28rpx; background: white; }
-.menu-item { display: flex; justify-content: space-between; padding: 30rpx; border-bottom: 1rpx solid #f0f0f4; font-size: 28rpx; }
-.arrow { color: #b3b3bc; }
+.role-card { margin-top: 24rpx; padding: 30rpx; border-radius: 30rpx; background: #17171f; color: #fff; display: flex; align-items: center; justify-content: space-between; }
+.role-label { display: block; font-size: 29rpx; font-weight: 700; }
+.role-desc { display: block; margin-top: 10rpx; color: #aaaab4; font-size: 21rpx; }
+.menu { margin-top: 24rpx; overflow: hidden; border-radius: 28rpx; background: #fff; }
+.menu-item { display: flex; align-items: center; justify-content: space-between; padding: 30rpx; border-bottom: 1rpx solid #f0f0f4; }
+.menu-item:last-child { border-bottom: 0; }
+.menu-title { display: block; font-size: 27rpx; font-weight: 600; }
+.menu-desc { display: block; margin-top: 8rpx; color: #92929d; font-size: 20rpx; }
+.arrow { color: #b3b3bc; font-size: 38rpx; }
+.arrow.light { color: #777784; }
+.soon { color: #aaaab4; font-size: 20rpx; }
 </style>

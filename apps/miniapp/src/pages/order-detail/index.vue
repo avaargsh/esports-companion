@@ -1,24 +1,25 @@
 <script setup lang="ts">
+import { computed, ref } from "vue"
 import { onLoad, onUnload } from "@dcloudio/uni-app"
-import { ref } from "vue"
 
 import { API_ORIGIN, request } from "../../api/client"
 import { getDemoIdentities } from "../../api/demo"
-
-type Order = {
-  id: string
-  order_no: string
-  status: string
-  total_amount: number
-  player_amount: number
-  platform_fee: number
-  version: number
-}
+import type { Order } from "../../types/domain"
+import { orderStatusMeta } from "../../utils/order"
 
 const orderId = ref("")
 const order = ref<Order | null>(null)
+const customerUserId = ref("")
+const socketConnected = ref(false)
+const busy = ref(false)
+const rating = ref(5)
+const review = ref("")
 const reviewed = ref(false)
 let socket: UniApp.SocketTask | null = null
+
+const meta = computed(() =>
+  order.value ? orderStatusMeta(order.value.status) : null
+)
 
 async function reload() {
   if (!orderId.value) return
@@ -30,6 +31,7 @@ function connectRealtime() {
     url: API_ORIGIN.replace(/^http/, "ws") + "/ws"
   })
   socket.onOpen(() => {
+    socketConnected.value = true
     socket?.send({
       data: JSON.stringify({
         type: "subscribe",
@@ -37,144 +39,193 @@ function connectRealtime() {
       })
     })
   })
-  socket.onMessage((message) => {
+  socket.onClose(() => { socketConnected.value = false })
+  socket.onError(() => { socketConnected.value = false })
+  socket.onMessage(message => {
     try {
       const payload = JSON.parse(String(message.data))
-      if (payload.type === "order.status_changed") reload()
+      if (payload.type === "order.status_changed") void reload()
     } catch {
-      // Ignore non-JSON development messages.
+      // Ignore development messages that are not JSON.
     }
   })
 }
 
-onLoad(async (query) => {
+onLoad(async query => {
   orderId.value = String(query?.id ?? "")
+  const identities = await getDemoIdentities()
+  customerUserId.value = identities.customer.userId
   await reload()
   connectRealtime()
 })
 
 onUnload(() => socket?.close({}))
 
-async function mockPay() {
-  if (!order.value) return
+async function run(action: "pay" | "cancel" | "confirm") {
+  if (!order.value || busy.value) return
+  busy.value = true
   try {
-    order.value = await request<Order>(`/orders/${order.value.id}/mock-pay`, {
-      method: "POST",
-      headers: { "Idempotency-Key": `miniapp-${order.value.id}` }
-    })
-    uni.showToast({ title: "支付成功", icon: "success" })
-  } catch (error) {
-    uni.showToast({
-      title: error instanceof Error ? error.message : "支付失败",
-      icon: "none"
-    })
-  }
-}
+    if (action === "pay") {
+      order.value = await request<Order>(
+        `/orders/${order.value.id}/mock-pay`,
+        {
+          method: "POST",
+          headers: { "Idempotency-Key": `miniapp-${order.value.id}` }
+        }
+      )
+      uni.showToast({ title: "支付成功", icon: "success" })
+    }
 
-async function confirmFinish() {
-  if (!order.value) return
-  try {
-    const identities = await getDemoIdentities()
-    order.value = await request<Order>(`/orders/${order.value.id}/confirm`, {
-      method: "POST",
-      userId: identities.customer.userId
-    })
-    uni.showToast({ title: "已完成结算", icon: "success" })
+    if (action === "cancel") {
+      order.value = await request<Order>(
+        `/orders/${order.value.id}/cancel`,
+        {
+          method: "POST",
+          userId: customerUserId.value
+        }
+      )
+    }
+
+    if (action === "confirm") {
+      order.value = await request<Order>(
+        `/orders/${order.value.id}/confirm`,
+        {
+          method: "POST",
+          userId: customerUserId.value
+        }
+      )
+      uni.showToast({ title: "已确认完成", icon: "success" })
+    }
   } catch (error) {
     uni.showToast({
-      title: error instanceof Error ? error.message : "确认失败",
+      title: error instanceof Error ? error.message : "操作失败",
       icon: "none"
     })
+  } finally {
+    busy.value = false
   }
 }
 
 async function submitReview() {
-  if (!order.value || reviewed.value) return
+  if (!order.value || reviewed.value || busy.value) return
+  busy.value = true
   try {
-    const identities = await getDemoIdentities()
     await request(`/orders/${order.value.id}/reviews`, {
       method: "POST",
-      userId: identities.customer.userId,
+      userId: customerUserId.value,
       data: {
-        rating: 5,
-        content: "Demo：服务体验很好，五星好评。"
+        rating: rating.value,
+        content: review.value.trim()
       }
     })
     reviewed.value = true
-    uni.showToast({ title: "评价成功", icon: "success" })
+    uni.showToast({ title: "感谢你的评价", icon: "success" })
   } catch (error) {
     const message = error instanceof Error ? error.message : "评价失败"
     if (message === "ORDER_ALREADY_REVIEWED") reviewed.value = true
     uni.showToast({ title: message, icon: "none" })
+  } finally {
+    busy.value = false
   }
 }
 </script>
 
 <template>
-  <view v-if="order" class="page">
+  <view v-if="order && meta" class="page">
     <view class="status-card">
-      <view class="status">{{ order.status }}</view>
+      <view class="live-row">
+        <text class="live-dot" :class="{ online: socketConnected }">●</text>
+        <text>{{ socketConnected ? "实时更新已连接" : "正在连接实时状态" }}</text>
+      </view>
+      <view class="status">{{ meta.label }}</view>
+      <view class="description">{{ meta.description }}</view>
+      <view class="progress">
+        <view class="bar" :style="{ width: meta.progress + '%' }" />
+      </view>
       <view class="order-no">{{ order.order_no }}</view>
     </view>
 
-    <view class="money-card">
-      <view><text>订单金额</text><text>¥{{ (order.total_amount / 100).toFixed(2) }}</text></view>
-      <view><text>陪玩收入</text><text>¥{{ (order.player_amount / 100).toFixed(2) }}</text></view>
-      <view><text>平台服务费</text><text>¥{{ (order.platform_fee / 100).toFixed(2) }}</text></view>
+    <view class="section-card">
+      <view class="section-title">费用明细</view>
+      <view class="row">
+        <text>服务金额</text>
+        <text class="strong">¥{{ (order.total_amount / 100).toFixed(2) }}</text>
+      </view>
     </view>
 
-    <button
-      v-if="order.status === 'WAITING_PAYMENT'"
-      class="primary"
-      @click="mockPay"
-    >
-      Mock 支付
-    </button>
-
-    <view v-else-if="order.status === 'MATCHING'" class="notice">
-      订单已进入抢单池，切换到陪玩工作台进行抢单。
+    <view v-if="order.status === 'MATCHING'" class="notice">
+      <text class="notice-title">正在为你匹配</text>
+      <text>订单已进入陪玩抢单池，接单后这里会自动更新，无需手动刷新。</text>
     </view>
 
-    <view v-else-if="order.status === 'ACCEPTED'" class="notice">
-      陪玩已接单，等待开始服务。
+    <view v-if="order.status === 'ACCEPTED'" class="notice success">
+      <text class="notice-title">陪玩已接单</text>
+      <text>等待陪玩开始服务；服务开始后状态会自动更新。</text>
     </view>
 
-    <view v-else-if="order.status === 'IN_SERVICE'" class="notice">
-      服务进行中。
+    <view v-if="order.status === 'WAITING_PAYMENT'" class="actions">
+      <button class="ghost" :disabled="busy" @click="run('cancel')">取消订单</button>
+      <button class="primary" :loading="busy" @click="run('pay')">支付并开始匹配</button>
     </view>
 
     <button
       v-if="order.status === 'FINISH_REQUESTED'"
-      class="primary"
-      @click="confirmFinish"
+      class="primary full"
+      :loading="busy"
+      @click="run('confirm')"
     >
-      确认完成并结算
+      确认服务完成
     </button>
 
-    <view v-if="order.status === 'SETTLED'" class="settled-card">
-      <view class="settled-title">订单已完成结算</view>
-      <view class="settled-desc">陪玩收益与平台服务费已经写入 Ledger。</view>
-      <button class="review" :disabled="reviewed" @click="submitReview">
-        {{ reviewed ? "已评价" : "五星评价" }}
-      </button>
+    <view v-if="order.status === 'SETTLED' && !reviewed" class="section-card review-card">
+      <view class="section-title">评价本次服务</view>
+      <view class="stars">
+        <text
+          v-for="value in 5"
+          :key="value"
+          :class="{ active: value <= rating }"
+          @click="rating = value"
+        >★</text>
+      </view>
+      <textarea
+        v-model="review"
+        maxlength="1000"
+        placeholder="说说这次陪玩体验，可选"
+      />
+      <button class="primary full" :loading="busy" @click="submitReview">提交评价</button>
     </view>
+
+    <view v-else-if="reviewed" class="reviewed">评价已提交，感谢反馈。</view>
   </view>
 </template>
 
 <style scoped>
-.page { padding: 28rpx; }
-.status-card { padding: 38rpx; border-radius: 34rpx; background: #17171f; color: #fff; }
-.status { font-size: 42rpx; font-weight: 800; }
-.order-no { margin-top: 14rpx; color: #aaaab4; font-size: 20rpx; }
-.money-card { margin-top: 24rpx; padding: 28rpx; border-radius: 30rpx; background: #fff; }
-.money-card view { display: flex; justify-content: space-between; padding: 16rpx 0; color: #686872; font-size: 24rpx; }
-.money-card view text:last-child { color: #15151b; font-weight: 700; }
-.primary, .secondary { margin-top: 28rpx; height: 88rpx; line-height: 88rpx; border-radius: 28rpx; font-size: 28rpx; font-weight: 700; }
+.page { padding: 28rpx 28rpx 60rpx; }
+.status-card { padding: 38rpx; border-radius: 34rpx; background: linear-gradient(145deg,#17171f,#29263a); color: #fff; }
+.live-row { display: flex; align-items: center; gap: 8rpx; color: #aaaab4; font-size: 20rpx; }
+.live-dot { color: #64646f; }
+.live-dot.online { color: #47d182; }
+.status { margin-top: 30rpx; font-size: 44rpx; font-weight: 800; }
+.description { margin-top: 10rpx; color: #c3c3cc; font-size: 23rpx; }
+.progress { margin-top: 26rpx; height: 9rpx; overflow: hidden; border-radius: 999rpx; background: rgba(255,255,255,.11); }
+.bar { height: 100%; border-radius: 999rpx; background: linear-gradient(90deg,#8b7cf6,#69ddd7); }
+.order-no { margin-top: 20rpx; color: #858590; font-size: 19rpx; }
+.section-card { margin-top: 22rpx; padding: 30rpx; border-radius: 30rpx; background: #fff; }
+.section-title { font-size: 28rpx; font-weight: 700; }
+.row { display: flex; justify-content: space-between; align-items: center; margin-top: 22rpx; color: #686872; font-size: 24rpx; }
+.strong { color: #15151b; font-size: 31rpx; font-weight: 800; }
+.notice { margin-top: 22rpx; padding: 28rpx; border-radius: 28rpx; background: #f0edff; color: #6c5ce7; font-size: 23rpx; line-height: 1.6; }
+.notice.success { background: #eafbf2; color: #16824d; }
+.notice-title { display: block; margin-bottom: 6rpx; font-weight: 700; }
+.actions { margin-top: 26rpx; display: flex; gap: 18rpx; }
+.actions button { flex: 1; margin: 0; }
+.primary, .ghost { height: 86rpx; line-height: 86rpx; border-radius: 26rpx; font-size: 26rpx; font-weight: 700; }
 .primary { background: #6c5ce7; color: #fff; }
-.secondary { background: #fff; color: #6c5ce7; border: 2rpx solid #6c5ce7; }
-.notice { margin-top: 28rpx; padding: 26rpx; border-radius: 26rpx; background: #f0edff; color: #6c5ce7; font-size: 24rpx; line-height: 1.6; }
-.settled-card { margin-top: 28rpx; padding: 30rpx; border-radius: 30rpx; background: #fff; }
-.settled-title { color: #22a665; font-size: 30rpx; font-weight: 800; }
-.settled-desc { margin-top: 12rpx; color: #92929d; font-size: 22rpx; line-height: 1.6; }
-.review { margin-top: 24rpx; height: 76rpx; line-height: 76rpx; border-radius: 22rpx; background: #6c5ce7; color: #fff; font-size: 24rpx; font-weight: 700; }
+.ghost { background: #fff; color: #686872; }
+.full { margin-top: 26rpx; width: 100%; }
+.review-card textarea { width: 100%; height: 150rpx; margin-top: 18rpx; padding: 18rpx; border-radius: 20rpx; background: #f7f7fb; box-sizing: border-box; font-size: 23rpx; }
+.stars { margin-top: 18rpx; display: flex; gap: 12rpx; }
+.stars text { color: #d6d6de; font-size: 52rpx; }
+.stars text.active { color: #f0b72f; }
+.reviewed { margin-top: 24rpx; padding: 26rpx; border-radius: 26rpx; background: #eafbf2; color: #16824d; text-align: center; font-size: 23rpx; }
 </style>
