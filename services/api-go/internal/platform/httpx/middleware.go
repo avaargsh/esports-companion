@@ -4,13 +4,11 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
-	"regexp"
+	"strings"
 	"time"
 
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 )
-
-var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 
 func AccessLog(logger *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -61,6 +59,37 @@ func ValidationError(w http.ResponseWriter, location, field, message string) {
 	})
 }
 
+// IsUUID mirrors the textual UUID forms accepted by the FastAPI/Pydantic
+// contract closely enough for route/query compatibility. It deliberately does
+// not restrict the UUID version.
 func IsUUID(value string) bool {
-	return uuidPattern.MatchString(value)
+	s := value
+	const urnPrefix = "urn:uuid:"
+	if len(s) >= len(urnPrefix) && strings.EqualFold(s[:len(urnPrefix)], urnPrefix) {
+		s = s[len(urnPrefix):]
+	}
+	if len(s) == 38 && s[0] == '{' && s[len(s)-1] == '}' {
+		s = s[1 : len(s)-1]
+	}
+	if len(s) == 36 {
+		if s[8] != '-' || s[13] != '-' || s[18] != '-' || s[23] != '-' {
+			return false
+		}
+		s = s[:8] + s[9:13] + s[14:18] + s[19:23] + s[24:]
+	}
+	if len(s) != 32 {
+		return false
+	}
+	for _, r := range s {
+		if !isHex(r) {
+			return false
+		}
+	}
+	return true
+}
+
+func isHex(r rune) bool {
+	return r >= '0' && r <= '9' ||
+		r >= 'a' && r <= 'f' ||
+		r >= 'A' && r <= 'F'
 }

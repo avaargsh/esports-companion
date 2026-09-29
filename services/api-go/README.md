@@ -29,8 +29,8 @@ The Go service defaults to `:8080` so it can run beside the Python API on `:8000
 
 ```bash
 cd services/api-go
-go mod tidy
-go test ./...
+go mod download
+go test -race ./...
 go run ./cmd/api
 ```
 

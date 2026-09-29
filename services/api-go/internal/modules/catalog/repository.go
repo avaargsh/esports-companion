@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -89,7 +88,7 @@ func (r Repository) ListSKUs(ctx context.Context, gameID string) ([]SKU, error) 
 		}
 		result = append(result, item)
 	}
-	if err := rows.Err(); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate skus: %w", err)
 	}
 	return result, nil
