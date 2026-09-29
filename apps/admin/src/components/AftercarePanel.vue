@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from "vue"
 
 import { adminRequest } from "../api"
+import OrderEvidencePanel from "./OrderEvidencePanel.vue"
 
 type Dispute = {
   id: string
@@ -31,6 +32,7 @@ const disputes = ref<Dispute[]>([])
 const refunds = ref<Refund[]>([])
 const error = ref("")
 const busyId = ref("")
+const evidenceOrderId = ref("")
 
 const openDisputes = computed(() => disputes.value.filter(item => item.status === "OPEN"))
 const activeRefunds = computed(() =>
@@ -102,7 +104,9 @@ onMounted(load)
       <div v-for="item in disputes" :key="item.id" class="case">
         <div class="case-main">
           <div class="case-top">
-            <b>订单 {{ item.order_id.slice(0, 12) }}</b>
+            <button class="order-link" @click="evidenceOrderId = item.order_id">
+              订单 {{ item.order_id.slice(0, 12) }} · 查看事实
+            </button>
             <em :class="{ open:item.status==='OPEN' }">{{ item.status }}</em>
           </div>
           <p>{{ item.reason_code }} · {{ item.opened_by_role }}</p>
@@ -145,6 +149,12 @@ onMounted(load)
         </div>
       </div>
     </section>
+
+    <OrderEvidencePanel
+      v-if="evidenceOrderId"
+      :order-id="evidenceOrderId"
+      @close="evidenceOrderId = ''"
+    />
   </section>
 </template>
 
@@ -163,6 +173,7 @@ header p { margin:6px 0 0; color:#92929d; font-size:12px; }
 .case { display:flex; align-items:center; justify-content:space-between; gap:22px; padding:18px 4px; border-top:1px solid #f0eff4; }
 .case-main { min-width:0; flex:1; }
 .case-top { display:flex; gap:10px; align-items:center; }
+.order-link { border:0; padding:0; background:transparent; color:#4d46a8; font-size:11px; font-weight:800; cursor:pointer; text-align:left; }
 .case-top em, .row em { padding:4px 7px; border-radius:999px; background:#f2f1f5; color:#777783; font-size:10px; font-style:normal; }
 .case-top em.open { background:#fff2d8; color:#a56d00; }
 .case p { margin:7px 0; color:#6d6d78; font-size:11px; }
