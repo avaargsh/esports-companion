@@ -2,7 +2,6 @@ package health
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -16,7 +15,7 @@ type Checker struct {
 }
 
 func (c Checker) Live(w http.ResponseWriter, _ *http.Request) {
-	httpx.JSON(w, http.StatusOK, "{"status":"ok"}")
+	httpx.JSONValue(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 func (c Checker) Ready(w http.ResponseWriter, r *http.Request) {
@@ -24,14 +23,20 @@ func (c Checker) Ready(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	if err := c.Postgres(ctx); err != nil {
-		httpx.JSON(w, http.StatusServiceUnavailable, fmt.Sprintf("{"status":"not_ready","dependency":"postgres"}"))
+		httpx.JSONValue(w, http.StatusServiceUnavailable, map[string]string{
+			"status":     "not_ready",
+			"dependency": "postgres",
+		})
 		return
 	}
 	if c.RequireRedis {
 		if err := c.Redis(ctx); err != nil {
-			httpx.JSON(w, http.StatusServiceUnavailable, fmt.Sprintf("{"status":"not_ready","dependency":"redis"}"))
+			httpx.JSONValue(w, http.StatusServiceUnavailable, map[string]string{
+				"status":     "not_ready",
+				"dependency": "redis",
+			})
 			return
 		}
 	}
-	httpx.JSON(w, http.StatusOK, "{"status":"ready"}")
+	httpx.JSONValue(w, http.StatusOK, map[string]string{"status": "ready"})
 }
