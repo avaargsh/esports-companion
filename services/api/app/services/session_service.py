@@ -155,19 +155,20 @@ class SessionService:
         session_id: uuid.UUID,
         now: datetime,
     ) -> None:
-        """Revoke every active descendant of a reused refresh token.
+        """Revoke every active descendant of a refresh-token session.
 
-        Refresh rotation creates a linear chain today, but walking all children
-        keeps the containment correct if concurrent or future flows ever branch.
+        Descendants are locked level-by-level so a concurrent rotation cannot
+        create a live child after logout or refresh-token reuse containment has
+        already walked past its parent.
         """
         pending = [session_id]
         while pending:
             parent_ids = pending
             pending = []
             children = db.scalars(
-                select(AuthSession).where(
-                    AuthSession.rotated_from_id.in_(parent_ids)
-                )
+                select(AuthSession)
+                .where(AuthSession.rotated_from_id.in_(parent_ids))
+                .with_for_update()
             ).all()
             for child in children:
                 if child.revoked_at is None:
@@ -193,6 +194,7 @@ class SessionService:
         if session.revoked_at is None:
             session.revoked_at = now
         session.last_used_at = now
+        SessionService._revoke_descendants(db, session_id=session.id, now=now)
         db.commit()
 
     @staticmethod

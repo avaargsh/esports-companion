@@ -69,6 +69,36 @@ def test_refresh_rotates_and_revokes_old_access_session():
             )
 
 
+def test_logout_with_rotated_refresh_revokes_active_descendants():
+    Session = _session()
+    with Session() as db:
+        user = User(openid="logout-family-user", nickname="logout-family-user")
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+        first = SessionService.create_session(
+            db,
+            user=user,
+            provider="MOCK",
+        )
+        rotated = SessionService.rotate_refresh(
+            db,
+            refresh_token=first.refresh_token,
+        )
+
+        SessionService.revoke_refresh(
+            db,
+            refresh_token=first.refresh_token,
+        )
+
+        with pytest.raises(ValueError, match="ACCESS_SESSION_REVOKED"):
+            SessionService.authenticate_access(
+                db,
+                access_token=rotated.access_token,
+            )
+
+
 def test_roles_are_recomputed_from_current_database_state():
     Session = _session()
     with Session() as db:
