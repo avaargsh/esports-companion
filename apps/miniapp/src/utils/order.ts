@@ -226,3 +226,20 @@ export function claimErrorMessage(message: string): string {
   }
   return message || "操作失败，请稍后重试"
 }
+
+export function playerActionErrorMessage(message: string): string {
+  if (
+    message.includes("ASSIGNMENT") ||
+    message.includes("NOT_ASSIGNED")
+  ) {
+    return "这笔订单已不属于当前履约任务，请返回服务单刷新"
+  }
+  if (
+    message.includes("not allowed") ||
+    message.includes("INVALID") ||
+    message.includes("status")
+  ) {
+    return "订单状态已经变化，请刷新后再操作"
+  }
+  return claimErrorMessage(message)
+}
