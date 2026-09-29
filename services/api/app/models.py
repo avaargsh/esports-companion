@@ -110,6 +110,13 @@ class ServiceSKU(Base, TimestampMixin):
 
 class ProviderOffering(Base, TimestampMixin):
     __tablename__ = "provider_offerings"
+    __table_args__ = (
+        UniqueConstraint(
+            "player_id",
+            "sku_id",
+            name="uq_provider_offering_player_sku",
+        ),
+    )
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
     player_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("player_profiles.id"))
     sku_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("service_skus.id"))

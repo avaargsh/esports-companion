@@ -3,7 +3,7 @@ from decimal import Decimal
 from sqlalchemy import select
 
 from app.db import SessionLocal
-from app.models import Game, PlayerProfile, ServiceSKU, User
+from app.models import Game, PlayerProfile, ProviderOffering, ServiceSKU, User
 
 
 GAMES = [
@@ -94,6 +94,31 @@ def main():
                         platform_fee_rate=Decimal("0.2000"),
                     )
                 )
+        db.flush()
+
+        all_skus = list(
+            db.scalars(
+                select(ServiceSKU).where(ServiceSKU.status == "ACTIVE")
+            )
+        )
+        for _user, profile in demo_players:
+            for sku in all_skus:
+                existing = db.scalar(
+                    select(ProviderOffering).where(
+                        ProviderOffering.player_id == profile.id,
+                        ProviderOffering.sku_id == sku.id,
+                    )
+                )
+                if not existing:
+                    db.add(
+                        ProviderOffering(
+                            player_id=profile.id,
+                            sku_id=sku.id,
+                            description="Demo offering",
+                            status="ACTIVE",
+                        )
+                    )
+
         db.commit()
         customer = db.scalar(select(User).where(User.nickname == "Demo Customer"))
         print(f"demo_user_id={customer.id}")

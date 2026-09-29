@@ -19,7 +19,7 @@ def list_games(db: Session = Depends(get_db)):
 @router.get("/games/{game_id}/skus", response_model=list[SKUOut])
 def list_skus(game_id: uuid.UUID, db: Session = Depends(get_db)):
     game = db.get(Game, game_id)
-    if not game:
+    if not game or game.status != "ACTIVE":
         raise HTTPException(404, "GAME_NOT_FOUND")
     return list(
         db.scalars(

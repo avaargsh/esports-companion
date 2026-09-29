@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.infrastructure import redis_client
-from app.models import Order, OrderAssignment, PlayerProfile
+from app.models import Order, OrderAssignment, PlayerProfile, ProviderOffering
 from app.schemas import ClaimRequest, OrderOut, PlayerApply, PlayerOut, PlayerUpdate
 from app.services.dispatch_service import (
     AssignmentNotFound,
@@ -87,6 +87,12 @@ def order_pool(
     principal: Principal = Depends(require_player),
     db: Session = Depends(get_db),
 ):
+    player_profile = get_player(db, principal.user_id)
+    active_sku_ids = select(ProviderOffering.sku_id).where(
+        ProviderOffering.player_id == player_profile.id,
+        ProviderOffering.status == "ACTIVE",
+    )
+
     try:
         ids = redis_client.zrange(
             f"order_pool:{game_id}",
@@ -102,6 +108,7 @@ def order_pool(
             select(Order).where(
                 Order.id.in_(parsed_ids),
                 Order.status == "MATCHING",
+                Order.sku_id.in_(active_sku_ids),
             )
         ).all()
         by_id = {str(order.id): order for order in orders}
@@ -113,6 +120,7 @@ def order_pool(
             .where(
                 Order.game_id == game_id,
                 Order.status == "MATCHING",
+                Order.sku_id.in_(active_sku_ids),
             )
             .order_by(Order.created_at)
             .limit(max(1, min(limit, 100)))

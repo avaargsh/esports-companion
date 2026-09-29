@@ -1,4 +1,5 @@
 import uuid
+from decimal import Decimal
 
 from pydantic import BaseModel, Field
 
@@ -74,3 +75,56 @@ class PaymentPrepareOut(BaseModel):
     payment_status: str
     client_payload: dict
     replayed: bool
+
+
+class GameAdminCreate(BaseModel):
+    code: str = Field(min_length=2, max_length=64, pattern=r"^[a-z0-9_\-]+$")
+    name: str = Field(min_length=1, max_length=80)
+    icon_url: str | None = Field(default=None, max_length=512)
+    sort_order: int = 0
+
+
+class GameAdminUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=80)
+    icon_url: str | None = Field(default=None, max_length=512)
+    sort_order: int | None = None
+    status: str | None = None
+
+
+class SKUAdminCreate(BaseModel):
+    game_id: uuid.UUID
+    name: str = Field(min_length=1, max_length=120)
+    service_type: str = Field(min_length=1, max_length=64)
+    unit: str = Field(default="SESSION", min_length=1, max_length=32)
+    duration_minutes: int = Field(gt=0, le=1440)
+    price: int = Field(ge=0)
+    platform_fee_rate: Decimal = Field(default=Decimal("0.2000"), ge=0, le=1)
+    status: str = "ACTIVE"
+    config_json: dict = Field(default_factory=dict)
+
+
+class SKUAdminUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    service_type: str | None = Field(default=None, min_length=1, max_length=64)
+    unit: str | None = Field(default=None, min_length=1, max_length=32)
+    duration_minutes: int | None = Field(default=None, gt=0, le=1440)
+    price: int | None = Field(default=None, ge=0)
+    platform_fee_rate: Decimal | None = Field(default=None, ge=0, le=1)
+    status: str | None = None
+    config_json: dict | None = None
+
+
+class ProviderOfferingUpsert(BaseModel):
+    price_override: int | None = Field(default=None, ge=0)
+    description: str = Field(default="", max_length=1000)
+    status: str = "ACTIVE"
+
+
+class ProviderOfferingOut(BaseModel):
+    id: uuid.UUID
+    player_id: uuid.UUID
+    sku_id: uuid.UUID
+    price_override: int | None
+    description: str
+    status: str
+    model_config = {"from_attributes": True}

@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from app.domain.order_state_machine import OrderStatus, ensure_transition
-from app.models import Order, OrderEvent, OutboxEvent, ServiceSKU
+from app.models import Game, Order, OrderEvent, OutboxEvent, ServiceSKU
 
 
 class OrderNotFound(LookupError):
@@ -24,6 +24,9 @@ class OrderService:
         sku = db.get(ServiceSKU, sku_id)
         if not sku or sku.status != "ACTIVE":
             raise ValueError("SKU_NOT_AVAILABLE")
+        game = db.get(Game, sku.game_id)
+        if not game or game.status != "ACTIVE":
+            raise ValueError("GAME_NOT_AVAILABLE")
         total = sku.price * quantity
         platform_fee = int(total * float(sku.platform_fee_rate))
         order = Order(

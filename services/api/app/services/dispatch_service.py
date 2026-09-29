@@ -5,7 +5,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.domain.order_state_machine import OrderStatus
-from app.models import Order, OrderAssignment, PlayerProfile
+from app.models import Order, OrderAssignment, PlayerProfile, ProviderOffering
 from app.services.order_service import OrderService
 
 
@@ -31,7 +31,11 @@ class DispatchService:
         expected_version: int,
     ) -> Order:
         player = db.get(PlayerProfile, player_id)
-        if not player or player.verification_status != "APPROVED":
+        if (
+            not player
+            or player.verification_status != "APPROVED"
+            or player.service_status != "AVAILABLE"
+        ):
             raise PlayerNotEligible("PLAYER_NOT_ELIGIBLE")
 
         order = db.get(Order, order_id)
@@ -41,6 +45,16 @@ class DispatchService:
             raise PlayerNotEligible("CANNOT_CLAIM_OWN_ORDER")
         if order.status != OrderStatus.MATCHING.value:
             raise OrderAlreadyClaimed("ORDER_ALREADY_ACCEPTED")
+
+        offering = db.scalar(
+            select(ProviderOffering).where(
+                ProviderOffering.player_id == player.id,
+                ProviderOffering.sku_id == order.sku_id,
+                ProviderOffering.status == "ACTIVE",
+            )
+        )
+        if not offering:
+            raise PlayerNotEligible("PLAYER_NOT_OFFERING_SKU")
 
         result = db.execute(
             update(Order)

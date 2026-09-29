@@ -5,7 +5,14 @@ from decimal import Decimal
 from sqlalchemy import func, select
 
 from app.db import SessionLocal
-from app.models import Game, OrderAssignment, PlayerProfile, ServiceSKU, User
+from app.models import (
+    Game,
+    OrderAssignment,
+    PlayerProfile,
+    ProviderOffering,
+    ServiceSKU,
+    User,
+)
 from app.services.dispatch_service import DispatchService, OrderAlreadyClaimed
 from app.services.order_service import OrderService
 from app.services.payment_service import MockPaymentService
@@ -55,6 +62,13 @@ def test_one_winner_under_100_concurrent_claims():
             )
             db.add(player)
             db.flush()
+            db.add(
+                ProviderOffering(
+                    player_id=player.id,
+                    sku_id=sku.id,
+                    status="ACTIVE",
+                )
+            )
             player_ids.append(player.id)
         db.commit()
 
