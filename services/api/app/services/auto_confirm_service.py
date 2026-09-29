@@ -55,6 +55,45 @@ class AutoConfirmService:
         return order.id
 
     @staticmethod
+    def auto_confirm_one(
+        db: Session,
+        *,
+        order_id: uuid.UUID,
+        now: datetime,
+        timeout_seconds: int,
+    ) -> bool:
+        cutoff = AutoConfirmService._as_utc(now) - timedelta(
+            seconds=timeout_seconds
+        )
+        order = db.scalar(
+            select(Order)
+            .where(Order.id == order_id)
+            .with_for_update()
+        )
+        if (
+            not order
+            or order.status != OrderStatus.FINISH_REQUESTED.value
+            or order.finish_requested_at is None
+        ):
+            return False
+        requested_at = AutoConfirmService._as_utc(order.finish_requested_at)
+        if requested_at > cutoff:
+            return False
+
+        CompletionService.complete_and_settle(
+            db,
+            order=order,
+            event_type="AUTO_CONFIRM_FINISH",
+            actor_type="SYSTEM",
+            actor_id=None,
+            payload={
+                "finishRequestedAt": requested_at.isoformat(),
+                "timeoutSeconds": timeout_seconds,
+            },
+        )
+        return True
+
+    @staticmethod
     def process_due(
         db: Session,
         *,

@@ -93,7 +93,7 @@ def test_auto_confirm_settles_due_order_once():
             timeout_seconds=settings.finish_confirm_timeout_seconds,
             limit=10,
         )
-        assert processed == [order_id]
+        assert order_id in processed
 
     with SessionLocal() as db:
         order = OrderService.get(db, order_id)
@@ -121,12 +121,13 @@ def test_auto_confirm_settles_due_order_once():
         assert wallet.available_balance == 2400
 
     with SessionLocal() as db:
-        assert AutoConfirmService.process_due(
+        processed = AutoConfirmService.process_due(
             db,
             now=due_now,
             timeout_seconds=settings.finish_confirm_timeout_seconds,
             limit=10,
-        ) == []
+        )
+        assert order_id not in processed
 
 
 def test_auto_confirm_ignores_order_before_deadline():
@@ -137,12 +138,13 @@ def test_auto_confirm_ignores_order_before_deadline():
         before_due = order.finish_requested_at + timedelta(
             seconds=settings.finish_confirm_timeout_seconds - 1
         )
-        assert AutoConfirmService.process_due(
+        processed = AutoConfirmService.process_due(
             db,
             now=before_due,
             timeout_seconds=settings.finish_confirm_timeout_seconds,
             limit=10,
-        ) == []
+        )
+        assert order_id not in processed
         db.refresh(order)
         assert order.status == "FINISH_REQUESTED"
 

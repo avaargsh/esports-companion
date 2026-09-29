@@ -22,8 +22,11 @@ def _demo_records(db):
         db.execute(
             select(User, PlayerProfile)
             .join(PlayerProfile, PlayerProfile.user_id == User.id)
-            .where(PlayerProfile.verification_status == "APPROVED")
-            .order_by(PlayerProfile.created_at)
+            .where(
+                PlayerProfile.verification_status == "APPROVED",
+                User.openid.like("mock:player:%"),
+            )
+            .order_by(User.openid)
             .limit(10)
         )
     )
