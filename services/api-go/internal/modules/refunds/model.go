@@ -44,6 +44,7 @@ var (
 	ErrWeChatRefundQueryInvalidJSON     = errors.New("WECHAT_REFUND_QUERY_INVALID_JSON")
 	ErrWeChatRefundQueryInvalidResponse = errors.New("WECHAT_REFUND_QUERY_INVALID_RESPONSE")
 	ErrWeChatRefundCallbackConfigMissing      = errors.New("WECHAT_REFUND_CALLBACK_CONFIG_MISSING")
+	ErrWeChatRefundCallbackNotConfigured      = errors.New("WECHAT_REFUND_CALLBACK_NOT_CONFIGURED")
 	ErrWeChatRefundCallbackHeadersMissing     = errors.New("WECHAT_REFUND_CALLBACK_HEADERS_MISSING")
 	ErrWeChatRefundCallbackSerialUnknown      = errors.New("WECHAT_REFUND_CALLBACK_CERT_SERIAL_UNKNOWN")
 	ErrWeChatRefundCallbackTimestampInvalid   = errors.New("WECHAT_REFUND_CALLBACK_TIMESTAMP_INVALID")
