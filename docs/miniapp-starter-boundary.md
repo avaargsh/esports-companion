@@ -190,3 +190,34 @@ npm run starter:manifest:check
 ```
 
 When a reusable capability moves or is added, update the manifest in the same change. Product pages and domain API adapters must remain outside it.
+
+
+## Standalone extraction smoke test
+
+The repository does not maintain a second checked-in starter tree. Instead, CI proves the declared reusable surface can become a standalone Mini Program.
+
+Extraction command:
+
+```bash
+python3 scripts/extract_miniapp_starter.py /tmp/miniapp-starter
+```
+
+The extractor:
+
+1. copies only paths declared by `starter.manifest.json`;
+2. generates a minimal generic UniApp shell around the existing UI Showcase;
+3. refuses to extract inside the source repository;
+4. verifies product API/pages/domain roots are absent.
+
+The dedicated **MiniApp Starter Smoke** CI job then runs, from the extracted workspace:
+
+```bash
+npm install
+npm run theme:check
+npm run type-check
+npm run build:mp-weixin
+```
+
+and verifies the built WeChat app contains the Showcase page.
+
+This is the promotion gate before creating or publishing a separate template repository: the starter boundary must first survive a real clean extraction and build.
