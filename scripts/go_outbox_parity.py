@@ -20,7 +20,7 @@ import redis
 from go_claim_parity import call, dsn, expect
 
 
-def stop_fastapi_reference() -> None:
+def stop_fastapi_reference(base: str) -> None:
     path = Path("/tmp/fastapi.pid")
     if not path.exists():
         return
@@ -29,11 +29,12 @@ def stop_fastapi_reference() -> None:
         os.kill(pid, signal.SIGTERM)
     except ProcessLookupError:
         return
+
     deadline = time.time() + 5
     while time.time() < deadline:
         try:
-            os.kill(pid, 0)
-        except ProcessLookupError:
+            call(base, "/readyz")
+        except OSError:
             return
         time.sleep(0.05)
     raise AssertionError("FastAPI reference did not stop before outbox worker test")
@@ -234,7 +235,7 @@ def main() -> int:
         "create outbox parity order",
     ).body
 
-    stop_fastapi_reference()
+    stop_fastapi_reference(args.python_base)
 
     redis_client = redis.Redis.from_url(
         os.environ["REDIS_URL"],
