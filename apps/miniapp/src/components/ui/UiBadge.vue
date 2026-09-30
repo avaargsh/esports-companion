@@ -1,13 +1,16 @@
 <script setup lang="ts">
 withDefaults(defineProps<{
   tone?: "neutral" | "brand" | "success" | "warning" | "danger"
+  dot?: boolean
 }>(), {
-  tone: "neutral"
+  tone: "neutral",
+  dot: false
 })
 </script>
 
 <template>
   <text class="ui-badge" :class="'ui-badge--' + tone">
+    <text v-if="dot" class="ui-badge__dot" aria-hidden="true"></text>
     <slot />
   </text>
 </template>
@@ -16,6 +19,7 @@ withDefaults(defineProps<{
 .ui-badge {
   display: inline-flex;
   align-items: center;
+  gap: 7rpx;
   min-height: 34rpx;
   padding: 4rpx 10rpx;
   border-radius: 999rpx;
@@ -23,6 +27,14 @@ withDefaults(defineProps<{
   font-weight: 720;
   line-height: 1.2;
   white-space: nowrap;
+}
+
+.ui-badge__dot {
+  width: 8rpx;
+  height: 8rpx;
+  flex: none;
+  border-radius: 50%;
+  background: currentColor;
 }
 
 .ui-badge--neutral {
