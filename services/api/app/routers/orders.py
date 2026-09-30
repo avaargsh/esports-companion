@@ -17,6 +17,7 @@ from app.schemas import (
 )
 from app.providers.registry import get_payment_provider
 from app.services.completion_service import CompletionService
+from app.services.order_authorization_policy import OrderAuthorizationPolicy
 from app.services.order_service import OrderNotFound, OrderService
 from app.services.payment_service import PaymentService
 from app.security import Principal, current_principal, current_user_id
@@ -37,34 +38,6 @@ def _available_actions(order: Order) -> list[str]:
     }:
         return ["OPEN_DISPUTE"]
     return []
-
-
-def _principal_can_access_order(
-    db: Session,
-    *,
-    order: Order,
-    principal: Principal,
-) -> bool:
-    if order.user_id == principal.user_id or "PLATFORM" in principal.roles:
-        return True
-
-    if "PLAYER" not in principal.roles:
-        return False
-
-    player = db.scalar(
-        select(PlayerProfile).where(PlayerProfile.user_id == principal.user_id)
-    )
-    if not player:
-        return False
-
-    assignment = db.scalar(
-        select(OrderAssignment).where(
-            OrderAssignment.order_id == order.id,
-            OrderAssignment.player_id == player.id,
-            OrderAssignment.status == "ACTIVE",
-        )
-    )
-    return assignment is not None
 
 
 def _order_detail(db: Session, order: Order) -> dict:
@@ -139,8 +112,12 @@ def get_order(
 ):
     try:
         order = OrderService.get(db, order_id)
-        if not _principal_can_access_order(db, order=order, principal=principal):
-            raise PermissionError("ORDER_ACCESS_DENIED")
+        OrderAuthorizationPolicy.require_viewer(
+            db,
+            order=order,
+            user_id=principal.user_id,
+            roles=principal.roles,
+        )
         return _order_detail(db, order)
     except OrderNotFound as exc:
         raise HTTPException(404, "ORDER_NOT_FOUND") from exc
@@ -156,8 +133,12 @@ def list_order_events(
 ):
     try:
         order = OrderService.get(db, order_id)
-        if not _principal_can_access_order(db, order=order, principal=principal):
-            raise PermissionError("ORDER_ACCESS_DENIED")
+        OrderAuthorizationPolicy.require_viewer(
+            db,
+            order=order,
+            user_id=principal.user_id,
+            roles=principal.roles,
+        )
 
         return list(
             db.scalars(
@@ -181,8 +162,7 @@ def prepare_payment(
 ):
     try:
         order = OrderService.get(db, order_id)
-        if order.user_id != user_id:
-            raise PermissionError("ORDER_NOT_OWNED")
+        OrderAuthorizationPolicy.require_owner(order, user_id=user_id)
 
         provider = get_payment_provider()
         preparation = PaymentService.prepare_payment(
@@ -226,8 +206,7 @@ def mock_pay(
         if settings.is_secure_deployment:
             raise PermissionError("MOCK_PAYMENT_DISABLED")
         order = OrderService.get(db, order_id)
-        if order.user_id != user_id:
-            raise PermissionError("ORDER_NOT_OWNED")
+        OrderAuthorizationPolicy.require_owner(order, user_id=user_id)
         order = PaymentService.create_payment(
             db,
             order=order,
