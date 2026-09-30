@@ -66,13 +66,40 @@ def run():
     expect_status(status, 200, "bootstrap")
     customer_id = demo["customerUserId"]
     player_id = demo["playerUserId"]
+
+    status, customer_login = request(
+        "POST",
+        "/api/v1/auth/wechat/login",
+        payload={"code": "demo-customer"},
+    )
+    expect_status(status, 200, "customer login")
+    if customer_login["userId"] != customer_id:
+        raise SmokeError("customer login: bootstrap identity mismatch")
+    customer_headers = {
+        "Authorization": f"Bearer {customer_login['accessToken']}",
+    }
+
+    status, player_login = request(
+        "POST",
+        "/api/v1/auth/wechat/login",
+        payload={"code": "demo-player-1"},
+    )
+    expect_status(status, 200, "player login")
+    if player_login["userId"] != player_id:
+        raise SmokeError("player login: bootstrap identity mismatch")
+    if "PLAYER" not in player_login["roles"]:
+        raise SmokeError("player login: PLAYER role missing")
+    player_headers = {
+        "Authorization": f"Bearer {player_login['accessToken']}",
+    }
+
     game = demo["games"][0]
     sku = game["skus"][0]
 
     status, order = request(
         "POST",
         "/api/v1/orders",
-        headers={"X-User-Id": customer_id},
+        headers=customer_headers,
         payload={
             "sku_id": sku["id"],
             "quantity": 1,
@@ -89,7 +116,7 @@ def run():
         "POST",
         f"/api/v1/orders/{order_id}/mock-pay",
         headers={
-            "X-User-Id": customer_id,
+            **customer_headers,
             "Idempotency-Key": f"smoke-pay-{uuid.uuid4().hex}",
         },
     )
@@ -100,7 +127,7 @@ def run():
     status, pool = request(
         "GET",
         "/api/v1/player/order-pool",
-        headers={"X-User-Id": player_id},
+        headers=player_headers,
         query={"game_id": game["id"]},
     )
     expect_status(status, 200, "order pool")
@@ -110,7 +137,7 @@ def run():
     status, claimed = request(
         "POST",
         f"/api/v1/player/orders/{order_id}/claim",
-        headers={"X-User-Id": player_id},
+        headers=player_headers,
         payload={"expected_version": matching["version"]},
     )
     expect_status(status, 200, "claim")
@@ -124,7 +151,7 @@ def run():
         status, current = request(
             "POST",
             f"/api/v1/player/orders/{order_id}/{action}",
-            headers={"X-User-Id": player_id},
+            headers=player_headers,
         )
         expect_status(status, 200, action)
         if current["status"] != expected:
@@ -133,7 +160,7 @@ def run():
     status, settled = request(
         "POST",
         f"/api/v1/orders/{order_id}/confirm",
-        headers={"X-User-Id": customer_id},
+        headers=customer_headers,
     )
     expect_status(status, 200, "confirm")
     if settled["status"] != "SETTLED":
@@ -142,7 +169,7 @@ def run():
     status, review = request(
         "POST",
         f"/api/v1/orders/{order_id}/reviews",
-        headers={"X-User-Id": customer_id},
+        headers=customer_headers,
         payload={"rating": 5, "content": "HTTP smoke verified"},
     )
     expect_status(status, 201, "review")
@@ -152,7 +179,7 @@ def run():
     status, ledger = request(
         "GET",
         "/api/v1/wallet/ledger",
-        headers={"X-User-Id": player_id},
+        headers=player_headers,
     )
     expect_status(status, 200, "ledger")
     player_amount = settled["player_amount"]
