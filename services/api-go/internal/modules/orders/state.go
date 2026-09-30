@@ -52,9 +52,13 @@ func (e *InvalidTransitionError) Is(target error) bool {
 	return target == ErrInvalidOrderTransition
 }
 
-func requireTransition(from, to Status) error {
+func RequireTransition(from, to Status) error {
 	if orderStateMachine.CanTransition(from, to) {
 		return nil
 	}
 	return &InvalidTransitionError{From: from, To: to}
+}
+
+func requireTransition(from, to Status) error {
+	return RequireTransition(from, to)
 }

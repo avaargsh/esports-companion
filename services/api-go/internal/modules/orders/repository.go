@@ -545,6 +545,30 @@ func (r Repository) TransitionAssignedPlayer(
 	return updated, nil
 }
 
+func AppendEvidence(
+	ctx context.Context,
+	tx pgx.Tx,
+	orderID string,
+	eventType string,
+	fromStatus *string,
+	toStatus string,
+	actorType string,
+	actorID string,
+	payload map[string]any,
+) error {
+	return appendOrderEvidence(
+		ctx,
+		tx,
+		orderID,
+		eventType,
+		fromStatus,
+		toStatus,
+		actorType,
+		actorID,
+		payload,
+	)
+}
+
 func appendOrderEvidence(
 	ctx context.Context,
 	tx pgx.Tx,
