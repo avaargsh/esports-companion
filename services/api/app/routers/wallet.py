@@ -1,22 +1,34 @@
-import uuid
-
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.models import LedgerEntry, Wallet
-from app.security import current_user_id
+from app.security import Principal, current_principal
+from app.services.resource_authorization_policy import ResourceAuthorizationPolicy
 
 router = APIRouter(prefix="/api/v1/wallet", tags=["wallet"])
 
 
+def _authorize_wallet(principal: Principal, action: str) -> None:
+    ResourceAuthorizationPolicy.require_owner(
+        actor_user_id=principal.user_id,
+        actor_roles=principal.roles,
+        owner_user_id=principal.user_id,
+        action=action,
+        resource_type="WALLET",
+        resource_id=str(principal.user_id),
+        denial_code="WALLET_ACCESS_DENIED",
+    )
+
+
 @router.get("")
 def get_wallet(
-    user_id: uuid.UUID = Depends(current_user_id),
+    principal: Principal = Depends(current_principal),
     db: Session = Depends(get_db),
 ):
-    wallet = db.scalar(select(Wallet).where(Wallet.user_id == user_id))
+    _authorize_wallet(principal, "WALLET_READ")
+    wallet = db.scalar(select(Wallet).where(Wallet.user_id == principal.user_id))
     if not wallet:
         return {"availableBalance": 0, "frozenBalance": 0}
     return {
@@ -29,10 +41,11 @@ def get_wallet(
 
 @router.get("/ledger")
 def ledger(
-    user_id: uuid.UUID = Depends(current_user_id),
+    principal: Principal = Depends(current_principal),
     db: Session = Depends(get_db),
 ):
-    wallet = db.scalar(select(Wallet).where(Wallet.user_id == user_id))
+    _authorize_wallet(principal, "WALLET_LEDGER_READ")
+    wallet = db.scalar(select(Wallet).where(Wallet.user_id == principal.user_id))
     if not wallet:
         return []
     entries = db.scalars(
