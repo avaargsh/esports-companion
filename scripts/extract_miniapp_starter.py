@@ -98,6 +98,9 @@ def write_scaffold(destination_root: Path) -> None:
     )
 
     (src / "App.vue").write_text(
+        "<script lang=\"ts\">\n"
+        "export default {}\n"
+        "</script>\n\n"
         "<style>\n"
         '@import "./styles/theme.css";\n'
         '@import "./styles/foundation.css";\n'
