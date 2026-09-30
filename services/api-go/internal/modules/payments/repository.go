@@ -292,6 +292,220 @@ func storedClientPayload(raw []byte) (map[string]string, error) {
 	return payload.ClientPayload, nil
 }
 
+func (r Repository) ApplyVerifiedSuccess(
+	ctx context.Context,
+	callback ports.PaymentCallback,
+) (Preparation, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return Preparation{}, fmt.Errorf("begin verified payment: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	order, err := scanOrder(tx.QueryRow(ctx, `
+		SELECT
+			id::text,
+			order_no,
+			user_id::text,
+			game_id::text,
+			sku_id::text,
+			designated_player_id::text,
+			status,
+			quantity,
+			unit_price,
+			total_amount,
+			player_amount,
+			platform_fee,
+			version
+		FROM orders
+		WHERE order_no = $1
+		FOR UPDATE
+	`, callback.OrderNo))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Preparation{}, ErrPaymentOrderNotFound
+	}
+	if err != nil {
+		return Preparation{}, fmt.Errorf("lock callback order: %w", err)
+	}
+	if int64(order.TotalAmount) != callback.AmountMinor {
+		return Preparation{}, ErrPaymentAmountMismatch
+	}
+	if strings.ToUpper(callback.Currency) != "CNY" {
+		return Preparation{}, ErrPaymentCurrencyMismatch
+	}
+
+	var payerOpenID pgtype.Text
+	err = tx.QueryRow(ctx, `
+		SELECT openid
+		FROM users
+		WHERE id = $1::uuid
+	`, order.UserID).Scan(&payerOpenID)
+	if errors.Is(err, pgx.ErrNoRows) || !payerOpenID.Valid || payerOpenID.String == "" {
+		return Preparation{}, ErrPaymentPayerNotFound
+	}
+	if err != nil {
+		return Preparation{}, fmt.Errorf("load callback payer: %w", err)
+	}
+	if callback.PayerSubject != payerOpenID.String {
+		return Preparation{}, ErrPaymentPayerMismatch
+	}
+
+	var (
+		existingOrderID string
+		existingAmount  int
+		existingRaw     []byte
+	)
+	err = tx.QueryRow(ctx, `
+		SELECT order_id::text, amount, raw_payload
+		FROM payment_transactions
+		WHERE provider = $1
+		  AND provider_txn_id = $2
+		  AND status = 'SUCCESS'
+		LIMIT 1
+	`,
+		strings.ToUpper(callback.Provider),
+		callback.ProviderTxnID,
+	).Scan(&existingOrderID, &existingAmount, &existingRaw)
+	switch {
+	case err == nil:
+		if existingOrderID != order.ID {
+			return Preparation{}, ErrPaymentProviderTxnReused
+		}
+		if int64(existingAmount) != callback.AmountMinor {
+			return Preparation{}, ErrPaymentAmountMismatch
+		}
+		clientPayload, err := storedClientPayload(existingRaw)
+		if err != nil {
+			return Preparation{}, err
+		}
+		return Preparation{
+			Order:         order,
+			Provider:      strings.ToUpper(callback.Provider),
+			PaymentStatus: "SUCCESS",
+			ClientPayload: clientPayload,
+			Replayed:      true,
+		}, nil
+	case !errors.Is(err, pgx.ErrNoRows):
+		return Preparation{}, fmt.Errorf("load successful payment replay: %w", err)
+	}
+
+	var (
+		pendingID     string
+		pendingAmount int
+		pendingRaw    []byte
+	)
+	err = tx.QueryRow(ctx, `
+		SELECT id::text, amount, raw_payload
+		FROM payment_transactions
+		WHERE order_id = $1::uuid
+		  AND provider = $2
+		  AND status = 'PENDING'
+		ORDER BY created_at DESC
+		LIMIT 1
+		FOR UPDATE
+	`,
+		order.ID,
+		strings.ToUpper(callback.Provider),
+	).Scan(&pendingID, &pendingAmount, &pendingRaw)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Preparation{}, ErrPaymentPendingTransactionNotFound
+	}
+	if err != nil {
+		return Preparation{}, fmt.Errorf("lock pending payment: %w", err)
+	}
+	if int64(pendingAmount) != callback.AmountMinor {
+		return Preparation{}, ErrPaymentAmountMismatch
+	}
+
+	var mergedPayload map[string]any
+	if len(pendingRaw) == 0 {
+		mergedPayload = map[string]any{}
+	} else if err := json.Unmarshal(pendingRaw, &mergedPayload); err != nil {
+		return Preparation{}, fmt.Errorf("decode pending payment payload: %w", err)
+	}
+	mergedPayload["callback"] = callback.RawEvent
+	mergedPayload["verifiedResource"] = callback.Resource
+	encodedPayload, err := json.Marshal(mergedPayload)
+	if err != nil {
+		return Preparation{}, err
+	}
+
+	if _, err := tx.Exec(ctx, `
+		UPDATE payment_transactions
+		SET provider_txn_id = $2,
+		    status = 'SUCCESS',
+		    raw_payload = $3::json,
+		    updated_at = clock_timestamp()
+		WHERE id = $1::uuid
+	`,
+		pendingID,
+		callback.ProviderTxnID,
+		string(encodedPayload),
+	); err != nil {
+		return Preparation{}, fmt.Errorf("complete pending payment: %w", err)
+	}
+
+	switch orders.Status(order.Status) {
+	case orders.StatusWaitingPayment:
+		order, err = transitionOrder(
+			ctx,
+			tx,
+			order,
+			orders.StatusPaid,
+			"PAYMENT_SUCCESS",
+			"PAYMENT",
+			"",
+			map[string]any{"provider": strings.ToUpper(callback.Provider)},
+		)
+		if err != nil {
+			return Preparation{}, err
+		}
+		order, err = transitionOrder(
+			ctx,
+			tx,
+			order,
+			orders.StatusMatching,
+			"ORDER_ENTERED_MATCHING",
+			"SYSTEM",
+			"",
+			map[string]any{},
+		)
+		if err != nil {
+			return Preparation{}, err
+		}
+		if order.DesignatedPlayerID != nil {
+			order, err = assignDesignated(ctx, tx, order, order.UserID)
+			if err != nil {
+				return Preparation{}, err
+			}
+		}
+	case orders.StatusPaid,
+		orders.StatusMatching,
+		orders.StatusAccepted,
+		orders.StatusInService,
+		orders.StatusFinishRequested,
+		orders.StatusCompleted,
+		orders.StatusSettled:
+	default:
+		return Preparation{}, fmt.Errorf("ORDER_NOT_PAYABLE:%s", order.Status)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return Preparation{}, fmt.Errorf("commit verified payment: %w", err)
+	}
+	clientPayload, err := storedClientPayload(encodedPayload)
+	if err != nil {
+		return Preparation{}, err
+	}
+	return Preparation{
+		Order:         order,
+		Provider:      strings.ToUpper(callback.Provider),
+		PaymentStatus: "SUCCESS",
+		ClientPayload: clientPayload,
+		Replayed:      false,
+	}, nil
+}
+
 func transitionOrder(
 	ctx context.Context,
 	tx pgx.Tx,
