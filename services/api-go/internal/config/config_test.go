@@ -85,7 +85,7 @@ func TestSecureDeploymentRequiresPaymentCredentials(t *testing.T) {
 func TestSecureDeploymentRejectsNonPublicNotifyURL(t *testing.T) {
 	cfg := Config{
 		AppEnv:                       "staging",
-		DatabaseURL:                   "postgresql://u:p@db:5432/app",
+		DatabaseURL:                  "postgresql://u:p@db:5432/app",
 		RedisURL:                     "redis://redis:6379/0",
 		DatabaseMaxConns:             4,
 		DatabaseMinConns:             1,
