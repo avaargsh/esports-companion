@@ -165,3 +165,28 @@ For a new product built from this repository:
 7. keep the CI contracts enabled while removing domain-specific tests only when their replacement exists.
 
 The intended result is a small reusable Mini Program kernel with an opinionated production example, not a generic framework with every business abstraction hidden behind indirection.
+
+
+## Machine-readable extraction surface
+
+The reusable file surface is declared in:
+
+`apps/miniapp/starter.manifest.json`
+
+This is intentionally a **manifest, not an extraction script**. It makes the boundary reviewable and CI-verifiable before automating repository generation.
+
+CI checks that:
+
+- every declared starter path still exists;
+- required platform/theme/UI/contract surfaces remain declared;
+- product roots are never included;
+- the manifest has no duplicate entries.
+
+Run:
+
+```bash
+cd apps/miniapp
+npm run starter:manifest:check
+```
+
+When a reusable capability moves or is added, update the manifest in the same change. Product pages and domain API adapters must remain outside it.
