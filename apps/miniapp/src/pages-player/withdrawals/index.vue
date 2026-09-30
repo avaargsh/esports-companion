@@ -41,6 +41,15 @@ function statusLabel(status: string) {
   return labels[status] || status
 }
 
+function copyValue(value: string, label: string) {
+  uni.setClipboardData({
+    data: value,
+    success() {
+      uni.showToast({ title: `${label}已复制`, icon: "none" })
+    }
+  })
+}
+
 function formatTime(value: string) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ""
@@ -78,7 +87,7 @@ async function submit() {
 
   busy.value = true
   try {
-    await request<Withdrawal>("/withdrawals", {
+    const created = await request<Withdrawal>("/withdrawals", {
       method: "POST",
       userId: userId.value,
       headers: { "Idempotency-Key": pendingIdempotencyKey.value },
@@ -87,6 +96,7 @@ async function submit() {
     amountYuan.value = ""
     pendingIdempotencyKey.value = ""
     uni.showToast({ title: "提现申请已提交", icon: "success" })
+    copyValue(created.id, "申请号")
     await load()
   } catch (error) {
     uni.showToast({
@@ -165,6 +175,12 @@ onShow(() => { void load() })
         <view>
           <view class="item-amount">¥{{ (item.amount / 100).toFixed(2) }}</view>
           <view class="item-time">{{ formatTime(item.created_at) }}</view>
+          <view class="reference-row" @click="copyValue(item.id, '申请号')">
+            <text>申请号 {{ item.id.slice(0,8) }}</text><text class="copy">复制</text>
+          </view>
+          <view v-if="item.provider_txn_id" class="reference-row payout" @click="copyValue(item.provider_txn_id, '打款参考号')">
+            <text class="reference-value">打款参考号 {{ item.provider_txn_id }}</text><text class="copy">复制</text>
+          </view>
           <view v-if="item.failure_reason" class="reason">{{ item.failure_reason }}</view>
         </view>
         <view class="status" :class="item.status.toLowerCase()">
@@ -177,5 +193,5 @@ onShow(() => { void load() })
 
 <style scoped>
 .page{min-height:100vh;padding:28rpx;background:#101016;color:#fff}.balance-card{position:relative;overflow:hidden;padding:32rpx;border:1rpx solid rgba(255,255,255,.05);border-radius:34rpx;background:linear-gradient(145deg,#1b1a23,#2b263f)}.eyebrow{color:#77728d;font-size:15rpx;font-weight:800;letter-spacing:2.5rpx}.balance-label{margin-top:24rpx;color:#8d8a98;font-size:18rpx}.balance{margin-top:5rpx;font-size:55rpx;font-weight:850;letter-spacing:-1rpx}.balance-meta{display:flex;justify-content:space-between;gap:15rpx;margin-top:24rpx;padding-top:19rpx;border-top:1rpx solid rgba(255,255,255,.06);color:#777582;font-size:16rpx}
-.form-card,.history{margin-top:16rpx;padding:25rpx;border:1rpx solid rgba(255,255,255,.05);border-radius:28rpx;background:#191920}.form-head,.history-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18rpx}.title{font-size:24rpx;font-weight:780}.hint{margin-top:6rpx;color:#777582;font-size:17rpx;line-height:1.5}.all{flex:none;color:#a99cf7;font-size:18rpx;font-weight:700}.amount-input{display:flex;align-items:center;margin-top:22rpx;padding:17rpx 20rpx;border-radius:21rpx;background:#23232c}.amount-input text{color:#aaa5ca;font-size:30rpx;font-weight:800}.amount-input input{flex:1;margin-left:11rpx;color:#fff;font-size:38rpx;font-weight:820}.error{margin-top:9rpx;color:#dc7779;font-size:16rpx}.submit{height:76rpx;margin:18rpx 0 0;line-height:76rpx;border-radius:22rpx;background:#6757e6;color:#fff;font-size:21rpx;font-weight:760}.submit[disabled]{background:#292832;color:#666471;opacity:1}.rules{display:grid;gap:6rpx;margin-top:19rpx;color:#696773;font-size:16rpx;line-height:1.5}.history-head text{color:#777582;font-size:17rpx}.item{display:flex;align-items:center;justify-content:space-between;gap:16rpx;padding:20rpx 0;border-top:1rpx solid rgba(255,255,255,.05)}.item:first-of-type{margin-top:13rpx}.item-amount{font-size:24rpx;font-weight:780}.item-time{margin-top:5rpx;color:#696773;font-size:15rpx}.reason{margin-top:5rpx;color:#b56c70;font-size:15rpx}.status{flex:none;padding:7rpx 11rpx;border-radius:999rpx;background:#26252e;color:#9997a2;font-size:16rpx}.status.pending{background:rgba(211,148,38,.1);color:#d9aa59}.status.completed{background:rgba(39,187,111,.1);color:#5ed28e}.status.rejected{background:rgba(239,68,68,.09);color:#dc7779}.empty{padding:54rpx 0 24rpx;color:#6d6b77;text-align:center;font-size:18rpx}
+.form-card,.history{margin-top:16rpx;padding:25rpx;border:1rpx solid rgba(255,255,255,.05);border-radius:28rpx;background:#191920}.form-head,.history-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18rpx}.title{font-size:24rpx;font-weight:780}.hint{margin-top:6rpx;color:#777582;font-size:17rpx;line-height:1.5}.all{flex:none;color:#a99cf7;font-size:18rpx;font-weight:700}.amount-input{display:flex;align-items:center;margin-top:22rpx;padding:17rpx 20rpx;border-radius:21rpx;background:#23232c}.amount-input text{color:#aaa5ca;font-size:30rpx;font-weight:800}.amount-input input{flex:1;margin-left:11rpx;color:#fff;font-size:38rpx;font-weight:820}.error{margin-top:9rpx;color:#dc7779;font-size:16rpx}.submit{height:76rpx;margin:18rpx 0 0;line-height:76rpx;border-radius:22rpx;background:#6757e6;color:#fff;font-size:21rpx;font-weight:760}.submit[disabled]{background:#292832;color:#666471;opacity:1}.rules{display:grid;gap:6rpx;margin-top:19rpx;color:#696773;font-size:16rpx;line-height:1.5}.history-head text{color:#777582;font-size:17rpx}.item{display:flex;align-items:center;justify-content:space-between;gap:16rpx;padding:20rpx 0;border-top:1rpx solid rgba(255,255,255,.05)}.item:first-of-type{margin-top:13rpx}.item-amount{font-size:24rpx;font-weight:780}.item-time{margin-top:5rpx;color:#696773;font-size:15rpx}.reference-row{display:flex;align-items:center;gap:9rpx;max-width:500rpx;margin-top:7rpx;color:#898694;font-size:15rpx}.reference-row.payout{color:#9e96cd}.reference-value{max-width:390rpx;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.copy{flex:none;color:#a99cf7;font-weight:700}.reason{margin-top:5rpx;color:#b56c70;font-size:15rpx}.status{flex:none;padding:7rpx 11rpx;border-radius:999rpx;background:#26252e;color:#9997a2;font-size:16rpx}.status.pending{background:rgba(211,148,38,.1);color:#d9aa59}.status.completed{background:rgba(39,187,111,.1);color:#5ed28e}.status.rejected{background:rgba(239,68,68,.09);color:#dc7779}.empty{padding:54rpx 0 24rpx;color:#6d6b77;text-align:center;font-size:18rpx}
 </style>
