@@ -16,5 +16,5 @@ COPY --from=build /out/api /api
 COPY --from=build /out/worker /worker
 
 USER 10001:10001
-EXPOSE 8080
+EXPOSE 8080 9091
 ENTRYPOINT ["/api"]
