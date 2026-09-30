@@ -27,6 +27,7 @@ var (
 	ErrWeChatRefundSignatureInvalid      = errors.New("WECHAT_REFUND_RESPONSE_SIGNATURE_INVALID")
 	ErrWeChatRefundPrivateKeyInvalid     = errors.New("WECHAT_REFUND_PRIVATE_KEY_INVALID")
 	ErrWeChatRefundCertificateInvalid    = errors.New("WECHAT_REFUND_CERTIFICATE_INVALID")
+	ErrWeChatRefundQueryNotMigrated      = errors.New("WECHAT_REFUND_QUERY_NOT_MIGRATED")
 )
 
 type Refund struct {
