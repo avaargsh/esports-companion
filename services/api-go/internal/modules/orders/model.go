@@ -2,7 +2,8 @@ package orders
 
 import (
 	"errors"
-	"time"
+
+	"github.com/avaargsh/esports-companion/services/api-go/internal/platform/httpx"
 )
 
 var (
@@ -67,7 +68,7 @@ type Event struct {
 	FromStatus *string   `json:"from_status"`
 	ToStatus   *string   `json:"to_status"`
 	ActorType  string    `json:"actor_type"`
-	CreatedAt  time.Time `json:"created_at"`
+	CreatedAt  httpx.JSONTime `json:"created_at"`
 }
 
 func availableActions(status string) []string {
