@@ -5,11 +5,13 @@ import { onLoad, onShow, onUnload } from "@dcloudio/uni-app"
 import { request } from "../../api/client"
 import { connectOrderRealtime } from "../../api/realtime"
 import { getDemoIdentities } from "../../api/demo"
+import { isWeChatAuthMode } from "../../api/config"
 import OrderChat from "../../components/OrderChat.vue"
 import OrderProgress from "../../components/OrderProgress.vue"
 import PriceText from "../../components/PriceText.vue"
 import PrimaryActionBar from "../../components/PrimaryActionBar.vue"
 import StatusTag from "../../components/StatusTag.vue"
+import SampleJourney from "../../components/SampleJourney.vue"
 import type { Order, OrderEvent } from "../../types/domain"
 import { showMessage, showSuccess } from "../../ui/feedback"
 import {
@@ -26,6 +28,7 @@ const loading = ref(true)
 const playerUserId = ref("")
 const chatRefreshKey = ref(0)
 const socketConnected = ref(false)
+const demoMode = !isWeChatAuthMode()
 let socket: UniApp.SocketTask | null = null
 
 const meta = computed(() =>
@@ -35,6 +38,23 @@ const meta = computed(() =>
 const incomeCaption = computed(() =>
   order.value?.status === "SETTLED" ? "本单已结算收入" : "本单预计收入"
 )
+
+const demoJourney = computed(() => {
+  const status = order.value?.status
+  if (status === "ACCEPTED") {
+    return { step: 4, title: "开始履约", description: "点击「开始服务」，真实服务完成后再申请完成。" }
+  }
+  if (status === "IN_SERVICE") {
+    return { step: 4, title: "完成本次服务", description: "服务结束后点击「申请完成」，订单会等待用户确认。" }
+  }
+  if (status === "FINISH_REQUESTED") {
+    return { step: 5, title: "切回用户端确认", description: "回到用户订单详情确认服务完成；只有确认后收入才会结算。" }
+  }
+  if (status === "SETTLED") {
+    return { step: 6, title: "收入已经结算", description: "回工作台可看到可用收益；用户评价会继续回流到你的公开主页。" }
+  }
+  return null
+})
 
 const visibleEvents = computed(() =>
   eventsExpanded.value || events.value.length <= 4
@@ -196,6 +216,15 @@ onShow(() => {
     <view v-if="loading" class="loading">正在同步服务单…</view>
 
     <template v-else-if="order && meta">
+      <SampleJourney
+        v-if="demoMode && demoJourney"
+        :step="demoJourney.step"
+        role="陪玩端"
+        :title="demoJourney.title"
+        :description="demoJourney.description"
+        dark
+      />
+
       <view class="hero">
         <view class="hero-top">
           <StatusTag :status="order.status" role="PLAYER" />
