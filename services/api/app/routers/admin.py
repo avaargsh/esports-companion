@@ -5,7 +5,16 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import Game, LedgerEntry, Order, PlayerProfile, PlayerSkill, Settlement, Wallet, Withdrawal
+from app.models import (
+    Game,
+    LedgerEntry,
+    Order,
+    PlayerProfile,
+    PlayerSkill,
+    Settlement,
+    Wallet,
+    Withdrawal,
+)
 from app.schemas import WithdrawalComplete
 from app.security import Principal, require_platform
 from app.services.authorization_audit import AuthorizationAudit
