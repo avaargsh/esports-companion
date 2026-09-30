@@ -333,8 +333,7 @@ func parseRSAPrivateKey(value string) (*rsa.PrivateKey, error) {
 }
 
 func parseCertificatePublicKey(value string) (*rsa.PublicKey, error) {
-	material := strings.ReplaceAll(strings.TrimSpace(value), "\n", "
-")
+	material := strings.ReplaceAll(strings.TrimSpace(value), "\\n", "\n")
 	block, _ := pem.Decode([]byte(material))
 	if block == nil {
 		return nil, ErrWeChatRefundCertificateInvalid
