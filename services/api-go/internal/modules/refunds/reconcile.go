@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/orders"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/ports"
@@ -381,10 +382,6 @@ func loadRefundAggregate(
 	}
 	row := tx.QueryRow(ctx, query, refundID)
 	var aggregate refundAggregate
-	var raw []byte
-	var outRefundNo, providerRefundID pgx.NullString
-	_ = outRefundNo
-	_ = providerRefundID
 	refund, rawPayload, err := scanRefundAggregateRow(row, &aggregate)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -394,7 +391,6 @@ func loadRefundAggregate(
 	}
 	aggregate.Refund = refund
 	aggregate.RawPayload = rawPayload
-	_ = raw
 	return aggregate, nil
 }
 
@@ -404,9 +400,9 @@ func scanRefundAggregateRow(
 ) (Refund, []byte, error) {
 	var (
 		refund           Refund
-		outRefundNo      pgx.NullString
-		providerRefundID pgx.NullString
-		completedAt      pgx.NullTime
+		outRefundNo      pgtype.Text
+		providerRefundID pgtype.Text
+		completedAt      pgtype.Timestamptz
 		rawPayload       []byte
 	)
 	err := row.Scan(
