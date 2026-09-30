@@ -381,8 +381,8 @@ func (r Repository) completeInTx(
 		"PAYMENT",
 		"",
 		map[string]any{
-			"disputeId":       refund.DisputeID,
-			"refundId":        refund.ID,
+			"disputeId":        refund.DisputeID,
+			"refundId":         refund.ID,
 			"providerRefundId": providerRefundID,
 			"amount":           refund.Amount,
 		},
@@ -403,11 +403,11 @@ func (r Repository) completeInTx(
 
 func scanRefundWithRaw(row pgx.Row) (Refund, []byte, error) {
 	var (
-		refund            Refund
-		outRefundNo       pgtype.Text
-		providerRefundID  pgtype.Text
-		completedAt       pgtype.Timestamptz
-		rawPayload        []byte
+		refund           Refund
+		outRefundNo      pgtype.Text
+		providerRefundID pgtype.Text
+		completedAt      pgtype.Timestamptz
+		rawPayload       []byte
 	)
 	if err := row.Scan(
 		&refund.ID,
