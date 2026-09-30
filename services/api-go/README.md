@@ -93,6 +93,7 @@ The loader accepts the current Python-style
 - `POST /api/v1/orders/{order_id}/confirm`
 - `POST /api/v1/orders/{order_id}/mock-pay`
 - `POST /api/v1/orders/{order_id}/payments`
+- `POST /api/v1/payments/wechat/callback`
 
 The M1 catalog/marketplace routes and M2 auth/session routes are compatibility
 targets. M2.2 also carries the structured authorization/authority kernel used by
