@@ -6,6 +6,7 @@ import { getDemoIdentities } from "../../api/demo"
 import CheckoutBar from "../../components/CheckoutBar.vue"
 import EmptyState from "../../components/EmptyState.vue"
 import type { Order, PublicOffering, PublicPlayer } from "../../types/domain"
+import { showMessage } from "../../ui/feedback"
 
 const playerId=ref("")
 const player=ref<PublicPlayer|null>(null)
@@ -34,7 +35,7 @@ onLoad(async query=>{
     selectedOfferingId.value=player.value.offerings[0]?.id??""
   }catch(error){
     failed.value=true
-    uni.showToast({title:error instanceof Error?error.message:"大神资料加载失败",icon:"none"})
+    showMessage(error instanceof Error?error.message:"大神资料加载失败")
   }finally{loading.value=false}
 })
 
@@ -50,7 +51,7 @@ async function createDesignatedOrder(){
     })
     uni.redirectTo({url:`/pages/order-detail/index?id=${order.id}`})
   }catch(error){
-    uni.showToast({title:error instanceof Error?error.message:"下单失败",icon:"none"})
+    showMessage(error instanceof Error?error.message:"下单失败")
   }finally{creating.value=false}
 }
 </script>
