@@ -129,7 +129,7 @@ def write_scaffold(destination_root: Path) -> None:
                 "name": "miniapp-starter",
                 "appid": "__UNI__MINIAPP_STARTER",
                 "description": "Reusable UniApp + WeChat Mini Program starter",
-                "versionName": "0.0.0",
+                "versionName": source_package.get("version", "0.1.0"),
                 "versionCode": "1",
                 "mp-weixin": {
                     "appid": "",
