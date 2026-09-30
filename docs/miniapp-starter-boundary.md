@@ -221,3 +221,50 @@ npm run build:mp-weixin
 and verifies the built WeChat app contains the Showcase page.
 
 This is the promotion gate before creating or publishing a separate template repository: the starter boundary must first survive a real clean extraction and build.
+
+
+## Deterministic distribution artifacts
+
+The same clean-room extraction is also used to build source distributions:
+
+```bash
+python3 scripts/package_miniapp_starter.py /tmp/miniapp-starter-dist
+```
+
+The output is:
+
+```text
+miniapp-starter.tar.gz
+miniapp-starter.zip
+miniapp-starter.provenance.json
+SHA256SUMS
+```
+
+Both archives contain the same top-level `miniapp-starter/` tree and an internal
+`STARTER-PROVENANCE.json`.
+
+The packager normalizes archive metadata that would otherwise change between runs:
+
+- file ordering;
+- timestamps;
+- uid/gid and owner names;
+- file modes;
+- gzip header metadata;
+- ZIP timestamps.
+
+The external provenance document records:
+
+- source repository and commit;
+- SHA256 of `starter.manifest.json`;
+- every distributed file with size and SHA256;
+- SHA256 and size of both archive formats.
+
+`SHA256SUMS` covers the tarball, ZIP and external provenance document.
+
+CI generates the distribution twice from the same commit and requires byte-for-byte
+identity before uploading the artifacts. The **MiniApp Starter Smoke** job therefore
+proves both standalone buildability and deterministic packaging.
+
+The source bundle deliberately excludes `node_modules` and compiled `dist`
+output. Consumers install dependencies and build locally; the distribution remains
+small, auditable and tied to source provenance.
