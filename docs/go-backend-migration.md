@@ -319,6 +319,33 @@ runtimes receive the same public certificate/API-v3 configuration and the parity
 runner signs/encrypts real callback bodies with the private fixture key. It also
 runs a 20-request callback race and verifies exactly-once state/evidence.
 
+#### M4.3 - Refund submit
+
+Go owns the existing platform refund submission seam:
+
+- `POST /api/v1/admin/refunds/{refund_id}/submit`;
+- PLATFORM authorization remains mandatory;
+- Refund and Order are locked before submission eligibility is evaluated;
+- `PENDING/SUBMITTING` transitions first persist `SUBMITTING` and a stable
+  `out_refund_no`, then commit before any external provider call;
+- the external provider call happens without database row locks;
+- provider results are re-applied under a fresh Refund lock;
+- `PROCESSING/CLOSED/ABNORMAL` persist provider truth without advancing the order;
+- synchronous provider `SUCCESS` completes Refund + Dispute + `REFUNDING -> REFUNDED`
+  plus OrderEvent/Outbox evidence in one transaction;
+- a concurrent request that observes an already completed Refund returns idempotently
+  instead of overwriting provider evidence.
+
+The WeChat adapter signs refund requests with the merchant key and accepts a 2xx
+response only after platform-certificate response-signature verification. Provider
+JSON alone is never treated as refund truth.
+
+Acceptance uses the existing manual provider for dual-runtime parity and a pure-Go
+httptest for signed WeChat request/response validation. A 20-request submit race
+must preserve one stable merchant refund identifier and valid aggregate state.
+
+Refund callback and provider-query reconciliation remain M4.4.
+
 ### M4 - Payment/refund
 
 Port last among request-path modules:
