@@ -150,17 +150,22 @@ def write_scaffold(destination_root: Path) -> None:
     )
 
     (destination_root / "README.md").write_text(
-        "# Mini Program Starter\n\n"
-        "Reusable UniApp + Vue 3 + TypeScript WeChat Mini Program starter.\n\n"
-        "## Start\n\n"
-        "\`\`\`bash\n"
-        "cd apps/miniapp\n"
-        "npm install\n"
-        "npm run dev:mp-weixin\n"
-        "\`\`\`\n\n"
-        "Open \`dist/dev/mp-weixin\` in WeChat DevTools.\n\n"
-        "See \`docs/miniapp-ui.md\`, \`docs/miniapp-theme.md\` and "
-        "\`docs/miniapp-starter-boundary.md\` for the reusable contracts.\n",
+        """# Mini Program Starter
+
+Reusable UniApp + Vue 3 + TypeScript WeChat Mini Program starter.
+
+## Start
+
+```bash
+cd apps/miniapp
+npm install
+npm run dev:mp-weixin
+```
+
+Open `dist/dev/mp-weixin` in WeChat DevTools.
+
+See `docs/miniapp-ui.md`, `docs/miniapp-theme.md` and `docs/miniapp-starter-boundary.md` for the reusable contracts.
+""",
         encoding="utf-8",
     )
 
