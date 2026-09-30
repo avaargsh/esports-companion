@@ -119,6 +119,7 @@ func (h Handler) writePaymentError(w http.ResponseWriter, err error) {
 		errors.Is(err, ErrWeChatPaymentNetwork),
 		errors.Is(err, ErrWeChatPaymentInvalidJSON),
 		errors.Is(err, ErrWeChatPaymentInvalidResponse),
+		errors.Is(err, ErrWeChatPaymentHTTP),
 		errors.Is(err, ErrWeChatPaymentPrivateKeyInvalid),
 		errors.Is(err, orders.ErrOrderAlreadyAccepted),
 		errors.Is(err, orders.ErrInvalidOrderTransition):
