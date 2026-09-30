@@ -75,6 +75,19 @@ type RefundIntent struct {
 	RawPayload       map[string]any
 }
 
+type RefundCallback struct {
+	Provider         string
+	ProviderRefundID string
+	OutRefundNo      string
+	PaymentTxnID     string
+	OrderNo          string
+	RefundStatus     string
+	TotalAmount      int64
+	RefundAmount     int64
+	RawEvent         map[string]any
+	Resource         map[string]any
+}
+
 type RefundProvider interface {
 	Name() string
 	CreateRefund(ctx context.Context, request RefundRequest) (RefundIntent, error)
