@@ -1,6 +1,25 @@
 package orders
 
-import "time"
+import (
+	"errors"
+	"time"
+)
+
+var (
+	ErrExactlyOneSKUOrOffering = errors.New("ORDER_REQUIRES_EXACTLY_ONE_SKU_OR_OFFERING")
+	ErrOfferingNotAvailable    = errors.New("OFFERING_NOT_AVAILABLE")
+	ErrPlayerNotAvailable      = errors.New("PLAYER_NOT_AVAILABLE")
+	ErrCannotOrderOwnOffering  = errors.New("CANNOT_ORDER_OWN_OFFERING")
+	ErrSKUNotAvailable         = errors.New("SKU_NOT_AVAILABLE")
+	ErrGameNotAvailable        = errors.New("GAME_NOT_AVAILABLE")
+)
+
+type CreateInput struct {
+	SKUID      *string
+	OfferingID *string
+	Quantity   int
+	Remark     string
+}
 
 type Order struct {
 	ID                 string  `json:"id"`

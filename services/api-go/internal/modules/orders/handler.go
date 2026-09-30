@@ -1,9 +1,12 @@
 package orders
 
 import (
+	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"strconv"
+	"unicode/utf8"
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
@@ -14,14 +17,14 @@ import (
 )
 
 type Handler struct {
-	repo        Repository
+	service     Service
 	authService auth.Service
 	secure      bool
 }
 
-func NewHandler(repo Repository, authService auth.Service, secure bool) Handler {
+func NewHandler(service Service, authService auth.Service, secure bool) Handler {
 	return Handler{
-		repo:        repo,
+		service:     service,
 		authService: authService,
 		secure:      secure,
 	}
@@ -29,8 +32,98 @@ func NewHandler(repo Repository, authService auth.Service, secure bool) Handler 
 
 func (h Handler) Register(r chi.Router) {
 	r.Get("/orders", h.list)
+	r.Post("/orders", h.create)
 	r.Get("/orders/{order_id}", h.get)
 	r.Get("/orders/{order_id}/events", h.events)
+}
+
+type createRequest struct {
+	SKUID      *string `json:"sku_id"`
+	OfferingID *string `json:"offering_id"`
+	Quantity   *int    `json:"quantity"`
+	Remark     *string `json:"remark"`
+}
+
+func (h Handler) create(w http.ResponseWriter, r *http.Request) {
+	principal, requestErr := auth.ResolvePrincipal(h.authService, h.secure, r)
+	if requestErr != nil {
+		auth.WriteRequestError(w, requestErr)
+		return
+	}
+
+	defaultQuantity := 1
+	defaultRemark := ""
+	body := createRequest{
+		Quantity: &defaultQuantity,
+		Remark:   &defaultRemark,
+	}
+	if !decodeCreateJSON(w, r, &body) {
+		return
+	}
+	if body.Quantity == nil {
+		httpx.ValidationError(w, "body", "quantity", "Input should be a valid integer")
+		return
+	}
+	if *body.Quantity < 1 {
+		httpx.ValidationError(w, "body", "quantity", "Input should be greater than or equal to 1")
+		return
+	}
+	if *body.Quantity > 10 {
+		httpx.ValidationError(w, "body", "quantity", "Input should be less than or equal to 10")
+		return
+	}
+	if body.Remark == nil {
+		httpx.ValidationError(w, "body", "remark", "Input should be a valid string")
+		return
+	}
+	if utf8.RuneCountInString(*body.Remark) > 500 {
+		httpx.ValidationError(w, "body", "remark", "String should have at most 500 characters")
+		return
+	}
+	if body.SKUID != nil && !httpx.IsUUID(*body.SKUID) {
+		httpx.ValidationError(w, "body", "sku_id", "Input should be a valid UUID")
+		return
+	}
+	if body.OfferingID != nil && !httpx.IsUUID(*body.OfferingID) {
+		httpx.ValidationError(w, "body", "offering_id", "Input should be a valid UUID")
+		return
+	}
+
+	order, err := h.service.Create(r.Context(), principal.User.ID, CreateInput{
+		SKUID:      body.SKUID,
+		OfferingID: body.OfferingID,
+		Quantity:   *body.Quantity,
+		Remark:     *body.Remark,
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrExactlyOneSKUOrOffering),
+			errors.Is(err, ErrOfferingNotAvailable),
+			errors.Is(err, ErrPlayerNotAvailable),
+			errors.Is(err, ErrCannotOrderOwnOffering),
+			errors.Is(err, ErrSKUNotAvailable),
+			errors.Is(err, ErrGameNotAvailable):
+			httpx.Error(w, http.StatusConflict, err.Error())
+		default:
+			httpx.Error(w, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+		}
+		return
+	}
+	httpx.JSONValue(w, http.StatusCreated, order)
+}
+
+func decodeCreateJSON(w http.ResponseWriter, r *http.Request, target any) bool {
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(target); err != nil {
+		httpx.ValidationError(w, "body", "", "Invalid JSON body")
+		return false
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		httpx.ValidationError(w, "body", "", "Invalid JSON body")
+		return false
+	}
+	return true
 }
 
 func (h Handler) list(w http.ResponseWriter, r *http.Request) {
@@ -43,7 +136,7 @@ func (h Handler) list(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	items, err := h.repo.ListForUser(r.Context(), principal.User.ID, limit)
+	items, err := h.service.ListForUser(r.Context(), principal.User.ID, limit)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
 		return
@@ -62,27 +155,14 @@ func (h Handler) get(w http.ResponseWriter, r *http.Request) {
 		auth.WriteRequestError(w, requestErr)
 		return
 	}
-	order, err := h.repo.Get(r.Context(), orderID)
-	if errors.Is(err, ErrOrderNotFound) {
-		httpx.Error(w, http.StatusNotFound, ErrOrderNotFound.Error())
-		return
-	}
+	detail, err := h.service.DetailForViewer(
+		r.Context(),
+		orderID,
+		principal,
+		chimiddleware.GetReqID(r.Context()),
+	)
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
-		return
-	}
-	if _, err := h.repo.AuthorizeViewer(r.Context(), order, principal, chimiddleware.GetReqID(r.Context())); err != nil {
-		var denied *authz.ResourceAuthorizationDenied
-		if errors.As(err, &denied) {
-			httpx.Error(w, http.StatusForbidden, denied.Decision.ReasonCode)
-			return
-		}
-		httpx.Error(w, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
-		return
-	}
-	detail, err := h.repo.Detail(r.Context(), order)
-	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+		writeReadError(w, err)
 		return
 	}
 	httpx.JSONValue(w, http.StatusOK, detail)
@@ -99,30 +179,30 @@ func (h Handler) events(w http.ResponseWriter, r *http.Request) {
 		auth.WriteRequestError(w, requestErr)
 		return
 	}
-	order, err := h.repo.Get(r.Context(), orderID)
+	items, err := h.service.EventsForViewer(
+		r.Context(),
+		orderID,
+		principal,
+		chimiddleware.GetReqID(r.Context()),
+	)
+	if err != nil {
+		writeReadError(w, err)
+		return
+	}
+	httpx.JSONValue(w, http.StatusOK, items)
+}
+
+func writeReadError(w http.ResponseWriter, err error) {
 	if errors.Is(err, ErrOrderNotFound) {
 		httpx.Error(w, http.StatusNotFound, ErrOrderNotFound.Error())
 		return
 	}
-	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+	var denied *authz.ResourceAuthorizationDenied
+	if errors.As(err, &denied) {
+		httpx.Error(w, http.StatusForbidden, denied.Decision.ReasonCode)
 		return
 	}
-	if _, err := h.repo.AuthorizeViewer(r.Context(), order, principal, chimiddleware.GetReqID(r.Context())); err != nil {
-		var denied *authz.ResourceAuthorizationDenied
-		if errors.As(err, &denied) {
-			httpx.Error(w, http.StatusForbidden, denied.Decision.ReasonCode)
-			return
-		}
-		httpx.Error(w, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
-		return
-	}
-	items, err := h.repo.Events(r.Context(), order.ID)
-	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
-		return
-	}
-	httpx.JSONValue(w, http.StatusOK, items)
+	httpx.Error(w, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
 }
 
 func parseLimit(w http.ResponseWriter, r *http.Request) (int, bool) {

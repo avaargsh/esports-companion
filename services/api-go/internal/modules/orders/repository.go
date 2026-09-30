@@ -2,8 +2,11 @@ package orders
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -11,6 +14,7 @@ import (
 
 	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/auth"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/authz"
+	"github.com/avaargsh/esports-companion/services/api-go/internal/platform/idgen"
 )
 
 var ErrOrderNotFound = errors.New("ORDER_NOT_FOUND")
@@ -25,6 +29,254 @@ type Repository struct {
 
 func NewRepository(db *pgxpool.Pool) Repository {
 	return Repository{db: db}
+}
+
+func (r Repository) Create(
+	ctx context.Context,
+	userID string,
+	input CreateInput,
+) (Order, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return Order{}, fmt.Errorf("begin order create: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var (
+		skuID              string
+		gameID             string
+		unitPrice          int
+		platformFeeRate    string
+		designatedPlayerID *string
+	)
+
+	if input.OfferingID != nil {
+		var (
+			offeringStatus string
+			playerID       string
+			offeringSKUID  string
+			priceOverride  pgtype.Int4
+		)
+		err := tx.QueryRow(ctx, `
+			SELECT status, player_id::text, sku_id::text, price_override
+			FROM provider_offerings
+			WHERE id = $1::uuid
+		`, *input.OfferingID).Scan(
+			&offeringStatus,
+			&playerID,
+			&offeringSKUID,
+			&priceOverride,
+		)
+		if errors.Is(err, pgx.ErrNoRows) || (err == nil && offeringStatus != "ACTIVE") {
+			return Order{}, ErrOfferingNotAvailable
+		}
+		if err != nil {
+			return Order{}, fmt.Errorf("load offering: %w", err)
+		}
+
+		var (
+			playerUserID       string
+			verificationStatus string
+			serviceStatus      string
+		)
+		err = tx.QueryRow(ctx, `
+			SELECT user_id::text, verification_status, service_status
+			FROM player_profiles
+			WHERE id = $1::uuid
+		`, playerID).Scan(
+			&playerUserID,
+			&verificationStatus,
+			&serviceStatus,
+		)
+		if errors.Is(err, pgx.ErrNoRows) ||
+			(err == nil && (verificationStatus != "APPROVED" || serviceStatus != "AVAILABLE")) {
+			return Order{}, ErrPlayerNotAvailable
+		}
+		if err != nil {
+			return Order{}, fmt.Errorf("load offering player: %w", err)
+		}
+		if playerUserID == userID {
+			return Order{}, ErrCannotOrderOwnOffering
+		}
+
+		skuID = offeringSKUID
+		designatedPlayerID = &playerID
+
+		skuPrice, skuGameID, rate, err := loadActiveSKU(ctx, tx, skuID)
+		if err != nil {
+			return Order{}, err
+		}
+		gameID = skuGameID
+		platformFeeRate = rate
+		if priceOverride.Valid {
+			unitPrice = int(priceOverride.Int32)
+		} else {
+			unitPrice = skuPrice
+		}
+	} else {
+		skuPrice, skuGameID, rate, err := loadActiveSKU(ctx, tx, *input.SKUID)
+		if err != nil {
+			return Order{}, err
+		}
+		skuID = *input.SKUID
+		gameID = skuGameID
+		unitPrice = skuPrice
+		platformFeeRate = rate
+	}
+
+	var gameStatus string
+	err = tx.QueryRow(ctx, `
+		SELECT status
+		FROM games
+		WHERE id = $1::uuid
+	`, gameID).Scan(&gameStatus)
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && gameStatus != "ACTIVE") {
+		return Order{}, ErrGameNotAvailable
+	}
+	if err != nil {
+		return Order{}, fmt.Errorf("load order game: %w", err)
+	}
+
+	rate, err := strconv.ParseFloat(platformFeeRate, 64)
+	if err != nil {
+		return Order{}, fmt.Errorf("parse platform fee rate: %w", err)
+	}
+	total := unitPrice * input.Quantity
+	platformFee := int(float64(total) * rate)
+	playerAmount := total - platformFee
+
+	orderID, err := idgen.UUIDv4()
+	if err != nil {
+		return Order{}, err
+	}
+	orderNoUUID, err := idgen.UUIDv4()
+	if err != nil {
+		return Order{}, err
+	}
+	orderNo := "ORD_" + strings.ToUpper(strings.ReplaceAll(orderNoUUID, "-", ""))[:20]
+
+	var designated any
+	if designatedPlayerID != nil {
+		designated = *designatedPlayerID
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO orders (
+			id, order_no, user_id, game_id, sku_id, designated_player_id,
+			status, quantity, unit_price, total_amount, player_amount,
+			platform_fee, remark, version
+		)
+		VALUES (
+			$1::uuid, $2, $3::uuid, $4::uuid, $5::uuid, $6::uuid,
+			'WAITING_PAYMENT', $7, $8, $9, $10, $11, $12, 0
+		)
+	`,
+		orderID,
+		orderNo,
+		userID,
+		gameID,
+		skuID,
+		designated,
+		input.Quantity,
+		unitPrice,
+		total,
+		playerAmount,
+		platformFee,
+		input.Remark,
+	); err != nil {
+		return Order{}, fmt.Errorf("insert order: %w", err)
+	}
+
+	eventPayload := map[string]any{
+		"designatedPlayerId": nil,
+	}
+	if designatedPlayerID != nil {
+		eventPayload["designatedPlayerId"] = *designatedPlayerID
+	}
+	encodedEventPayload, err := json.Marshal(eventPayload)
+	if err != nil {
+		return Order{}, err
+	}
+
+	eventID, err := idgen.UUIDv4()
+	if err != nil {
+		return Order{}, err
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO order_events (
+			id, order_id, event_type, from_status, to_status,
+			actor_type, actor_id, payload_json
+		)
+		VALUES (
+			$1::uuid, $2::uuid, 'ORDER_CREATED', NULL, 'WAITING_PAYMENT',
+			'USER', $3, $4::json
+		)
+	`, eventID, orderID, userID, string(encodedEventPayload)); err != nil {
+		return Order{}, fmt.Errorf("insert order created event: %w", err)
+	}
+
+	outboxPayload := map[string]any{
+		"orderId":            orderID,
+		"status":             "WAITING_PAYMENT",
+		"designatedPlayerId": eventPayload["designatedPlayerId"],
+	}
+	encodedOutboxPayload, err := json.Marshal(outboxPayload)
+	if err != nil {
+		return Order{}, err
+	}
+	outboxID, err := idgen.UUIDv4()
+	if err != nil {
+		return Order{}, err
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO outbox_events (
+			id, aggregate_type, aggregate_id, event_type, payload_json, status
+		)
+		VALUES (
+			$1::uuid, 'ORDER', $2, 'ORDER_CREATED', $3::json, 'PENDING'
+		)
+	`, outboxID, orderID, string(encodedOutboxPayload)); err != nil {
+		return Order{}, fmt.Errorf("insert order outbox event: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return Order{}, fmt.Errorf("commit order create: %w", err)
+	}
+
+	return Order{
+		ID:                 orderID,
+		OrderNo:            orderNo,
+		UserID:             userID,
+		GameID:             gameID,
+		SKUID:              skuID,
+		DesignatedPlayerID: designatedPlayerID,
+		Status:             "WAITING_PAYMENT",
+		Quantity:           input.Quantity,
+		UnitPrice:          unitPrice,
+		TotalAmount:        total,
+		PlayerAmount:       playerAmount,
+		PlatformFee:        platformFee,
+		Version:            0,
+	}, nil
+}
+
+func loadActiveSKU(
+	ctx context.Context,
+	tx pgx.Tx,
+	skuID string,
+) (price int, gameID string, platformFeeRate string, err error) {
+	var status string
+	err = tx.QueryRow(ctx, `
+		SELECT price, game_id::text, platform_fee_rate::text, status
+		FROM service_skus
+		WHERE id = $1::uuid
+	`, skuID).Scan(&price, &gameID, &platformFeeRate, &status)
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && status != "ACTIVE") {
+		return 0, "", "", ErrSKUNotAvailable
+	}
+	if err != nil {
+		return 0, "", "", fmt.Errorf("load sku: %w", err)
+	}
+	return price, gameID, platformFeeRate, nil
 }
 
 func (r Repository) ListForUser(ctx context.Context, userID string, limit int) ([]Order, error) {
