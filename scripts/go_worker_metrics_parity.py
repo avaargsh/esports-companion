@@ -41,9 +41,12 @@ def metric_value(
     raise AssertionError(f"metric missing: {name} labels={labels!r}")
 
 
-def wait_metrics(base: str, timeout: float = 8.0) -> list[Any]:
+def wait_metrics(base: str, timeout: float = 10.0) -> list[Any]:
+    """Wait until mutation workers finish first cycle and scanner runs after them."""
     deadline = time.time() + timeout
     last_error: Exception | None = None
+    first_operational_success: float | None = None
+
     while time.time() < deadline:
         try:
             with urllib.request.urlopen(base.rstrip("/") + "/livez", timeout=1) as response:
@@ -53,12 +56,43 @@ def wait_metrics(base: str, timeout: float = 8.0) -> list[Any]:
             if metric_value(
                 samples,
                 "esports_operational_metrics_scan_success",
-            ) == 1:
+            ) != 1:
+                time.sleep(0.1)
+                continue
+
+            outbox_success = metric_value(
+                samples,
+                "esports_worker_last_success_unixtime",
+                {"worker": "outbox"},
+            )
+            timeout_success = metric_value(
+                samples,
+                "esports_worker_last_success_unixtime",
+                {"worker": "order-timeout"},
+            )
+            operational_success = metric_value(
+                samples,
+                "esports_worker_last_success_unixtime",
+                {"worker": "operational-metrics"},
+            )
+            if outbox_success <= 0 or timeout_success <= 0 or operational_success <= 0:
+                time.sleep(0.1)
+                continue
+
+            if first_operational_success is None:
+                first_operational_success = operational_success
+                time.sleep(0.1)
+                continue
+
+            # The business workers now sleep for ten minutes. Require one fresh
+            # PostgreSQL metrics scan after that quiescent point so the baseline
+            # cannot include rows that the first outbox/timeout cycle is removing.
+            if operational_success > first_operational_success:
                 return samples
         except (OSError, AssertionError) as exc:
             last_error = exc
         time.sleep(0.1)
-    raise AssertionError(f"worker metrics did not become ready: {last_error!r}")
+    raise AssertionError(f"worker metrics did not become quiescent: {last_error!r}")
 
 
 def start_worker(metrics_addr: str) -> tuple[subprocess.Popen[bytes], Any]:
@@ -239,7 +273,20 @@ def wait_for_delta(
         except AssertionError:
             pass
         time.sleep(0.15)
-    raise AssertionError("operational metrics did not reflect PostgreSQL fixtures")
+
+    observed = {
+        "outbox": metric_value(last, "esports_outbox_pending"),
+        "finish": metric_value(last, "esports_finish_requests_pending"),
+        "finish_overdue": metric_value(last, "esports_finish_requests_overdue"),
+        "assignment_overdue": metric_value(
+            last,
+            "esports_assignments_start_overdue",
+        ),
+    }
+    raise AssertionError(
+        "operational metrics did not reflect PostgreSQL fixtures: "
+        f"baseline={baseline!r} observed={observed!r}"
+    )
 
 
 def main() -> int:
