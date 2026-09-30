@@ -10,23 +10,23 @@ import (
 type Status string
 
 const (
-	StatusWaitingPayment   Status = "WAITING_PAYMENT"
-	StatusPaid             Status = "PAID"
-	StatusMatching         Status = "MATCHING"
-	StatusAccepted         Status = "ACCEPTED"
-	StatusInService        Status = "IN_SERVICE"
-	StatusFinishRequested  Status = "FINISH_REQUESTED"
-	StatusCompleted        Status = "COMPLETED"
-	StatusSettled          Status = "SETTLED"
-	StatusCancelled        Status = "CANCELLED"
-	StatusRefunding        Status = "REFUNDING"
-	StatusRefunded         Status = "REFUNDED"
-	StatusDisputed         Status = "DISPUTED"
+	StatusWaitingPayment  Status = "WAITING_PAYMENT"
+	StatusPaid            Status = "PAID"
+	StatusMatching        Status = "MATCHING"
+	StatusAccepted        Status = "ACCEPTED"
+	StatusInService       Status = "IN_SERVICE"
+	StatusFinishRequested Status = "FINISH_REQUESTED"
+	StatusCompleted       Status = "COMPLETED"
+	StatusSettled         Status = "SETTLED"
+	StatusCancelled       Status = "CANCELLED"
+	StatusRefunding       Status = "REFUNDING"
+	StatusRefunded        Status = "REFUNDED"
+	StatusDisputed        Status = "DISPUTED"
 )
 
 var (
 	ErrInvalidOrderTransition = errors.New("invalid order transition")
-	orderStateMachine = statemachine.New(map[Status][]Status{
+	orderStateMachine         = statemachine.New(map[Status][]Status{
 		StatusWaitingPayment:  {StatusPaid, StatusCancelled},
 		StatusPaid:            {StatusMatching, StatusRefunding},
 		StatusMatching:        {StatusAccepted, StatusDisputed},
