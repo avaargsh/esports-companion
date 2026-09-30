@@ -5,6 +5,7 @@ import EmptyState from "../../components/EmptyState.vue"
 import PlayerCard from "../../components/PlayerCard.vue"
 import SectionHeader from "../../components/SectionHeader.vue"
 import type { Game, PublicPlayer } from "../../types/domain"
+import { showMessage } from "../../ui/feedback"
 
 const games = ref<Game[]>([])
 const players = ref<PublicPlayer[]>([])
@@ -41,7 +42,7 @@ function openDiscover() {
 }
 function quickOrder() {
   if (!games.value.length) {
-    uni.showToast({ title: "暂无可用服务", icon: "none" })
+    showMessage("暂无可用服务")
     return
   }
   uni.pageScrollTo({ selector: "#game-list", duration: 260 })
