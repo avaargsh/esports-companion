@@ -10,7 +10,6 @@ from app.models import (
     Dispute,
     Order,
     OrderAssignment,
-    PlayerProfile,
     Refund,
 )
 from app.services.order_authorization_policy import OrderAuthorizationPolicy
