@@ -251,6 +251,29 @@ one settlement, two ledger rows and one balance increment per wallet.
 Customer/player/platform resource access must continue to preserve the same
 structured authorization semantics as the Python reference.
 
+#### M3.5 - Mock payment compatibility seam
+
+Before moving real WeChat payment traffic, Go owns the existing dev/test
+`POST /api/v1/orders/{order_id}/mock-pay` route through a dedicated payment
+module.
+
+The slice preserves the reference transaction contract:
+
+- order row lock before payment creation;
+- customer ownership;
+- idempotency-key replay checked before current order status;
+- one `PaymentTransaction(provider=MOCK,status=SUCCESS)`;
+- `WAITING_PAYMENT -> PAID -> MATCHING`;
+- `PAYMENT_SUCCESS` and `ORDER_ENTERED_MATCHING` OrderEvent + Outbox evidence;
+- designated orders additionally create one USER assignment and transition
+  `MATCHING -> ACCEPTED` with `DESIGNATED_PLAYER_ASSIGNED`;
+- mock payment remains disabled in secure deployments.
+
+Acceptance proves cross-runtime replay, a 20-request same-key exactly-once race,
+and a 20-request distinct-key race with exactly one successful payment. Redis
+pool membership remains reconstructable acceleration and is not part of payment
+correctness.
+
 ### M4 - Payment/refund
 
 Port last among request-path modules:
