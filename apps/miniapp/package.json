@@ -11,7 +11,8 @@
     "ui-check": "python3 ../../scripts/check_miniapp_ui_contract.py",
     "theme:sync": "python3 ../../scripts/sync_miniapp_theme.py",
     "theme:check": "python3 ../../scripts/sync_miniapp_theme.py --check",
-    "starter:check": "python3 ../../scripts/check_miniapp_starter_boundary.py"
+    "starter:check": "python3 ../../scripts/check_miniapp_starter_boundary.py",
+    "starter:manifest:check": "python3 ../../scripts/check_miniapp_starter_manifest.py"
   },
   "dependencies": {
     "@dcloudio/uni-app": "3.0.0-5020620260917001",
