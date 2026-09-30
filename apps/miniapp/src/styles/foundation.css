@@ -1,0 +1,141 @@
+page {
+  --brand: #6757e6;
+  --brand-strong: #5644d6;
+  --brand-soft: #efedff;
+  --brand-ghost: #f7f5ff;
+  --ink: #17171f;
+  --ink-2: #4f4f5a;
+  --muted: #8e8e99;
+  --muted-2: #b4b4bd;
+  --bg: #f5f5f8;
+  --surface: #ffffff;
+  --surface-2: #fafafe;
+  --line: #eae9ef;
+  --success: #1f9d63;
+  --success-soft: #eaf8f1;
+  --warning: #b9770e;
+  --warning-soft: #fff5df;
+  --danger: #d84c51;
+  --danger-soft: #fff0f1;
+
+  --space-1: 8rpx;
+  --space-2: 12rpx;
+  --space-3: 16rpx;
+  --space-4: 24rpx;
+  --space-5: 32rpx;
+  --space-6: 40rpx;
+
+  --radius-sm: 18rpx;
+  --radius-md: 24rpx;
+  --radius-lg: 32rpx;
+  --radius-xl: 40rpx;
+
+  --tap-min: 88rpx;
+  --control-height: 88rpx;
+  --control-height-sm: 72rpx;
+
+  --shadow-card: 0 14rpx 42rpx rgba(30, 26, 55, 0.055);
+  --shadow-float: 0 24rpx 70rpx rgba(30, 26, 55, 0.11);
+
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "SF Pro Display",
+    "PingFang SC",
+    "Helvetica Neue",
+    sans-serif;
+  font-synthesis: none;
+}
+
+view,
+text,
+button,
+input,
+textarea {
+  box-sizing: border-box;
+}
+
+button {
+  font: inherit;
+}
+
+button::after {
+  border: 0;
+}
+
+.safe-page {
+  min-height: 100vh;
+  padding:
+    28rpx
+    28rpx
+    calc(44rpx + env(safe-area-inset-bottom));
+}
+
+.custom-safe-page {
+  padding-top: calc(var(--status-bar-height, env(safe-area-inset-top)) + 24rpx);
+}
+
+.surface-card {
+  border: 1rpx solid rgba(20, 20, 30, 0.035);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+.tap-scale {
+  transition:
+    transform 0.12s ease,
+    opacity 0.12s ease;
+}
+
+.tap-scale:active {
+  transform: scale(0.985);
+  opacity: 0.92;
+}
+
+.skeleton {
+  overflow: hidden;
+  border-radius: 16rpx;
+  background:
+    linear-gradient(
+      90deg,
+      #eeeef3 25%,
+      #f7f7fa 37%,
+      #eeeef3 63%
+    );
+  background-size: 400% 100%;
+  animation: shimmer 1.35s ease infinite;
+}
+
+.wx-hairline-top {
+  border-top: 1rpx solid var(--line);
+}
+
+.wx-safe-bottom {
+  padding-bottom: max(24rpx, env(safe-area-inset-bottom));
+}
+
+.wx-readable {
+  line-height: 1.55;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+
+  100% {
+    background-position: 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tap-scale,
+  .skeleton {
+    transition: none;
+    animation: none;
+  }
+}

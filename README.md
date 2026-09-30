@@ -23,7 +23,7 @@ The project has reached a staging-acceptance milestone: the customer/provider/ad
 
 ## Included
 
-- **UniApp WeChat Mini Program** — customer and provider workspaces in one app
+- **UniApp WeChat Mini Program** — customer and provider workspaces in one app\n- **Built-in Mini Program UI foundation** — semantic design tokens, safe-area defaults, reusable Button/Cell/Badge primitives and standard feedback helpers
 - **FastAPI modular monolith** — Auth, Catalog, Player, Order, Dispatch, Wallet, Review, Realtime
 - **Web Admin** — provider/skill review, catalog, orders, disputes/refunds, withdrawal operations and settlement inspection
 - **PostgreSQL source of truth** — state, audit, money and idempotency
@@ -93,7 +93,7 @@ Expected final output resembles:
 {"status":"PASS","orderId":"...","finalState":"SETTLED","providerIncome":2400}
 ```
 
-See [Quick Start](docs/quickstart.md) for Mini Program and Admin startup.
+See [Quick Start](docs/quickstart.md) for Mini Program and Admin startup. Mini Program screens should follow the built-in [UI Foundation](docs/miniapp-ui.md) so new pages keep WeChat-native interaction semantics without adding a second component framework.
 
 ## Architecture
 
