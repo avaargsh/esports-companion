@@ -62,8 +62,8 @@ defineEmits<{ primary: []; secondary: [] }>()
 }
 
 .bar.dark {
-  border-top-color: rgba(255, 255, 255, 0.06);
-  background: rgba(15, 15, 21, 0.96);
+  border-top-color: var(--provider-line);
+  background: var(--provider-bar);
 }
 
 .secondary {
