@@ -29,7 +29,24 @@ Liveness   http://localhost:8000/livez
 Readiness  http://localhost:8000/readyz
 ```
 
-## 2. Prove the running Golden Slice
+## 2. Prove Sample Product 01
+
+Run the focused customer/provider marketplace loop first:
+
+```bash
+make sample-product-01
+```
+
+It proves:
+
+```text
+customer order -> payment -> public matching -> provider fulfillment
+-> customer confirm -> settlement -> review -> public reputation
+```
+
+Machine-readable evidence is written to `/tmp/sample-product-01-evidence.json` by default. See [Sample Product 01](../samples/01-on-demand-service/README.md).
+
+## 3. Prove the wider release Golden Slice
 
 ```bash
 make smoke
@@ -51,7 +68,7 @@ bootstrap
  -> provider ledger verification
 ```
 
-## 3. Run Admin
+## 4. Run Admin
 
 ```bash
 cd apps/admin
@@ -61,7 +78,7 @@ npm run dev
 
 Open `http://localhost:5173`.
 
-## 4. Run WeChat Mini Program
+## 5. Run WeChat Mini Program
 
 ```bash
 cd apps/miniapp
@@ -79,7 +96,7 @@ VITE_API_ORIGIN=http://YOUR_HOST:8000 npm run dev:mp-weixin
 
 Mini Program runtime configuration is centralized in `src/platform/env.ts`. Product modules should consume that contract instead of reading `import.meta.env` directly.
 
-## 5. Run all build/test checks
+## 6. Run all build/test checks
 
 ```bash
 make test
