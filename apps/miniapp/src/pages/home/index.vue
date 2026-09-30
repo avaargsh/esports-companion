@@ -179,9 +179,9 @@ function quickOrder() {
   overflow:hidden;
   padding:40rpx 34rpx 30rpx;
   border-radius:42rpx;
-  background:linear-gradient(145deg,#191821 0%,#29243e 58%,#4c3e9d 125%);
+  background:linear-gradient(145deg,var(--hero-start) 0%,var(--hero-mid) 58%,var(--hero-end) 125%);
   color:#fff;
-  box-shadow:0 24rpx 72rpx rgba(31,26,59,.2);
+  box-shadow:var(--shadow-hero);
 }
 .hero-glow { position:absolute; border-radius:50%; filter:blur(4rpx); }
 .hero-glow.one {
@@ -195,7 +195,7 @@ function quickOrder() {
 .hero-copy { position:relative; z-index:1; }
 .hero-kicker {
   display:block;
-  color:#b8afef;
+  color:var(--hero-kicker);
   font-size:18rpx;
   font-weight:700;
   letter-spacing:2rpx;
@@ -211,7 +211,7 @@ function quickOrder() {
 .hero-subtitle {
   display:block;
   margin-top:13rpx;
-  color:#aaa8ba;
+  color:var(--hero-muted);
   font-size:20rpx;
 }
 .hero-actions { position:relative; z-index:1; display:flex; gap:12rpx; margin-top:34rpx; }
@@ -252,7 +252,7 @@ function quickOrder() {
   width:62rpx;height:62rpx;display:flex;align-items:center;justify-content:center;
   border-radius:20rpx;font-size:25rpx;font-weight:850;
 }
-.tone-0 { background:#efedff;color:#6757e6; }
+.tone-0 { background:var(--brand-soft);color:var(--brand); }
 .tone-1 { background:#e9f8f1;color:#168d59; }
 .tone-2 { background:#fff2e6;color:#b56c1a; }
 .tone-3 { background:#eef4ff;color:#4271c8; }
