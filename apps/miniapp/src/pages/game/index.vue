@@ -3,8 +3,10 @@ import { computed, ref } from "vue"
 import { onLoad } from "@dcloudio/uni-app"
 import { request } from "../../api/client"
 import { getDemoIdentities } from "../../api/demo"
+import { isWeChatAuthMode } from "../../api/config"
 import CheckoutBar from "../../components/CheckoutBar.vue"
 import EmptyState from "../../components/EmptyState.vue"
+import SampleJourney from "../../components/SampleJourney.vue"
 import type { Order, ServiceSku } from "../../types/domain"
 import { showMessage } from "../../ui/feedback"
 import { navigation } from "../../platform/navigation"
@@ -18,6 +20,7 @@ const quantity=ref(1)
 const creating=ref(false)
 const loading=ref(true)
 const failed=ref(false)
+const demoMode=!isWeChatAuthMode()
 
 const selected=computed(()=>skus.value.find(i=>i.id===selectedId.value)??null)
 const totalAmount=computed(()=>(selected.value?.price||0)*quantity.value)
@@ -64,6 +67,13 @@ async function createOrder(){
 
 <template>
   <view class="safe-page game-page">
+    <SampleJourney
+      v-if="demoMode"
+      :step="1"
+      title="确认第一笔陪玩订单"
+      description="选套餐、数量和留言；创建后会进入订单详情，再完成模拟支付。"
+    />
+
     <view class="heading">
       <text class="eyebrow">QUICK MATCH</text>
       <text class="title">{{ gameName }}</text>

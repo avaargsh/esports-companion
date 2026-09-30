@@ -217,6 +217,9 @@ jobs:
           assert evidence["schemaVersion"] == 1
           assert evidence["scenarioId"] == "sample-product-01-on-demand-service"
           assert evidence["status"] == "PASS"
+          assert evidence["supply"]["skillCount"] >= 1
+          assert evidence["supply"]["offeringCount"] >= 2
+          assert not evidence["supply"]["providerDisplayName"].startswith("Demo Player")
           assert evidence["order"]["statePath"] == [
               "WAITING_PAYMENT",
               "MATCHING",

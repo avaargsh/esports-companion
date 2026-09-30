@@ -6,11 +6,13 @@ import { request } from "../../api/client"
 import { startOrderPayment } from "../../api/payment"
 import { connectOrderRealtime } from "../../api/realtime"
 import { getDemoIdentities } from "../../api/demo"
+import { isWeChatAuthMode } from "../../api/config"
 import OrderChat from "../../components/OrderChat.vue"
 import OrderProgress from "../../components/OrderProgress.vue"
 import PriceText from "../../components/PriceText.vue"
 import PrimaryActionBar from "../../components/PrimaryActionBar.vue"
 import StatusTag from "../../components/StatusTag.vue"
+import SampleJourney from "../../components/SampleJourney.vue"
 import type { Order, OrderEvent } from "../../types/domain"
 import { orderStatusMeta } from "../../utils/order"
 import { confirmAction, showSuccess, showMessage } from "../../ui/feedback"
@@ -26,6 +28,7 @@ const busy = ref(false)
 const rating = ref(5)
 const review = ref("")
 const reviewed = ref(false)
+const demoMode = !isWeChatAuthMode()
 const aftercareReason = ref("")
 const chatRefreshKey = ref(0)
 let socket: UniApp.SocketTask | null = null
@@ -33,6 +36,29 @@ let socket: UniApp.SocketTask | null = null
 const meta = computed(() =>
   order.value ? orderStatusMeta(order.value.status, "CUSTOMER") : null
 )
+
+const demoJourney = computed(() => {
+  const status = order.value?.status
+  if (status === "WAITING_PAYMENT") {
+    return { step: 2, title: "完成模拟支付", description: "支付后订单会进入公开匹配池；下一步到「我的」切换陪玩身份。" }
+  }
+  if (status === "MATCHING") {
+    return { step: 3, title: "切到陪玩端抢单", description: "底部进入「我的」→「陪玩工作台」→「抢单大厅」，接走这笔订单。" }
+  }
+  if (status === "ACCEPTED" || status === "IN_SERVICE") {
+    return { step: 4, title: "等待陪玩履约", description: "陪玩端会开始并完成服务；订单内聊天和状态会持续留痕。" }
+  }
+  if (status === "FINISH_REQUESTED") {
+    return { step: 5, title: "确认本次服务完成", description: "确认后平台执行结算，陪玩收入才会进入可用余额。" }
+  }
+  if (status === "SETTLED" && !reviewed.value) {
+    return { step: 6, title: "最后一步：提交评价", description: "评价会进入陪玩公开主页，形成下一次用户选择所依赖的信誉。" }
+  }
+  if (status === "SETTLED" && reviewed.value) {
+    return { step: 6, title: "陪玩交易闭环完成", description: "成交、履约、结算和评价均已完成；可点「服务大神」查看信誉回流。" }
+  }
+  return null
+})
 
 const visibleEvents = computed(() =>
   eventsExpanded.value || events.value.length <= 4
@@ -346,6 +372,13 @@ function openServicePlayer() {
     <view v-if="loading" class="loading">正在同步订单状态…</view>
 
     <template v-else-if="order && meta">
+      <SampleJourney
+        v-if="demoMode && demoJourney"
+        :step="demoJourney.step"
+        :title="demoJourney.title"
+        :description="demoJourney.description"
+      />
+
       <view v-if="!socketConnected" class="realtime offline">
         <view class="realtime-copy">
           <text class="dot"></text>

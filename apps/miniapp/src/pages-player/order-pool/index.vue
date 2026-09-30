@@ -3,7 +3,9 @@ import { computed, ref } from "vue"
 import { onPullDownRefresh, onShow } from "@dcloudio/uni-app"
 import { request } from "../../api/client"
 import { getDemoIdentities } from "../../api/demo"
+import { isWeChatAuthMode } from "../../api/config"
 import type { Game, Order } from "../../types/domain"
+import SampleJourney from "../../components/SampleJourney.vue"
 import { claimErrorMessage } from "../../utils/order"
 import { showSuccess, showMessage } from "../../ui/feedback"
 
@@ -15,6 +17,7 @@ const profile=ref<Player|null>(null)
 const playerUserId=ref("")
 const loading=ref(false)
 const claimingId=ref("")
+const demoMode=!isWeChatAuthMode()
 const bestIncome=computed(()=>orders.value.reduce((max,i)=>Math.max(max,i.player_amount),0))
 const canClaim=computed(()=>profile.value?.verification_status==="APPROVED"&&profile.value?.service_status==="AVAILABLE")
 const claimBlockReason=computed(()=>{
@@ -77,6 +80,15 @@ onPullDownRefresh(async()=>{await loadPool();uni.stopPullDownRefresh()})
       </view>
       <view class="live"><text class="pulse"></text>{{ canClaim ? "可接单" : "暂停" }}</view>
     </view>
+
+    <SampleJourney
+      v-if="demoMode"
+      :step="3"
+      role="陪玩端"
+      title="找到刚才支付的订单"
+      description="只展示与你已启用服务匹配的公开订单。点击「立即抢单」进入履约。"
+      dark
+    />
 
     <view v-if="claimBlockReason" class="guard">
       <text>{{ claimBlockReason }}</text>

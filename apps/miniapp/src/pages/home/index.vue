@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue"
 import { request } from "../../api/client"
+import { isWeChatAuthMode } from "../../api/config"
 import EmptyState from "../../components/EmptyState.vue"
 import PlayerCard from "../../components/PlayerCard.vue"
 import SectionHeader from "../../components/SectionHeader.vue"
+import SampleJourney from "../../components/SampleJourney.vue"
 import type { Game, PublicPlayer } from "../../types/domain"
 import { showMessage } from "../../ui/feedback"
 import { navigation } from "../../platform/navigation"
@@ -12,6 +14,7 @@ const games = ref<Game[]>([])
 const players = ref<PublicPlayer[]>([])
 const loading = ref(true)
 const failed = ref(false)
+const demoMode = !isWeChatAuthMode()
 
 async function loadHome() {
   loading.value = true
@@ -59,6 +62,13 @@ function quickOrder() {
       </view>
       <view class="shield">保</view>
     </view>
+
+    <SampleJourney
+      v-if="demoMode"
+      :step="1"
+      title="先从用户端下第一单"
+      description="选游戏和套餐，创建订单并完成模拟支付；支付后从「我的」切换到陪玩工作台。"
+    />
 
     <view class="hero">
       <view class="hero-glow one"></view>

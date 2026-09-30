@@ -3,7 +3,9 @@ import { computed, ref } from "vue"
 import { onShow } from "@dcloudio/uni-app"
 import { request } from "../../api/client"
 import { getDemoIdentities } from "../../api/demo"
+import { isWeChatAuthMode } from "../../api/config"
 import type { Order, Wallet } from "../../types/domain"
+import SampleJourney from "../../components/SampleJourney.vue"
 import OfferingPanel from "./OfferingPanel.vue"
 import SkillPanel from "./SkillPanel.vue"
 import { showMessage } from "../../ui/feedback"
@@ -15,6 +17,7 @@ const orders=ref<Order[]>([])
 const playerUserId=ref("")
 const busy=ref(false)
 const serviceSettingsOpen=ref(false)
+const demoMode=!isWeChatAuthMode()
 const online=computed(()=>profile.value?.service_status==="AVAILABLE")
 const verified=computed(()=>profile.value?.verification_status==="APPROVED")
 const acceptedCount=computed(()=>orders.value.filter(i=>i.status==="ACCEPTED").length)
@@ -60,6 +63,15 @@ onShow(()=>{void load()})
         {{ !verified ? "待认证" : online ? "正在接单" : "暂停接单" }}
       </view>
     </view>
+
+    <SampleJourney
+      v-if="demoMode"
+      :step="3"
+      role="陪玩端"
+      title="接走刚才由用户支付的订单"
+      description="进入「抢单大厅」，找到新订单并接单；接单后在服务详情里完成履约。"
+      dark
+    />
 
     <view class="money-card">
       <text class="money-label">可用收益</text>

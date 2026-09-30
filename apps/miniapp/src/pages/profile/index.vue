@@ -6,6 +6,7 @@ import { getDemoIdentities } from "../../api/demo"
 import { isWeChatAuthMode } from "../../api/config"
 import { showSuccess, showMessage } from "../../ui/feedback"
 import { navigation } from "../../platform/navigation"
+import SampleJourney from "../../components/SampleJourney.vue"
 
 type PlayerProfile={
   id:string
@@ -79,6 +80,13 @@ async function applyPlayer(){
       <text class="title">我的</text>
       <text class="subtitle">订单、身份和服务入口都在这里。</text>
     </view>
+
+    <SampleJourney
+      v-if="!wechatMode"
+      :step="2"
+      title="支付后，从这里切到陪玩端"
+      description="进入「陪玩工作台」→「抢单大厅」，找到刚才由用户支付的订单并接单。"
+    />
 
     <view class="identity-card">
       <view class="avatar">{{ (nickname||"微").slice(0,1).toUpperCase() }}</view>

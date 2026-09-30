@@ -37,6 +37,18 @@ The scenario is intentionally narrower than the repository's release smoke suite
 
 Disputes, refunds, designated booking, withdrawals and Admin operations remain part of the wider reference product, but are not required for Sample Product 01.
 
+## Reference esports product
+
+The sample now ships with demo data that looks like an actual companion marketplace rather than test fixtures:
+
+- three fictional companion profiles with distinct positioning and bios;
+- approved skills across the seeded games;
+- two service shapes per game: light companion play and coaching/rank practice;
+- provider-specific offering copy;
+- a demo-only journey guide that disappears in secure WeChat mode.
+
+This matters because Sample Product 01 is meant to demonstrate both sides of a marketplace: customer demand **and** credible provider supply.
+
 ## Human demo path
 
 Start the development stack and Mini Program:
@@ -76,7 +88,11 @@ Workbench shows settled income
 Public provider profile shows the new review
 ```
 
-Demo mode uses seeded identities and mock payment only. Real WeChat auth/payment remain staging/production acceptance boundaries.
+Demo mode uses seeded identities and mock payment only. The Mini Program shows a six-step **样板体验** guide in demo mode to make customer/provider role switching explicit. That guide is not rendered in secure WeChat mode.
+
+For a timed walkthrough with talking points, use [Demo Script](demo-script.md).
+
+Real WeChat auth/payment remain staging/production acceptance boundaries.
 
 ## Automated acceptance
 
@@ -95,14 +111,15 @@ python3 scripts/sample_product_01.py \
 
 The acceptance runner verifies:
 
-1. the order follows the expected state path;
-2. a paid pooled order is visible to the provider;
-3. the provider can claim exactly the order being tested;
-4. fulfillment reaches `SETTLED` only after customer confirmation;
-5. provider wallet available balance increases by exactly `player_amount`;
-6. the corresponding `PROVIDER_INCOME` ledger entry exists;
-7. the submitted review becomes visible on the public provider profile;
-8. the append-only order event trail covers the expected state path in order.
+1. the provider storefront has a real display name, bio, verified skills and multiple offerings;
+2. the order follows the expected state path;
+3. a paid pooled order is visible to the provider;
+4. the provider can claim exactly the order being tested;
+5. fulfillment reaches `SETTLED` only after customer confirmation;
+6. provider wallet available balance increases by exactly `player_amount`;
+7. the corresponding `PROVIDER_INCOME` ledger entry exists;
+8. the submitted review becomes visible on the public provider profile;
+9. the append-only order event trail covers the expected state path in order.
 
 CI uploads the resulting evidence JSON for each commit.
 
@@ -111,7 +128,7 @@ CI uploads the resulting evidence JSON for each commit.
 The generated evidence contains:
 
 - scenario ID and PASS status;
-- actors and selected catalog item;
+- actors, provider storefront snapshot and selected catalog item;
 - order ID and full state path;
 - total/provider/platform money split;
 - provider wallet before/after and ledger entry;

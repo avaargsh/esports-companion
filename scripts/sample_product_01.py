@@ -149,6 +149,27 @@ def run(base_url, evidence_path=None):
     expect_status(status, 200, "provider profile")
     provider_id = player_profile["id"]
 
+    status, storefront = request(
+        base_url,
+        "GET",
+        f"/api/v1/players/{provider_id}",
+    )
+    expect_status(status, 200, "provider storefront")
+    if not storefront.get("bio"):
+        raise ScenarioError("provider storefront: bio is missing")
+    if not storefront.get("skills"):
+        raise ScenarioError("provider storefront: verified skills are missing")
+    if len(storefront.get("offerings", [])) < 2:
+        raise ScenarioError("provider storefront: expected multiple service offerings")
+    if storefront.get("display_name", "").startswith("Demo Player"):
+        raise ScenarioError("provider storefront: placeholder display name leaked")
+    passed(
+        "provider storefront ready",
+        displayName=storefront["display_name"],
+        skillCount=len(storefront["skills"]),
+        offeringCount=len(storefront["offerings"]),
+    )
+
     status, wallet_before = request(
         base_url,
         "GET",
@@ -372,6 +393,12 @@ def run(base_url, evidence_path=None):
             "customerUserId": customer_id,
             "providerUserId": player_user_id,
             "providerId": provider_id,
+        },
+        "supply": {
+            "providerDisplayName": storefront["display_name"],
+            "providerBio": storefront["bio"],
+            "skillCount": len(storefront["skills"]),
+            "offeringCount": len(storefront["offerings"]),
         },
         "catalog": {
             "gameId": game["id"],
