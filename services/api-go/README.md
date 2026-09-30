@@ -84,7 +84,8 @@ The loader accepts the current Python-style
 - `GET /api/v1/players/{player_id}`
 
 The M1 catalog/marketplace routes and M2 auth/session routes are compatibility
-targets. FastAPI remains the reference implementation until the migration
+targets. M2.2 also carries the structured authorization/authority kernel used by
+the current Python main line so M3 order writes do not fork the security model. FastAPI remains the reference implementation until the migration
 cutover. Auth sessions intentionally share the existing PostgreSQL tables and
 HS256 token contract so FastAPI- and Go-issued sessions remain interoperable.
 
@@ -112,6 +113,7 @@ cmd/api/                 process entrypoint
 internal/app/            dependency wiring + HTTP server
 internal/config/         env/files + fail-closed validation
 internal/modules/        vertical business modules
+  authz/                  structured policy, authority/admission + audit
 internal/ports/          Auth/Payment/Refund external contracts
 internal/platform/       pgx, redis, metrics, HTTP, state machine
 ```
