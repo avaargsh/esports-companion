@@ -18,6 +18,7 @@ type Config struct {
 	CommitSHA                    string
 	LogLevel                     string
 	HTTPAddr                     string
+	WorkerMetricsAddr            string
 	DatabaseURL                  string
 	RedisURL                     string
 	DatabaseMaxConns             int32
@@ -52,6 +53,7 @@ type Config struct {
 	RefundReconcileScanInterval  time.Duration
 	RefundReconcileMinAge        time.Duration
 	RefundReconcileBatchSize     int
+	OperationalMetricsScanInterval time.Duration
 	ShutdownTimeout              time.Duration
 }
 
@@ -177,6 +179,10 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	operationalMetricsScanSeconds, err := envInt("OPERATIONAL_METRICS_SCAN_SECONDS", 15)
+	if err != nil {
+		return Config{}, err
+	}
 	shutdownSeconds, err := envInt("SHUTDOWN_TIMEOUT_SECONDS", 15)
 	if err != nil {
 		return Config{}, err
@@ -188,6 +194,7 @@ func Load() (Config, error) {
 		CommitSHA:                    env("COMMIT_SHA", "dev"),
 		LogLevel:                     strings.ToUpper(env("LOG_LEVEL", "INFO")),
 		HTTPAddr:                     env("API_GO_HTTP_ADDR", ":8080"),
+		WorkerMetricsAddr:            env("WORKER_METRICS_ADDR", ":9091"),
 		DatabaseURL:                  databaseURL,
 		RedisURL:                     redisURL,
 		DatabaseMaxConns:             int32(maxConns),
@@ -222,6 +229,7 @@ func Load() (Config, error) {
 		RefundReconcileScanInterval:  time.Duration(refundReconcileScanSeconds) * time.Second,
 		RefundReconcileMinAge:        time.Duration(refundReconcileMinAgeSeconds) * time.Second,
 		RefundReconcileBatchSize:     refundReconcileBatchSize,
+		OperationalMetricsScanInterval: time.Duration(operationalMetricsScanSeconds) * time.Second,
 		ShutdownTimeout:              time.Duration(shutdownSeconds) * time.Second,
 	}
 
@@ -290,6 +298,12 @@ func (c Config) Validate() error {
 	}
 	if c.RefundReconcileBatchSize <= 0 || c.RefundReconcileBatchSize > 500 {
 		return errors.New("REFUND_RECONCILE_BATCH_SIZE_INVALID")
+	}
+	if strings.TrimSpace(c.WorkerMetricsAddr) == "" {
+		return errors.New("WORKER_METRICS_ADDR_REQUIRED")
+	}
+	if c.OperationalMetricsScanInterval <= 0 {
+		return errors.New("OPERATIONAL_METRICS_SCAN_MUST_BE_POSITIVE")
 	}
 	if c.ShutdownTimeout <= 0 {
 		return errors.New("SHUTDOWN_TIMEOUT_INVALID")
