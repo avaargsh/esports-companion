@@ -163,6 +163,83 @@ def test_admin_withdrawal_completion_requires_real_payout_reference():
             assert read_audit["policyVersion"] == "resource-authz.v2"
 
 
+def test_admin_withdrawal_reject_binds_request_and_session_evidence():
+    with TestClient(app) as client:
+        demo = client.get("/api/v1/dev/bootstrap").json()
+        player_user_id = demo["playerUserId"]
+        platform_login = client.post(
+            "/api/v1/auth/wechat/login",
+            json={"code": "demo-platform"},
+        )
+        assert platform_login.status_code == 200
+        admin_user_id = platform_login.json()["userId"]
+        access_token = platform_login.json()["accessToken"]
+        sessions = client.get(
+            "/api/v1/auth/sessions",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        session_id = next(
+            item["sessionId"] for item in sessions.json() if item["current"]
+        )
+
+        with SessionLocal() as db:
+            wallet = db.scalar(
+                select(Wallet).where(Wallet.user_id == uuid.UUID(player_user_id))
+            )
+            if wallet is None:
+                wallet = Wallet(
+                    user_id=uuid.UUID(player_user_id),
+                    available_balance=10000,
+                    frozen_balance=0,
+                    version=0,
+                )
+                db.add(wallet)
+            else:
+                wallet.available_balance = 10000
+                wallet.frozen_balance = 0
+            db.commit()
+
+        requested = client.post(
+            "/api/v1/withdrawals",
+            headers={
+                "X-User-Id": player_user_id,
+                "Idempotency-Key": f"reject-withdrawal-{uuid.uuid4()}",
+            },
+            json={"amount": 1200},
+        )
+        assert requested.status_code == 201
+        withdrawal_id = requested.json()["id"]
+
+        reject_request_id = f"withdrawal-reject-{uuid.uuid4().hex}"
+        rejected = client.post(
+            f"/api/v1/admin/withdrawals/{withdrawal_id}/reject",
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "X-Request-Id": reject_request_id,
+            },
+        )
+        assert rejected.status_code == 200
+        assert rejected.json()["status"] == "REJECTED"
+
+        with SessionLocal() as db:
+            audit = db.scalar(
+                select(OutboxEvent).where(
+                    OutboxEvent.aggregate_type == "AUDIT",
+                    OutboxEvent.aggregate_id == f"WITHDRAWAL:{withdrawal_id}",
+                    OutboxEvent.event_type == "AUTHORIZATION_DECISION",
+                    OutboxEvent.payload_json["action"].as_string()
+                    == "WITHDRAWAL_REJECT",
+                )
+            )
+            assert audit is not None
+            assert audit.payload_json["actorUserId"] == admin_user_id
+            assert audit.payload_json["sessionId"] == session_id
+            assert audit.payload_json["requestId"] == reject_request_id
+            assert audit.payload_json["businessEvidenceRef"] == (
+                f"WITHDRAWAL:{withdrawal_id}"
+            )
+
+
 def test_admin_withdrawal_evidence_returns_404_for_unknown_id():
     with TestClient(app) as client:
         client.get("/api/v1/dev/bootstrap")
