@@ -23,6 +23,7 @@ import (
 	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/offerings"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/orders"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/payments"
+	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/refunds"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/platform/httpx"
 	metricsx "github.com/avaargsh/esports-companion/services/api-go/internal/platform/metrics"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/platform/postgresx"
@@ -108,6 +109,18 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		cfg.IsSecureDeployment(),
 	)
 
+	refundProvider, err := refunds.ProviderFromConfig(cfg)
+	if err != nil {
+		_ = redisClient.Close()
+		pg.Close()
+		return nil, err
+	}
+	refundsHandler := refunds.NewHandler(
+		refunds.NewService(refunds.NewRepository(pg), refundProvider),
+		authService,
+		cfg.IsSecureDeployment(),
+	)
+
 	router.Route("/api/v1", func(r chi.Router) {
 		r.Get("/runtime", func(w http.ResponseWriter, _ *http.Request) {
 			payload, _ := json.Marshal(map[string]string{
@@ -123,6 +136,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		offeringsHandler.Register(r)
 		ordersHandler.Register(r)
 		paymentsHandler.Register(r)
+		refundsHandler.Register(r)
 	})
 
 	server := &http.Server{
