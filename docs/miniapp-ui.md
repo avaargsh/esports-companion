@@ -44,11 +44,11 @@ The goal is not to clone every WeUI component. The starter keeps a small semanti
 
 ## Design tokens
 
-Global tokens live in:
+Color tokens come from the canonical `apps/miniapp/theme.json` source and are generated into `src/styles/theme.css`. Layout, spacing, radius, safe-area and motion rules remain in `src/styles/foundation.css`.
 
-`apps/miniapp/src/styles/foundation.css`
+See [Mini Program Theme](miniapp-theme.md) for the re-branding workflow and CI contract.
 
-The existing product variables remain stable:
+The semantic variables remain stable:
 
 - `--brand`, `--brand-soft`
 - `--ink`, `--muted`
@@ -263,6 +263,7 @@ For a new Mini Program page:
 ```bash
 cd apps/miniapp
 npm install
+npm run theme:check
 npm run ui-check
 npm run type-check
 npm run build:mp-weixin
@@ -270,3 +271,5 @@ npm run build:mp-weixin:staging
 ```
 
 The repository CI already runs these checks for pull requests.
+
+For a visual primitive reference, open the developer-only `/pages-lab/ui/index` Showcase directly in WeChat Developer Tools. It is intentionally excluded from product navigation.
