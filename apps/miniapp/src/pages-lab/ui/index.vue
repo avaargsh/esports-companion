@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import EmptyState from "../../components/EmptyState.vue"
 import UiBadge from "../../components/ui/UiBadge.vue"
 import UiButton from "../../components/ui/UiButton.vue"
 import UiCell from "../../components/ui/UiCell.vue"
@@ -45,6 +46,8 @@ async function demoConfirm() {
         <UiButton variant="plain" size="sm" @click="showMessage('Plain action')">
           Plain action
         </UiButton>
+        <UiButton block disabled>Disabled</UiButton>
+        <UiButton block loading>Loading</UiButton>
       </view>
     </view>
 
@@ -72,6 +75,17 @@ async function demoConfirm() {
         <view class="divider"></view>
         <UiCell title="只读信息" value="Value" />
       </view>
+    </view>
+
+    <view class="section">
+      <text class="section-title">Page states</text>
+      <EmptyState
+        title="这里还没有内容"
+        description="空态是正式产品状态，需要解释原因并给出下一步。"
+        symbol="·"
+        action="示例操作"
+        @action="showMessage('Empty-state action')"
+      />
     </view>
 
     <view class="section">
