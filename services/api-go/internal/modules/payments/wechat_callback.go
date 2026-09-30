@@ -23,13 +23,13 @@ import (
 const callbackTimestampSkew = 300 * time.Second
 
 type WeChatCallbackVerifier struct {
-	apiV3Key          []byte
+	apiV3Key           []byte
 	platformCertSerial string
-	platformPublicKey *rsa.PublicKey
-	expectedAppID     string
-	expectedMchID     string
-	now               func() time.Time
-	maxTimestampSkew  time.Duration
+	platformPublicKey  *rsa.PublicKey
+	expectedAppID      string
+	expectedMchID      string
+	now                func() time.Time
+	maxTimestampSkew   time.Duration
 }
 
 func NewWeChatCallbackVerifier(cfg config.Config) (*WeChatCallbackVerifier, error) {
