@@ -600,7 +600,18 @@ func appendOrderEvidence(
 		)
 		VALUES (
 			$1::uuid, $2::uuid, $3, $4, $5,
-			$6, NULLIF($7, ''), $8::json, clock_timestamp()
+			$6, NULLIF($7, ''), $8::json,
+			GREATEST(
+				clock_timestamp(),
+				COALESCE(
+					(
+						SELECT max(created_at) + interval '1 microsecond'
+						FROM order_events
+						WHERE order_id = $2::uuid
+					),
+					'-infinity'::timestamptz
+				)
+			)
 		)
 	`,
 		eventID,
@@ -637,7 +648,18 @@ func appendOrderEvidence(
 		)
 		VALUES (
 			$1::uuid, 'ORDER', $2, $3, $4::json, 'PENDING',
-			clock_timestamp()
+			GREATEST(
+				clock_timestamp(),
+				COALESCE(
+					(
+						SELECT max(created_at) + interval '1 microsecond'
+						FROM outbox_events
+						WHERE aggregate_type = 'ORDER'
+						  AND aggregate_id = $2
+					),
+					'-infinity'::timestamptz
+				)
+			)
 		)
 	`, outboxID, orderID, eventType, string(encodedOutboxPayload)); err != nil {
 		return fmt.Errorf("insert %s outbox event: %w", eventType, err)
