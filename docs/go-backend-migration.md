@@ -189,9 +189,24 @@ The read slice is validated by writing the transaction through FastAPI against
 the shared database, then requiring the Go runtime to produce the same HTTP
 contract and authorization outcome.
 
-Then port the mutation surface:
+Then port the mutation surface in bounded slices:
 
-- order create + designated provider validation;
+#### M3.1 - Order create
+
+Go owns only `POST /api/v1/orders`:
+
+- pooled SKU order creation;
+- designated provider offering validation;
+- cannot order one's own offering;
+- price/platform-fee projection compatibility;
+- atomic `Order + ORDER_CREATED OrderEvent + ORDER_CREATED OutboxEvent`.
+
+Acceptance requires FastAPI to read Go-created orders/evidence from the shared
+database with identical projections. Direct PostgreSQL assertions prove that a
+successful create emits exactly one order event and one pending outbox event.
+
+#### M3.2+ - Dispatch / lifecycle
+
 - order state machine;
 - OrderEvent + Outbox append;
 - atomic claim;
