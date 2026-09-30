@@ -1,4 +1,4 @@
-.PHONY: up down logs migrate seed test smoke verify miniapp-build miniapp-staging-build admin-build prod-build prod-up prod-down prod-logs prod-backup prod-restore-drill staging-preflight staging-build staging-up staging-down staging-logs staging-check staging-wechat-evidence
+.PHONY: up down logs migrate seed test smoke verify miniapp-build miniapp-staging-build admin-build prod-build prod-up prod-down prod-logs prod-backup prod-restore-drill staging-preflight staging-build staging-up staging-down staging-logs staging-check staging-wechat-evidence staging-withdrawal-acceptance
 
 up:
 	docker compose up --build -d
@@ -79,3 +79,11 @@ staging-check:
 staging-wechat-evidence:
 	@test -n "$(ORDER_ID)" || (echo "usage: make staging-wechat-evidence ORDER_ID=<uuid> EXPECT=payment|refund" && exit 64)
 	@docker compose --env-file .env.staging -f deploy/compose/production.yml exec -T api 		python -m app.tools.wechat_acceptance --order-id "$(ORDER_ID)" --expect "$(or $(EXPECT),payment)"
+
+
+staging-withdrawal-acceptance:
+	@test -n "$(WITHDRAWAL_ID)" || (echo "usage: make staging-withdrawal-acceptance WITHDRAWAL_ID=<uuid> PAYOUT_REF=<external-reference>" && exit 64)
+	@docker compose --env-file .env.staging -f deploy/compose/production.yml exec -T api \
+		python -m app.tools.withdrawal_acceptance \
+		--withdrawal-id "$(WITHDRAWAL_ID)" \
+		$(if $(PAYOUT_REF),--expected-payout-ref "$(PAYOUT_REF)",)
