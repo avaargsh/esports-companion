@@ -215,6 +215,72 @@ async def assert_no_event(ws: Any, event_id: str, timeout: float = 0.6) -> None:
             )
 
 
+async def multi_instance_delivery_case(
+    go_base: str,
+    go_base_2: str,
+    order_id: str,
+    customer_id: str,
+    player_id: str,
+) -> None:
+    redis_client = redis.Redis.from_url(
+        os.environ["REDIS_URL"],
+        decode_responses=True,
+    )
+    order_channel = f"realtime:order:{order_id}"
+
+    async with (
+        websockets.connect(ws_url(go_base, customer_id), open_timeout=5) as customer,
+        websockets.connect(ws_url(go_base_2, player_id), open_timeout=5) as player,
+    ):
+        await customer.send(
+            json.dumps({
+                "type": "subscribe",
+                "channels": [f"order:{order_id}"],
+            })
+        )
+        await player.send(
+            json.dumps({
+                "type": "subscribe",
+                "channels": [f"order:{order_id}"],
+            })
+        )
+        customer_ack = await receive_type(customer, "subscribed")
+        player_ack = await receive_type(player, "subscribed")
+        if customer_ack["channels"] != [f"order:{order_id}"]:
+            raise AssertionError(f"instance-1 customer ack={customer_ack!r}")
+        if player_ack["channels"] != [f"order:{order_id}"]:
+            raise AssertionError(f"instance-2 player ack={player_ack!r}")
+
+        event_id = "realtime-multi-instance-" + uuid.uuid4().hex
+        payload = {
+            "type": "order.status_changed",
+            "eventId": event_id,
+            "eventType": "REALTIME_MULTI_INSTANCE",
+            "orderId": order_id,
+            "status": "ACCEPTED",
+        }
+        redis_client.publish(order_channel, json.dumps(payload))
+
+        customer_event = await receive_event(customer, event_id)
+        player_event = await receive_event(player, event_id)
+        if customer_event != payload:
+            raise AssertionError(
+                f"instance-1 customer event={customer_event!r}"
+            )
+        if player_event != payload:
+            raise AssertionError(
+                f"instance-2 player event={player_event!r}"
+            )
+
+        # M5.1 is intentionally at-least-once. Publishing the same durable
+        # eventId again must not duplicate delivery on either local socket.
+        redis_client.publish(order_channel, json.dumps(payload))
+        await assert_no_event(customer, event_id)
+        await assert_no_event(player, event_id)
+
+    redis_client.close()
+
+
 async def dynamic_delivery_case(
     go_base: str,
     order_id: str,
@@ -424,6 +490,15 @@ async def run(args: argparse.Namespace) -> None:
 
     print("PASS FastAPI/Go WebSocket subscription authorization parity")
 
+    await multi_instance_delivery_case(
+        args.go_base,
+        args.go_base_2,
+        order_id,
+        customer_id,
+        player_user_id,
+    )
+    print("PASS multi-instance Redis fanout + eventId dedupe")
+
     await dynamic_delivery_case(
         args.go_base,
         order_id,
@@ -438,6 +513,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--python-base", default="http://127.0.0.1:8000")
     parser.add_argument("--go-base", default="http://127.0.0.1:8080")
+    parser.add_argument("--go-base-2", default="http://127.0.0.1:8081")
     args = parser.parse_args()
     asyncio.run(run(args))
     print("M5.2 realtime WebSocket parity PASS")
