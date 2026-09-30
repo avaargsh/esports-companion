@@ -134,3 +134,33 @@ func TestOutboxWorkerConfigMustBePositive(t *testing.T) {
 		t.Fatalf("expected outbox batch validation, got %v", err)
 	}
 }
+
+func TestOrderTimeoutWorkerConfigMustBePositive(t *testing.T) {
+	t.Setenv("APP_ENV", "dev")
+	t.Setenv("FINISH_CONFIRM_TIMEOUT_SECONDS", "0")
+	_, err := Load()
+	if err == nil || !strings.Contains(err.Error(), "FINISH_CONFIRM_TIMEOUT_MUST_BE_POSITIVE") {
+		t.Fatalf("expected finish confirm timeout validation, got %v", err)
+	}
+
+	t.Setenv("FINISH_CONFIRM_TIMEOUT_SECONDS", "1800")
+	t.Setenv("ASSIGNMENT_START_TIMEOUT_SECONDS", "0")
+	_, err = Load()
+	if err == nil || !strings.Contains(err.Error(), "ASSIGNMENT_START_TIMEOUT_MUST_BE_POSITIVE") {
+		t.Fatalf("expected assignment start timeout validation, got %v", err)
+	}
+
+	t.Setenv("ASSIGNMENT_START_TIMEOUT_SECONDS", "600")
+	t.Setenv("ORDER_TIMEOUT_SCAN_SECONDS", "0")
+	_, err = Load()
+	if err == nil || !strings.Contains(err.Error(), "ORDER_TIMEOUT_SCAN_MUST_BE_POSITIVE") {
+		t.Fatalf("expected order timeout scan validation, got %v", err)
+	}
+
+	t.Setenv("ORDER_TIMEOUT_SCAN_SECONDS", "30")
+	t.Setenv("ORDER_TIMEOUT_BATCH_SIZE", "501")
+	_, err = Load()
+	if err == nil || !strings.Contains(err.Error(), "ORDER_TIMEOUT_BATCH_SIZE_INVALID") {
+		t.Fatalf("expected order timeout batch validation, got %v", err)
+	}
+}
