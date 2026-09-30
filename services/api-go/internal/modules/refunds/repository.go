@@ -290,6 +290,446 @@ func (r Repository) applySubmitResult(
 	}
 }
 
+func (r Repository) Reconcile(
+	ctx context.Context,
+	refundID string,
+	provider ports.RefundProvider,
+) (Refund, error) {
+	if strings.ToUpper(strings.TrimSpace(provider.Name())) == "MANUAL" {
+		return Refund{}, ErrRefundProviderQueryUnsupported
+	}
+	snapshot, done, err := r.prepareReconcile(ctx, refundID, provider.Name())
+	if err != nil {
+		return Refund{}, err
+	}
+	if done {
+		return snapshot.Refund, nil
+	}
+
+	intent, err := provider.QueryRefund(
+		ctx,
+		valueOrEmpty(snapshot.Refund.OutRefundNo),
+	)
+	if err != nil {
+		return Refund{}, err
+	}
+	return r.applyReconcileResult(
+		ctx,
+		refundID,
+		provider.Name(),
+		intent,
+	)
+}
+
+func (r Repository) prepareReconcile(
+	ctx context.Context,
+	refundID string,
+	providerName string,
+) (submitSnapshot, bool, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return submitSnapshot{}, false, fmt.Errorf("begin refund reconcile: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	refund, _, err := scanRefundWithRaw(tx.QueryRow(ctx, `
+		SELECT
+			id::text,
+			order_id::text,
+			dispute_id::text,
+			amount,
+			status,
+			provider,
+			out_refund_no,
+			provider_refund_id,
+			completed_at,
+			raw_payload
+		FROM refunds
+		WHERE id = $1::uuid
+		FOR UPDATE
+	`, refundID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return submitSnapshot{}, false, ErrRefundNotFound
+	}
+	if err != nil {
+		return submitSnapshot{}, false, fmt.Errorf("lock reconcile refund: %w", err)
+	}
+	if refund.Status == "COMPLETED" {
+		return submitSnapshot{Refund: refund}, true, nil
+	}
+	switch refund.Status {
+	case "SUBMITTING", "PROCESSING", "CLOSED", "ABNORMAL":
+	default:
+		return submitSnapshot{}, false, ErrRefundNotReconcilable
+	}
+
+	providerUpper := strings.ToUpper(strings.TrimSpace(providerName))
+	if refund.Provider != providerUpper {
+		return submitSnapshot{}, false, ErrRefundProviderMismatch
+	}
+	if refund.OutRefundNo == nil || strings.TrimSpace(*refund.OutRefundNo) == "" {
+		return submitSnapshot{}, false, ErrRefundOutRefundNoMissing
+	}
+
+	var (
+		orderNo     string
+		orderStatus string
+		totalAmount int
+	)
+	if err := tx.QueryRow(ctx, `
+		SELECT order_no, status, total_amount
+		FROM orders
+		WHERE id = $1::uuid
+		FOR UPDATE
+	`, refund.OrderID).Scan(
+		&orderNo,
+		&orderStatus,
+		&totalAmount,
+	); errors.Is(err, pgx.ErrNoRows) {
+		return submitSnapshot{}, false, ErrOrderNotRefunding
+	} else if err != nil {
+		return submitSnapshot{}, false, fmt.Errorf("lock reconcile order: %w", err)
+	}
+	if orderStatus != string(orders.StatusRefunding) {
+		return submitSnapshot{}, false, ErrOrderNotRefunding
+	}
+
+	var paymentTxnID string
+	if err := tx.QueryRow(ctx, `
+		SELECT provider_txn_id
+		FROM payment_transactions
+		WHERE order_id = $1::uuid
+		  AND provider = $2
+		  AND status = 'SUCCESS'
+		ORDER BY created_at DESC
+		LIMIT 1
+	`, refund.OrderID, providerUpper).Scan(&paymentTxnID); errors.Is(err, pgx.ErrNoRows) {
+		return submitSnapshot{}, false, ErrSuccessfulPaymentNotFound
+	} else if err != nil {
+		return submitSnapshot{}, false, fmt.Errorf("load reconcile payment: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return submitSnapshot{}, false, fmt.Errorf("commit refund reconcile snapshot: %w", err)
+	}
+	return submitSnapshot{
+		Refund:       refund,
+		OrderNo:      orderNo,
+		TotalAmount:  totalAmount,
+		PaymentTxnID: paymentTxnID,
+	}, false, nil
+}
+
+func (r Repository) applyReconcileResult(
+	ctx context.Context,
+	refundID string,
+	expectedProvider string,
+	intent ports.RefundIntent,
+) (Refund, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return Refund{}, fmt.Errorf("begin reconcile apply: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	refund, rawPayload, err := scanRefundWithRaw(tx.QueryRow(ctx, `
+		SELECT
+			id::text,
+			order_id::text,
+			dispute_id::text,
+			amount,
+			status,
+			provider,
+			out_refund_no,
+			provider_refund_id,
+			completed_at,
+			raw_payload
+		FROM refunds
+		WHERE id = $1::uuid
+		FOR UPDATE
+	`, refundID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Refund{}, ErrRefundNotFound
+	}
+	if err != nil {
+		return Refund{}, fmt.Errorf("relock reconcile refund: %w", err)
+	}
+	if refund.Status == "COMPLETED" {
+		return refund, nil
+	}
+
+	var (
+		orderNo     string
+		totalAmount int
+	)
+	if err := tx.QueryRow(ctx, `
+		SELECT order_no, total_amount
+		FROM orders
+		WHERE id = $1::uuid
+		FOR UPDATE
+	`, refund.OrderID).Scan(
+		&orderNo,
+		&totalAmount,
+	); errors.Is(err, pgx.ErrNoRows) {
+		return Refund{}, ErrRefundOrderNotFound
+	} else if err != nil {
+		return Refund{}, fmt.Errorf("relock reconcile order: %w", err)
+	}
+
+	providerUpper := strings.ToUpper(strings.TrimSpace(expectedProvider))
+	var paymentTxnID string
+	if err := tx.QueryRow(ctx, `
+		SELECT provider_txn_id
+		FROM payment_transactions
+		WHERE order_id = $1::uuid
+		  AND provider = $2
+		  AND status = 'SUCCESS'
+		ORDER BY created_at DESC
+		LIMIT 1
+	`, refund.OrderID, providerUpper).Scan(&paymentTxnID); errors.Is(err, pgx.ErrNoRows) {
+		return Refund{}, ErrSuccessfulPaymentNotFound
+	} else if err != nil {
+		return Refund{}, fmt.Errorf("reload reconcile payment: %w", err)
+	}
+
+	if strings.ToUpper(strings.TrimSpace(intent.Provider)) != providerUpper {
+		return Refund{}, ErrRefundProviderMismatch
+	}
+	if refund.ProviderRefundID != nil &&
+		strings.TrimSpace(intent.ProviderRefundID) != "" &&
+		*refund.ProviderRefundID != intent.ProviderRefundID {
+		return Refund{}, ErrRefundProviderIDMismatch
+	}
+	if refund.OutRefundNo == nil ||
+		refundString(intent.RawPayload["out_refund_no"]) != *refund.OutRefundNo {
+		return Refund{}, ErrRefundQueryOutRefundNoMismatch
+	}
+	if refundString(intent.RawPayload["out_trade_no"]) != orderNo {
+		return Refund{}, ErrRefundQueryOrderNoMismatch
+	}
+	if refundString(intent.RawPayload["transaction_id"]) != paymentTxnID {
+		return Refund{}, ErrRefundQueryPaymentTxnMismatch
+	}
+	amount, ok := intent.RawPayload["amount"].(map[string]any)
+	if !ok {
+		return Refund{}, ErrRefundQueryAmountMismatch
+	}
+	queryTotal, ok := refundJSONInt(amount["total"])
+	if !ok || queryTotal != totalAmount {
+		return Refund{}, ErrRefundQueryAmountMismatch
+	}
+	queryRefund, ok := refundJSONInt(amount["refund"])
+	if !ok || queryRefund != refund.Amount {
+		return Refund{}, ErrRefundQueryAmountMismatch
+	}
+
+	merged := map[string]any{}
+	if len(rawPayload) > 0 {
+		if err := json.Unmarshal(rawPayload, &merged); err != nil {
+			return Refund{}, fmt.Errorf("decode reconcile payload: %w", err)
+		}
+	}
+	merged["query"] = intent.RawPayload
+	encoded, err := json.Marshal(merged)
+	if err != nil {
+		return Refund{}, err
+	}
+
+	var providerRefundID any
+	if strings.TrimSpace(intent.ProviderRefundID) != "" {
+		providerRefundID = intent.ProviderRefundID
+		refund.ProviderRefundID = &intent.ProviderRefundID
+	}
+
+	if intent.Status == "SUCCESS" {
+		return r.completeInTx(
+			ctx,
+			tx,
+			refund,
+			providerUpper,
+			intent.ProviderRefundID,
+			encoded,
+		)
+	}
+	switch intent.Status {
+	case "PROCESSING", "CLOSED", "ABNORMAL":
+	default:
+		return Refund{}, ErrWeChatRefundStatusInvalid
+	}
+	var failureReason any
+	if intent.Status == "CLOSED" || intent.Status == "ABNORMAL" {
+		failureReason = "PROVIDER_REFUND_" + intent.Status
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE refunds
+		SET provider = $2,
+		    provider_refund_id = $3,
+		    raw_payload = $4::json,
+		    status = $5,
+		    failure_reason = $6,
+		    updated_at = clock_timestamp()
+		WHERE id = $1::uuid
+	`,
+		refund.ID,
+		providerUpper,
+		providerRefundID,
+		string(encoded),
+		intent.Status,
+		failureReason,
+	); err != nil {
+		return Refund{}, fmt.Errorf("apply refund query result: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Refund{}, fmt.Errorf("commit refund query result: %w", err)
+	}
+	refund.Provider = providerUpper
+	refund.Status = intent.Status
+	return refund, nil
+}
+
+func (r Repository) ApplyVerifiedCallback(
+	ctx context.Context,
+	callback VerifiedRefundCallback,
+) (Refund, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return Refund{}, fmt.Errorf("begin refund callback apply: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	refund, rawPayload, err := scanRefundWithRaw(tx.QueryRow(ctx, `
+		SELECT
+			id::text,
+			order_id::text,
+			dispute_id::text,
+			amount,
+			status,
+			provider,
+			out_refund_no,
+			provider_refund_id,
+			completed_at,
+			raw_payload
+		FROM refunds
+		WHERE out_refund_no = $1
+		FOR UPDATE
+	`, callback.OutRefundNo))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Refund{}, ErrRefundNotFound
+	}
+	if err != nil {
+		return Refund{}, fmt.Errorf("lock callback refund: %w", err)
+	}
+	if refund.Provider != "WECHAT" && refund.Provider != "MANUAL" {
+		return Refund{}, ErrRefundProviderMismatch
+	}
+
+	var (
+		orderNo     string
+		totalAmount int
+	)
+	if err := tx.QueryRow(ctx, `
+		SELECT order_no, total_amount
+		FROM orders
+		WHERE id = $1::uuid
+		FOR UPDATE
+	`, refund.OrderID).Scan(
+		&orderNo,
+		&totalAmount,
+	); errors.Is(err, pgx.ErrNoRows) {
+		return Refund{}, ErrRefundOrderNotFound
+	} else if err != nil {
+		return Refund{}, fmt.Errorf("lock callback order: %w", err)
+	}
+	if orderNo != callback.OutTradeNo {
+		return Refund{}, ErrRefundOrderNoMismatch
+	}
+	if totalAmount != callback.TotalAmount {
+		return Refund{}, ErrRefundTotalAmountMismatch
+	}
+	if refund.Amount != callback.RefundAmount {
+		return Refund{}, ErrRefundAmountMismatch
+	}
+
+	var paymentTxnID string
+	if err := tx.QueryRow(ctx, `
+		SELECT provider_txn_id
+		FROM payment_transactions
+		WHERE order_id = $1::uuid
+		  AND provider = 'WECHAT'
+		  AND status = 'SUCCESS'
+		ORDER BY created_at DESC
+		LIMIT 1
+	`, refund.OrderID).Scan(&paymentTxnID); errors.Is(err, pgx.ErrNoRows) {
+		return Refund{}, ErrRefundPaymentTxnMismatch
+	} else if err != nil {
+		return Refund{}, fmt.Errorf("load callback payment: %w", err)
+	}
+	if paymentTxnID != callback.ProviderTxnID {
+		return Refund{}, ErrRefundPaymentTxnMismatch
+	}
+	if refund.ProviderRefundID != nil &&
+		*refund.ProviderRefundID != callback.ProviderRefundID {
+		return Refund{}, ErrRefundProviderIDMismatch
+	}
+
+	merged := map[string]any{}
+	if len(rawPayload) > 0 {
+		if err := json.Unmarshal(rawPayload, &merged); err != nil {
+			return Refund{}, fmt.Errorf("decode callback refund payload: %w", err)
+		}
+	}
+	merged["callback"] = callback.RawEvent
+	merged["verifiedResource"] = callback.Resource
+	encoded, err := json.Marshal(merged)
+	if err != nil {
+		return Refund{}, err
+	}
+
+	if callback.RefundStatus == "SUCCESS" {
+		if refund.Status == "COMPLETED" {
+			return refund, nil
+		}
+		return r.completeInTx(
+			ctx,
+			tx,
+			refund,
+			"WECHAT",
+			callback.ProviderRefundID,
+			encoded,
+		)
+	}
+	switch callback.RefundStatus {
+	case "CLOSED", "ABNORMAL":
+	default:
+		return Refund{}, ErrWeChatRefundCallbackStatusMismatch
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE refunds
+		SET provider = 'WECHAT',
+		    provider_refund_id = $2,
+		    raw_payload = $3::json,
+		    status = $4,
+		    failure_reason = $5,
+		    updated_at = clock_timestamp()
+		WHERE id = $1::uuid
+	`,
+		refund.ID,
+		callback.ProviderRefundID,
+		string(encoded),
+		callback.RefundStatus,
+		"PROVIDER_REFUND_"+callback.RefundStatus,
+	); err != nil {
+		return Refund{}, fmt.Errorf("apply refund callback result: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Refund{}, fmt.Errorf("commit refund callback result: %w", err)
+	}
+	refund.Provider = "WECHAT"
+	refund.ProviderRefundID = &callback.ProviderRefundID
+	refund.Status = callback.RefundStatus
+	return refund, nil
+}
+
 func (r Repository) completeInTx(
 	ctx context.Context,
 	tx pgx.Tx,

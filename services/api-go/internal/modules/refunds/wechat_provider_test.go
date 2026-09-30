@@ -222,3 +222,116 @@ func verifyRefundSignature(
 		t.Fatalf("verify signature: %v", err)
 	}
 }
+
+func TestWeChatProviderQueryRefundSignsRequestAndVerifiesResponse(t *testing.T) {
+	merchantKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	merchantDER, err := x509.MarshalPKCS8PrivateKey(merchantKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	merchantPEM := string(pem.EncodeToMemory(&pem.Block{
+		Type:  "PRIVATE KEY",
+		Bytes: merchantDER,
+	}))
+
+	platformKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Unix(1_790_000_100, 0)
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(0x9911AABB),
+		Subject:      pkix.Name{CommonName: "wechat-refund-query-platform"},
+		Issuer:       pkix.Name{CommonName: "wechat-refund-query-platform"},
+		NotBefore:    now.Add(-time.Hour),
+		NotAfter:     now.Add(time.Hour),
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+	}
+	certDER, err := x509.CreateCertificate(
+		rand.Reader,
+		template,
+		template,
+		&platformKey.PublicKey,
+		platformKey,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	certPEM := string(pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: certDER,
+	}))
+
+	queryPath := weChatRefundPath + "/RFD_QUERY"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.EscapedPath() != queryPath {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		auth := r.Header.Get("Authorization")
+		signature := refundAuthField(auth, "signature")
+		if refundAuthField(auth, "mchid") != "mch-query" ||
+			refundAuthField(auth, "serial_no") != "merchant-query-serial" ||
+			refundAuthField(auth, "nonce_str") != "query-nonce" ||
+			refundAuthField(auth, "timestamp") != fmt.Sprintf("%d", now.Unix()) {
+			t.Errorf("authorization = %s", auth)
+		}
+		requestMessage := []byte(
+			"GET\n" + queryPath + "\n" +
+				fmt.Sprintf("%d", now.Unix()) + "\n" +
+				"query-nonce\n\n",
+		)
+		verifyRefundSignature(t, &merchantKey.PublicKey, requestMessage, signature)
+
+		responseBody := []byte(
+			"{\"refund_id\":\"wx-refund-query-1\",\"out_refund_no\":\"RFD_QUERY\",\"transaction_id\":\"wx-payment-query-1\",\"out_trade_no\":\"ORD_QUERY\",\"status\":\"SUCCESS\",\"amount\":{\"total\":3000,\"refund\":3000,\"currency\":\"CNY\"}}",
+		)
+		responseTimestamp := fmt.Sprintf("%d", now.Unix())
+		responseNonce := "query-response-nonce"
+		responseSignature := signRefundMessage(
+			t,
+			platformKey,
+			[]byte(responseTimestamp+"\n"+responseNonce+"\n"+string(responseBody)+"\n"),
+		)
+		w.Header().Set("Wechatpay-Timestamp", responseTimestamp)
+		w.Header().Set("Wechatpay-Nonce", responseNonce)
+		w.Header().Set("Wechatpay-Serial", "9911AABB")
+		w.Header().Set("Wechatpay-Signature", responseSignature)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(responseBody)
+	}))
+	defer server.Close()
+
+	provider, err := NewWeChatProvider(WeChatProviderConfig{
+		MchID:               "mch-query",
+		CertSerial:          "merchant-query-serial",
+		PrivateKey:          merchantPEM,
+		NotifyURL:           "https://api.example.com/refunds/wechat/callback",
+		APIBaseURL:          server.URL,
+		Timeout:             time.Second,
+		PlatformCertSerial:  "9911AABB",
+		PlatformCertificate: certPEM,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	provider.now = func() time.Time { return now }
+	provider.nonce = func() (string, error) { return "query-nonce", nil }
+
+	intent, err := provider.QueryRefund(context.Background(), "RFD_QUERY")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if intent.Provider != "WECHAT" ||
+		intent.ProviderRefundID != "wx-refund-query-1" ||
+		intent.Status != "SUCCESS" {
+		t.Fatalf("intent = %#v", intent)
+	}
+	if intent.RawPayload["transaction_id"] != "wx-payment-query-1" ||
+		intent.RawPayload["out_trade_no"] != "ORD_QUERY" {
+		t.Fatalf("raw payload = %#v", intent.RawPayload)
+	}
+}

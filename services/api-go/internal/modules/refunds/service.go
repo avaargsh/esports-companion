@@ -21,3 +21,17 @@ func (s Service) Submit(
 ) (Refund, error) {
 	return s.repo.Submit(ctx, refundID, s.provider)
 }
+
+func (s Service) Reconcile(
+	ctx context.Context,
+	refundID string,
+) (Refund, error) {
+	return s.repo.Reconcile(ctx, refundID, s.provider)
+}
+
+func (s Service) ApplyVerifiedCallback(
+	ctx context.Context,
+	callback VerifiedRefundCallback,
+) (Refund, error) {
+	return s.repo.ApplyVerifiedCallback(ctx, callback)
+}

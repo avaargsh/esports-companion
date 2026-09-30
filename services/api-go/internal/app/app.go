@@ -115,9 +115,19 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		pg.Close()
 		return nil, err
 	}
+	refundCallbackVerifier, refundCallbackErr := refunds.NewWeChatRefundCallbackVerifier(cfg)
+	if refundCallbackErr != nil && cfg.IsSecureDeployment() {
+		_ = redisClient.Close()
+		pg.Close()
+		return nil, refundCallbackErr
+	}
+	if refundCallbackErr != nil {
+		refundCallbackVerifier = nil
+	}
 	refundsHandler := refunds.NewHandler(
 		refunds.NewService(refunds.NewRepository(pg), refundProvider),
 		authService,
+		refundCallbackVerifier,
 		cfg.IsSecureDeployment(),
 	)
 

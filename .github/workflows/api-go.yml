@@ -19,6 +19,7 @@ on:
       - "scripts/generate_wechat_callback_fixture.py"
       - "scripts/go_payment_callback_parity.py"
       - "scripts/go_refund_submit_parity.py"
+      - "scripts/go_refund_recovery_parity.py"
       - "docs/go-backend-migration.md"
       - ".github/workflows/api-go.yml"
   pull_request:
@@ -37,6 +38,7 @@ on:
       - "scripts/generate_wechat_callback_fixture.py"
       - "scripts/go_payment_callback_parity.py"
       - "scripts/go_refund_submit_parity.py"
+      - "scripts/go_refund_recovery_parity.py"
       - "docs/go-backend-migration.md"
       - ".github/workflows/api-go.yml"
 
@@ -218,6 +220,9 @@ jobs:
 
       - name: Compare M4.3 refund submit contracts
         run: python3 scripts/go_refund_submit_parity.py
+
+      - name: Compare M4.4 refund recovery contracts
+        run: python3 scripts/go_refund_recovery_parity.py
 
       - name: Dump runtime logs on failure
         if: failure()

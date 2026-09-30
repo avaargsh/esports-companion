@@ -344,7 +344,34 @@ Acceptance uses the existing manual provider for dual-runtime parity and a pure-
 httptest for signed WeChat request/response validation. A 20-request submit race
 must preserve one stable merchant refund identifier and valid aggregate state.
 
-Refund callback and provider-query reconciliation remain M4.4.
+#### M4.4 - Refund callback / query reconciliation
+
+Go owns both refund recovery paths:
+
+- `POST /api/v1/refunds/wechat/callback`;
+- `POST /api/v1/admin/refunds/{refund_id}/reconcile`.
+
+The callback boundary verifies platform certificate serial, timestamp freshness,
+RSA signature and AEAD_AES_256_GCM resource decryption before any durable write.
+It then binds merchant refund id, order no, provider payment transaction and
+refund/total amounts to PostgreSQL truth.
+
+Query reconciliation keeps the M4.3 two-phase rule: lock and snapshot the Refund,
+Order and successful payment, commit to release all row locks, query WeChat using
+the stable `out_refund_no`, then re-lock and revalidate the current aggregate
+before applying signed provider truth.
+
+Both paths converge on the same completion transaction:
+
+- Refund -> COMPLETED;
+- Dispute -> RESOLVED / REFUND_CUSTOMER;
+- Order `REFUNDING -> REFUNDED`;
+- one `REFUND_COMPLETED` OrderEvent + Outbox event.
+
+Acceptance includes signed/encrypted callback parity in both runtime directions,
+a 20-way callback race, amount-binding and tamper rejection, plus a local signed
+WeChat query server used by dedicated WeChat-configured FastAPI/Go instances for
+bidirectional reconcile replay and a 20-way reconciliation race.
 
 ### M4 - Payment/refund
 
