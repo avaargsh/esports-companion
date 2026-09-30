@@ -32,6 +32,9 @@ cd services/api-go
 go mod download
 go test -race ./...
 go run ./cmd/api
+
+# Background runtime (currently transactional outbox publisher)
+go run ./cmd/worker
 ```
 
 It accepts the existing environment variables:
@@ -63,6 +66,8 @@ DATABASE_MIN_CONNS=4
 REDIS_POOL_SIZE=64
 API_GO_HTTP_ADDR=:8080
 SHUTDOWN_TIMEOUT_SECONDS=15
+OUTBOX_POLL_INTERVAL_MS=500
+OUTBOX_BATCH_SIZE=50
 ```
 
 The loader accepts the current Python-style
@@ -140,13 +145,15 @@ filtering.
 ## Package layout
 
 ```text
-cmd/api/                 process entrypoint
+cmd/api/                 request-path process
+cmd/worker/              background runtime
 internal/app/            dependency wiring + HTTP server
 internal/config/         env/files + fail-closed validation
 internal/modules/        vertical business modules
   authz/                  structured policy, authority/admission + audit
 internal/ports/          Auth/Payment/Refund external contracts
 internal/platform/       pgx, redis, metrics, HTTP, state machine
+internal/workers/outbox/  transactional outbox -> Redis Pub/Sub
 ```
 
 ## Branch rule
