@@ -11,7 +11,6 @@ from app.models import OutboxEvent, Wallet
 def test_admin_withdrawal_completion_requires_real_payout_reference():
     with TestClient(app) as client:
         demo = client.get("/api/v1/dev/bootstrap").json()
-        identities = client.get("/api/v1/dev/demo-identities").json()
         player_user_id = demo["playerUserId"]
         platform_login = client.post(
             "/api/v1/auth/wechat/login",
