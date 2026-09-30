@@ -4,16 +4,21 @@ import (
 	"context"
 	"strings"
 	"testing"
+
+	"github.com/avaargsh/esports-companion/services/api-go/internal/ports"
 )
 
 func TestMockProviderCreatePayment(t *testing.T) {
 	intent, err := (MockProvider{}).CreatePayment(
 		context.Background(),
-		"order-id",
-		3000,
-		"CNY",
-		"idem-1",
-		"",
+		ports.PaymentRequest{
+			OrderID:        "order-id",
+			OrderNo:        "ORD_TEST",
+			Description:    "test",
+			AmountMinor:    3000,
+			Currency:       "CNY",
+			IdempotencyKey: "idem-1",
+		},
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -29,6 +34,9 @@ func TestMockProviderCreatePayment(t *testing.T) {
 	}
 	if len(strings.TrimPrefix(intent.ProviderTxnID, "mock_")) != 32 {
 		t.Fatalf("provider txn id = %q", intent.ProviderTxnID)
+	}
+	if got := intent.RawPayload["idempotencyKey"]; got != "idem-1" {
+		t.Fatalf("raw idempotency key = %#v", got)
 	}
 	if len(intent.ClientPayload) != 0 {
 		t.Fatalf("client payload = %#v", intent.ClientPayload)
