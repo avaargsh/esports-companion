@@ -34,6 +34,10 @@ page {
   --provider-surface-2: #24242d;
   --provider-muted: #a6a4b1;
   --provider-brand-text: #b4a9ff;
+  --provider-line: rgba(255, 255, 255, 0.06);
+  --provider-bar: rgba(15, 15, 21, 0.96);
+  --inverse-secondary-bg: #24242d;
+  --inverse-secondary-text: #bdbbc7;
 
   /* Elevation */
   --shadow-card: 0 14rpx 42rpx rgba(30, 26, 55, 0.055);
