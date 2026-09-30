@@ -82,6 +82,9 @@ The loader accepts the current Python-style
 - `GET /api/v1/games/{game_id}/skus`
 - `GET /api/v1/players`
 - `GET /api/v1/players/{player_id}`
+- `GET /api/v1/orders`
+- `GET /api/v1/orders/{order_id}`
+- `GET /api/v1/orders/{order_id}/events`
 
 The M1 catalog/marketplace routes and M2 auth/session routes are compatibility
 targets. M2.2 also carries the structured authorization/authority kernel used by
@@ -96,10 +99,14 @@ same database:
 make go-parity
 ```
 
-The parity target checks M1 read responses plus M2 cross-runtime authentication:
+The parity target checks M1 read responses, M2 cross-runtime authentication,
+M2.1 offering management, and the first M3 order read slice:
 FastAPI-issued access/refresh tokens must work through Go, Go-issued tokens must
 work through FastAPI, and refresh-token reuse/logout revocations must be visible
-from both runtimes.
+from both runtimes. M3 parity creates/pays/claims an order through FastAPI, then
+requires Go to read the exact same customer list, order detail, assigned provider,
+OrderEvent evidence, and customer/player/platform access outcomes from shared
+PostgreSQL truth.
 
 Marketplace list reads use a bounded batch strategy rather than copying the
 reference implementation's per-player N+1 query pattern. The observable filter
