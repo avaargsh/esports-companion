@@ -34,6 +34,8 @@ func (h Handler) Register(r chi.Router) {
 	r.Get("/orders", h.list)
 	r.Post("/orders", h.create)
 	r.Post("/player/orders/{order_id}/claim", h.claim)
+	r.Post("/player/orders/{order_id}/start", h.start)
+	r.Post("/player/orders/{order_id}/finish", h.finish)
 	r.Get("/orders/{order_id}", h.get)
 	r.Get("/orders/{order_id}/events", h.events)
 }
@@ -171,6 +173,58 @@ func (h Handler) claim(w http.ResponseWriter, r *http.Request) {
 			errors.Is(err, ErrPlayerNotEligible),
 			errors.Is(err, ErrCannotClaimOwnOrder),
 			errors.Is(err, ErrPlayerNotOfferingSKU):
+			httpx.Error(w, http.StatusConflict, err.Error())
+		default:
+			httpx.Error(w, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+		}
+		return
+	}
+	httpx.JSONValue(w, http.StatusOK, order)
+}
+
+func (h Handler) start(w http.ResponseWriter, r *http.Request) {
+	h.providerLifecycle(w, r, "start")
+}
+
+func (h Handler) finish(w http.ResponseWriter, r *http.Request) {
+	h.providerLifecycle(w, r, "finish")
+}
+
+func (h Handler) providerLifecycle(w http.ResponseWriter, r *http.Request, action string) {
+	principal, requestErr := auth.RequirePlayer(h.authService, h.secure, r)
+	if requestErr != nil {
+		auth.WriteRequestError(w, requestErr)
+		return
+	}
+
+	orderID := chi.URLParam(r, "order_id")
+	if !httpx.IsUUID(orderID) {
+		httpx.ValidationError(w, "path", "order_id", "Input should be a valid UUID")
+		return
+	}
+
+	var (
+		order Order
+		err   error
+	)
+	switch action {
+	case "start":
+		order, err = h.service.Start(r.Context(), principal.User.ID, orderID)
+	case "finish":
+		order, err = h.service.Finish(r.Context(), principal.User.ID, orderID)
+	default:
+		httpx.Error(w, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+		return
+	}
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrOrderNotFound):
+			httpx.Error(w, http.StatusNotFound, ErrOrderNotFound.Error())
+		case errors.Is(err, ErrAssignmentNotFound):
+			httpx.Error(w, http.StatusConflict, ErrAssignmentNotFound.Error())
+		case errors.Is(err, ErrNotOrderPlayer):
+			httpx.Error(w, http.StatusForbidden, ErrNotOrderPlayer.Error())
+		case errors.Is(err, ErrInvalidOrderTransition):
 			httpx.Error(w, http.StatusConflict, err.Error())
 		default:
 			httpx.Error(w, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
