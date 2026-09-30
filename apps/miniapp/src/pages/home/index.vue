@@ -5,7 +5,8 @@ import EmptyState from "../../components/EmptyState.vue"
 import PlayerCard from "../../components/PlayerCard.vue"
 import SectionHeader from "../../components/SectionHeader.vue"
 import type { Game, PublicPlayer } from "../../types/domain"
-import { showMessage } from "../../ui/feedback"\nimport { navigation } from "../../platform/navigation"
+import { showMessage } from "../../ui/feedback"
+import { navigation } from "../../platform/navigation"
 
 const games = ref<Game[]>([])
 const players = ref<PublicPlayer[]>([])
