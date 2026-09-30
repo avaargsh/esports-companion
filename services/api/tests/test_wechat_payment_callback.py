@@ -16,7 +16,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.db import Base
-from app.models import Game, OrderEvent, PaymentTransaction, ServiceSKU, User
+from app.models import Game, OrderEvent, OutboxEvent, PaymentTransaction, ServiceSKU, User
 from app.providers.payment import PaymentIntent
 from app.providers.payment_callback import (
     VerifiedPaymentCallback,
@@ -222,3 +222,34 @@ def test_verified_callback_completes_pending_transaction_idempotently():
         assert tx.status == "SUCCESS"
         assert tx.provider_txn_id == "wx-txn-1"
         assert db.scalar(select(func.count()).select_from(OrderEvent)) == 3
+
+        events = list(
+            db.scalars(
+                select(OrderEvent)
+                .where(OrderEvent.order_id == order.id)
+                .order_by(OrderEvent.created_at, OrderEvent.id)
+            )
+        )
+        assert [event.event_type for event in events] == [
+            "ORDER_CREATED",
+            "PAYMENT_SUCCESS",
+            "ORDER_ENTERED_MATCHING",
+        ]
+        assert events[0].created_at < events[1].created_at < events[2].created_at
+
+        outbox = list(
+            db.scalars(
+                select(OutboxEvent)
+                .where(
+                    OutboxEvent.aggregate_type == "ORDER",
+                    OutboxEvent.aggregate_id == str(order.id),
+                )
+                .order_by(OutboxEvent.created_at, OutboxEvent.id)
+            )
+        )
+        assert [event.event_type for event in outbox] == [
+            "ORDER_CREATED",
+            "PAYMENT_SUCCESS",
+            "ORDER_ENTERED_MATCHING",
+        ]
+        assert outbox[0].created_at < outbox[1].created_at < outbox[2].created_at

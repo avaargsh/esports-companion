@@ -10,6 +10,7 @@ import (
 	"github.com/avaargsh/esports-companion/services/api-go/internal/config"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/platform/postgresx"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/platform/redisx"
+	"github.com/avaargsh/esports-companion/services/api-go/internal/workers/ordertimeout"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/workers/outbox"
 )
 
@@ -70,15 +71,69 @@ func main() {
 		cfg.OutboxPollInterval,
 		cfg.OutboxBatchSize,
 	)
-	logger.Info(
-		"background_worker_started",
-		"worker", "outbox",
-		"poll_interval", cfg.OutboxPollInterval.String(),
-		"batch_size", cfg.OutboxBatchSize,
+	timeoutWorker := ordertimeout.New(
+		pg,
+		redisClient,
+		logger,
+		cfg.OrderTimeoutScanInterval,
+		cfg.FinishConfirmTimeout,
+		cfg.AssignmentStartTimeout,
+		cfg.OrderTimeoutBatchSize,
 	)
-	if err := publisher.Run(ctx); err != nil {
-		logger.Error("background worker stopped with error", "error", err)
-		os.Exit(1)
+
+	logger.Info(
+		"background_workers_started",
+		"outbox_poll_interval", cfg.OutboxPollInterval.String(),
+		"outbox_batch_size", cfg.OutboxBatchSize,
+		"order_timeout_scan_interval", cfg.OrderTimeoutScanInterval.String(),
+		"order_timeout_batch_size", cfg.OrderTimeoutBatchSize,
+	)
+
+	type workerResult struct {
+		name string
+		err  error
 	}
-	logger.Info("background_worker_stopped", "worker", "outbox")
+	runCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	results := make(chan workerResult, 2)
+	go func() {
+		results <- workerResult{name: "outbox", err: publisher.Run(runCtx)}
+	}()
+	go func() {
+		results <- workerResult{name: "order-timeout", err: timeoutWorker.Run(runCtx)}
+	}()
+
+	select {
+	case <-ctx.Done():
+		cancel()
+		for range 2 {
+			<-results
+		}
+		logger.Info("background_workers_stopped")
+	case result := <-results:
+		cancel()
+		other := <-results
+		if result.err != nil {
+			logger.Error(
+				"background_worker_stopped_with_error",
+				"worker", result.name,
+				"error", result.err,
+			)
+		} else if ctx.Err() == nil {
+			logger.Error(
+				"background_worker_stopped_unexpectedly",
+				"worker", result.name,
+			)
+		}
+		if other.err != nil {
+			logger.Error(
+				"background_worker_stopped_with_error",
+				"worker", other.name,
+				"error", other.err,
+			)
+		}
+		if ctx.Err() == nil {
+			os.Exit(1)
+		}
+	}
 }

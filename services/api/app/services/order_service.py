@@ -1,7 +1,7 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.domain.order_state_machine import OrderStatus, ensure_transition
@@ -170,6 +170,36 @@ class OrderService:
         return locked_order
 
     @staticmethod
+    def _next_evidence_time(db: Session, order_id: uuid.UUID) -> datetime:
+        # Flush prior evidence in the same transaction before deriving the next
+        # timestamp. This keeps state-transition evidence strictly monotonic even
+        # when multiple transitions occur inside one sub-microsecond transaction.
+        db.flush()
+        latest_event = db.scalar(
+            select(func.max(OrderEvent.created_at)).where(
+                OrderEvent.order_id == order_id
+            )
+        )
+        latest_outbox = db.scalar(
+            select(func.max(OutboxEvent.created_at)).where(
+                OutboxEvent.aggregate_type == "ORDER",
+                OutboxEvent.aggregate_id == str(order_id),
+            )
+        )
+
+        occurred_at = datetime.now(timezone.utc)
+        for previous in (latest_event, latest_outbox):
+            if previous is None:
+                continue
+            if previous.tzinfo is None:
+                previous = previous.replace(tzinfo=timezone.utc)
+            else:
+                previous = previous.astimezone(timezone.utc)
+            if occurred_at <= previous:
+                occurred_at = previous + timedelta(microseconds=1)
+        return occurred_at
+
+    @staticmethod
     def _record(
         db: Session,
         order: Order,
@@ -180,6 +210,7 @@ class OrderService:
         actor_id: str | None,
         payload: dict,
     ) -> None:
+        occurred_at = OrderService._next_evidence_time(db, order.id)
         db.add(
             OrderEvent(
                 order_id=order.id,
@@ -189,7 +220,7 @@ class OrderService:
                 actor_type=actor_type,
                 actor_id=actor_id,
                 payload_json=payload,
-                created_at=datetime.now(timezone.utc),
+                created_at=occurred_at,
             )
         )
         db.add(
@@ -198,6 +229,7 @@ class OrderService:
                 aggregate_id=str(order.id),
                 event_type=event_type,
                 payload_json={"orderId": str(order.id), "status": to_status, **payload},
+                created_at=occurred_at,
             )
         )
 

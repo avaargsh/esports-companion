@@ -43,6 +43,7 @@ go-parity:
 	python3 scripts/go_refund_recovery_parity.py
 	python3 scripts/go_outbox_parity.py
 	python3 scripts/go_realtime_parity.py
+	python3 scripts/go_order_timeout_parity.py
 
 smoke:
 	python3 scripts/smoke_demo.py
