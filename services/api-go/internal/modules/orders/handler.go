@@ -33,6 +33,7 @@ func NewHandler(service Service, authService auth.Service, secure bool) Handler 
 func (h Handler) Register(r chi.Router) {
 	r.Get("/orders", h.list)
 	r.Post("/orders", h.create)
+	r.Post("/player/orders/{order_id}/claim", h.claim)
 	r.Get("/orders/{order_id}", h.get)
 	r.Get("/orders/{order_id}/events", h.events)
 }
@@ -57,7 +58,7 @@ func (h Handler) create(w http.ResponseWriter, r *http.Request) {
 		Quantity: &defaultQuantity,
 		Remark:   &defaultRemark,
 	}
-	if !decodeCreateJSON(w, r, &body) {
+	if !decodeJSON(w, r, &body) {
 		return
 	}
 	if body.Quantity == nil {
@@ -112,7 +113,7 @@ func (h Handler) create(w http.ResponseWriter, r *http.Request) {
 	httpx.JSONValue(w, http.StatusCreated, order)
 }
 
-func decodeCreateJSON(w http.ResponseWriter, r *http.Request, target any) bool {
+func decodeJSON(w http.ResponseWriter, r *http.Request, target any) bool {
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(target); err != nil {
 		httpx.ValidationError(w, "body", "", "Invalid JSON body")
@@ -124,6 +125,59 @@ func decodeCreateJSON(w http.ResponseWriter, r *http.Request, target any) bool {
 		return false
 	}
 	return true
+}
+
+type claimRequest struct {
+	ExpectedVersion *int `json:"expected_version"`
+}
+
+func (h Handler) claim(w http.ResponseWriter, r *http.Request) {
+	principal, requestErr := auth.RequirePlayer(h.authService, h.secure, r)
+	if requestErr != nil {
+		auth.WriteRequestError(w, requestErr)
+		return
+	}
+
+	orderID := chi.URLParam(r, "order_id")
+	if !httpx.IsUUID(orderID) {
+		httpx.ValidationError(w, "path", "order_id", "Input should be a valid UUID")
+		return
+	}
+
+	body := claimRequest{}
+	if !decodeJSON(w, r, &body) {
+		return
+	}
+	if body.ExpectedVersion == nil {
+		httpx.ValidationError(w, "body", "expected_version", "Field required")
+		return
+	}
+	if *body.ExpectedVersion < 0 {
+		httpx.ValidationError(w, "body", "expected_version", "Input should be greater than or equal to 0")
+		return
+	}
+
+	order, err := h.service.Claim(
+		r.Context(),
+		principal.User.ID,
+		orderID,
+		ClaimInput{ExpectedVersion: *body.ExpectedVersion},
+	)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrOrderNotFound):
+			httpx.Error(w, http.StatusNotFound, ErrOrderNotFound.Error())
+		case errors.Is(err, ErrOrderAlreadyAccepted),
+			errors.Is(err, ErrPlayerNotEligible),
+			errors.Is(err, ErrCannotClaimOwnOrder),
+			errors.Is(err, ErrPlayerNotOfferingSKU):
+			httpx.Error(w, http.StatusConflict, err.Error())
+		default:
+			httpx.Error(w, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+		}
+		return
+	}
+	httpx.JSONValue(w, http.StatusOK, order)
 }
 
 func (h Handler) list(w http.ResponseWriter, r *http.Request) {
