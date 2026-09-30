@@ -274,6 +274,27 @@ and a 20-request distinct-key race with exactly one successful payment. Redis
 pool membership remains reconstructable acceleration and is not part of payment
 correctness.
 
+#### M4.1 - Payment prepare
+
+Go owns the customer-facing payment preparation seam:
+
+- `POST /api/v1/orders/{order_id}/payments`;
+- provider selection through the PaymentProvider port;
+- idempotency-key replay before order-state rejection;
+- one PaymentTransaction per successful prepare attempt;
+- MOCK/SUCCESS remains compatible with the immediate paid/matching transition;
+- WECHAT/PENDING persists provider/client payload without advancing durable order state;
+- WeChat JSAPI merchant request signing and Mini Program `paySign` generation live in
+  the provider adapter, not the order/payment repository;
+- secure deployments fail closed when merchant payment credentials, callback
+  configuration, API v3 key or platform certificate material is missing.
+
+Acceptance includes bidirectional FastAPI/Go replay, same-key and distinct-key
+20-request races, and pure-Go cryptographic tests against a local HTTP server.
+
+Payment success callbacks are intentionally excluded from M4.1. No client-side
+success signal may advance the order.
+
 ### M4 - Payment/refund
 
 Port last among request-path modules:
