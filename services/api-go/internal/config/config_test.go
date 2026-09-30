@@ -114,6 +114,9 @@ func TestSecureDeploymentRejectsNonPublicNotifyURL(t *testing.T) {
 		AssignmentStartTimeout:       10 * time.Minute,
 		OrderTimeoutScanInterval:     30 * time.Second,
 		OrderTimeoutBatchSize:        50,
+		RefundReconcileScanInterval:  time.Minute,
+		RefundReconcileMinAge:        30 * time.Second,
+		RefundReconcileBatchSize:     20,
 		ShutdownTimeout:              time.Second,
 	}
 	err := cfg.Validate()
@@ -166,5 +169,28 @@ func TestOrderTimeoutWorkerConfigMustBePositive(t *testing.T) {
 	_, err = Load()
 	if err == nil || !strings.Contains(err.Error(), "ORDER_TIMEOUT_BATCH_SIZE_INVALID") {
 		t.Fatalf("expected order timeout batch validation, got %v", err)
+	}
+}
+
+func TestRefundReconcileWorkerConfig(t *testing.T) {
+	t.Setenv("APP_ENV", "dev")
+	t.Setenv("REFUND_RECONCILE_SCAN_SECONDS", "0")
+	_, err := Load()
+	if err == nil || !strings.Contains(err.Error(), "REFUND_RECONCILE_SCAN_MUST_BE_POSITIVE") {
+		t.Fatalf("expected refund reconcile scan validation, got %v", err)
+	}
+
+	t.Setenv("REFUND_RECONCILE_SCAN_SECONDS", "60")
+	t.Setenv("REFUND_RECONCILE_MIN_AGE_SECONDS", "-1")
+	_, err = Load()
+	if err == nil || !strings.Contains(err.Error(), "REFUND_RECONCILE_MIN_AGE_MUST_NOT_BE_NEGATIVE") {
+		t.Fatalf("expected refund reconcile min age validation, got %v", err)
+	}
+
+	t.Setenv("REFUND_RECONCILE_MIN_AGE_SECONDS", "30")
+	t.Setenv("REFUND_RECONCILE_BATCH_SIZE", "501")
+	_, err = Load()
+	if err == nil || !strings.Contains(err.Error(), "REFUND_RECONCILE_BATCH_SIZE_INVALID") {
+		t.Fatalf("expected refund reconcile batch validation, got %v", err)
 	}
 }
