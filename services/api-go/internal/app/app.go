@@ -23,8 +23,8 @@ import (
 	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/offerings"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/orders"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/payments"
-	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/refunds"
 	realtimex "github.com/avaargsh/esports-companion/services/api-go/internal/modules/realtime"
+	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/refunds"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/platform/httpx"
 	metricsx "github.com/avaargsh/esports-companion/services/api-go/internal/platform/metrics"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/platform/postgresx"
@@ -32,9 +32,9 @@ import (
 )
 
 type App struct {
-	cfg    config.Config
-	logger *slog.Logger
-	server *http.Server
+	cfg      config.Config
+	logger   *slog.Logger
+	server   *http.Server
 	pg       *pgxpool.Pool
 	redis    *redis.Client
 	realtime *realtimex.Hub
@@ -176,10 +176,10 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	}
 
 	return &App{
-		cfg:    cfg,
-		logger: logger,
-		server: server,
-		pg:     pg,
+		cfg:      cfg,
+		logger:   logger,
+		server:   server,
+		pg:       pg,
 		redis:    redisClient,
 		realtime: realtimeHub,
 	}, nil
