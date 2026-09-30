@@ -77,12 +77,19 @@ For another API host:
 VITE_API_ORIGIN=http://YOUR_HOST:8000 npm run dev:mp-weixin
 ```
 
+Mini Program runtime configuration is centralized in `src/platform/env.ts`. Product modules should consume that contract instead of reading `import.meta.env` directly.
+
 ## 5. Run all build/test checks
 
 ```bash
 make test
 make miniapp-build
 make admin-build
+
+cd apps/miniapp
+npm run theme:check
+npm run ui-check
+npm run starter:check
 ```
 
 The test suite includes state-machine invariants, idempotent payment/refund and

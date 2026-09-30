@@ -1,4 +1,5 @@
 import { API_BASE_URL, isWeChatAuthMode } from "./config"
+import { createHttpClient } from "../platform/http"
 
 const STORAGE_KEY = "esports-companion.auth.v1"
 const ACCESS_REFRESH_SKEW_MS = 30_000
@@ -24,6 +25,7 @@ export type AuthSession = {
 }
 
 let authTask: Promise<AuthSession> | null = null
+const authHttp = createHttpClient({ baseUrl: API_BASE_URL })
 
 function readSession(): AuthSession | null {
   const value = uni.getStorageSync(STORAGE_KEY)
@@ -73,23 +75,17 @@ async function rawPost<T>(
   path: string,
   data: Record<string, unknown>
 ): Promise<T> {
-  const response = await uni.request({
-    url: API_BASE_URL + path,
-    method: "POST",
-    data,
-    header: { "Content-Type": "application/json" }
-  })
-
-  if (response.statusCode < 200 || response.statusCode >= 300) {
-    const detail =
-      typeof response.data === "object" &&
-      response.data &&
-      "detail" in response.data
-        ? String((response.data as { detail: unknown }).detail)
-        : "AUTH_REQUEST_FAILED"
-    throw new Error(detail)
+  try {
+    return await authHttp.request<T>(path, {
+      method: "POST",
+      data
+    })
+  } catch (error) {
+    if (error instanceof Error && error.message === "REQUEST_FAILED") {
+      throw new Error("AUTH_REQUEST_FAILED")
+    }
+    throw error
   }
-  return response.data as T
 }
 
 function wechatLoginCode(): Promise<string> {

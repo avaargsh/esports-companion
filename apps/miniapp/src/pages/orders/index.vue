@@ -8,6 +8,7 @@ import OrderCard from "../../components/OrderCard.vue"
 import type { Order } from "../../types/domain"
 import { isActiveOrder } from "../../utils/order"
 import { showMessage } from "../../ui/feedback"
+import { navigation } from "../../platform/navigation"
 
 type Filter="all"|"active"|"done"
 const orders=ref<Order[]>([])
@@ -30,8 +31,8 @@ async function load(){
   }finally{loading.value=false}
 }
 onShow(()=>{void load()})
-function openOrder(order:Order){uni.navigateTo({url:`/pages/order-detail/index?id=${order.id}`})}
-function goHome(){uni.switchTab({url:"/pages/home/index"})}
+function openOrder(order:Order){navigation.push("/pages/order-detail/index",{id:order.id})}
+function goHome(){navigation.tab("/pages/home/index")}
 </script>
 
 <template>

@@ -62,6 +62,7 @@ jobs:
       - run: npm install
       - run: npm run theme:check
       - run: npm run ui-check
+      - run: npm run starter:check
       - run: npm run type-check
       - run: npm run build:mp-weixin
       - name: Build secure WeChat client mode

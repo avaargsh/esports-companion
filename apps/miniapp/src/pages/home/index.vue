@@ -6,6 +6,7 @@ import PlayerCard from "../../components/PlayerCard.vue"
 import SectionHeader from "../../components/SectionHeader.vue"
 import type { Game, PublicPlayer } from "../../types/domain"
 import { showMessage } from "../../ui/feedback"
+import { navigation } from "../../platform/navigation"
 
 const games = ref<Game[]>([])
 const players = ref<PublicPlayer[]>([])
@@ -32,13 +33,13 @@ async function loadHome() {
 onMounted(() => { void loadHome() })
 
 function openGame(game: Game) {
-  uni.navigateTo({ url: `/pages/game/index?id=${game.id}&name=${encodeURIComponent(game.name)}` })
+  navigation.push("/pages/game/index", { id: game.id, name: game.name })
 }
 function openPlayer(player: PublicPlayer) {
-  uni.navigateTo({ url: `/pages/player/index?id=${player.id}` })
+  navigation.push("/pages/player/index", { id: player.id })
 }
 function openDiscover() {
-  uni.navigateTo({ url: "/pages/discover/index" })
+  navigation.push("/pages/discover/index")
 }
 function quickOrder() {
   if (!games.value.length) {

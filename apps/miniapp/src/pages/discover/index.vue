@@ -5,6 +5,7 @@ import { request } from "../../api/client"
 import EmptyState from "../../components/EmptyState.vue"
 import PlayerCard from "../../components/PlayerCard.vue"
 import type { Game, PublicPlayer } from "../../types/domain"
+import { navigation } from "../../platform/navigation"
 
 const games = ref<Game[]>([])
 const players = ref<PublicPlayer[]>([])
@@ -33,7 +34,7 @@ async function selectGame(id:string) {
   await loadPlayers()
 }
 function openPlayer(player:PublicPlayer) {
-  uni.navigateTo({ url:`/pages/player/index?id=${player.id}` })
+  navigation.push("/pages/player/index", { id: player.id })
 }
 onLoad(async query => {
   selectedGameId.value = String(query?.gameId || "")
