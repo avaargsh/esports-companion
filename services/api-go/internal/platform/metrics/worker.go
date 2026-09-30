@@ -7,7 +7,7 @@ import (
 )
 
 type Worker struct {
-	operationalScanSuccess *prometheus.GaugeVec
+	operationalScanSuccess prometheus.Gauge
 	outboxPending          prometheus.Gauge
 	outboxOldestSeconds    prometheus.Gauge
 	refundsInflight        prometheus.Gauge
@@ -29,12 +29,11 @@ type Worker struct {
 
 func NewWorker(reg prometheus.Registerer) *Worker {
 	m := &Worker{
-		operationalScanSuccess: prometheus.NewGaugeVec(
+		operationalScanSuccess: prometheus.NewGauge(
 			prometheus.GaugeOpts{
 				Name: "esports_operational_metrics_scan_success",
 				Help: "Whether the latest PostgreSQL operational metrics scan succeeded.",
 			},
-			[]string{"source"},
 		),
 		outboxPending: prometheus.NewGauge(
 			prometheus.GaugeOpts{
