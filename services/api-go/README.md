@@ -78,6 +78,7 @@ The loader accepts the current Python-style
 - `GET /livez`
 - `GET /readyz`
 - `GET /metrics`
+- `GET /ws` (WebSocket upgrade)
 - `GET /api/v1/runtime`
 - `POST /api/v1/auth/wechat/login`
 - `POST /api/v1/auth/refresh`
@@ -151,6 +152,7 @@ internal/app/            dependency wiring + HTTP server
 internal/config/         env/files + fail-closed validation
 internal/modules/        vertical business modules
   authz/                  structured policy, authority/admission + audit
+  realtime/               authenticated Redis -> WebSocket bridge
 internal/ports/          Auth/Payment/Refund external contracts
 internal/platform/       pgx, redis, metrics, HTTP, state machine
 internal/workers/outbox/  transactional outbox -> Redis Pub/Sub
