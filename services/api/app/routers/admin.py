@@ -361,6 +361,7 @@ def complete_withdrawal(
     try:
         decision = _platform_decision(
             principal,
+            request,
             action="WITHDRAWAL_COMPLETE",
             resource_type="WITHDRAWAL",
             resource_id=str(withdrawal_id),
@@ -389,6 +390,7 @@ def reject_withdrawal(
     try:
         decision = _platform_decision(
             principal,
+            request,
             action="WITHDRAWAL_REJECT",
             resource_type="WITHDRAWAL",
             resource_id=str(withdrawal_id),
