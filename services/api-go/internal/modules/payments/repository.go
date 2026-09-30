@@ -71,7 +71,7 @@ func (r Repository) Prepare(
 	}
 
 	var (
-		existingOrderID string
+		existingOrderID  string
 		existingProvider string
 		existingStatus   string
 		existingRaw      []byte
