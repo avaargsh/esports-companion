@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"reflect"
 	"sort"
 	"time"
@@ -345,4 +344,3 @@ func utcISO(value time.Time) string {
 	return value.UTC().Format("2006-01-02T15:04:05.999999999+00:00")
 }
 
-var _ = errors.New
