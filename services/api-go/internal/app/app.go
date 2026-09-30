@@ -86,8 +86,14 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		authService,
 		cfg.IsSecureDeployment(),
 	)
+	paymentProvider, err := payments.ProviderFromConfig(cfg)
+	if err != nil {
+		_ = redisClient.Close()
+		pg.Close()
+		return nil, err
+	}
 	paymentsHandler := payments.NewHandler(
-		payments.NewService(payments.NewRepository(pg)),
+		payments.NewService(payments.NewRepository(pg), paymentProvider),
 		authService,
 		cfg.IsSecureDeployment(),
 	)

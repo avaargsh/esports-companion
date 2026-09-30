@@ -3,6 +3,7 @@ package config
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestDevDefaultsAreValid(t *testing.T) {
@@ -55,5 +56,62 @@ func TestSecureDeploymentRequiresWeChatCredentials(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "WECHAT_APP_ID_REQUIRED") ||
 		!strings.Contains(err.Error(), "WECHAT_APP_SECRET_REQUIRED") {
 		t.Fatalf("expected WeChat credential validation, got %v", err)
+	}
+}
+
+func TestSecureDeploymentRequiresPaymentCredentials(t *testing.T) {
+	t.Setenv("APP_ENV", "staging")
+	t.Setenv("AUTH_PROVIDER", "wechat")
+	t.Setenv("PAYMENT_PROVIDER", "wechat")
+	t.Setenv("REFUND_PROVIDER", "manual")
+	t.Setenv("SESSION_SIGNING_KEY", "01234567890123456789012345678901")
+	t.Setenv("WECHAT_APP_ID", "wx-test")
+	t.Setenv("WECHAT_APP_SECRET", "secret")
+	t.Setenv("WECHAT_MCH_ID", "")
+	t.Setenv("WECHAT_MCH_CERT_SERIAL", "")
+	t.Setenv("WECHAT_MCH_PRIVATE_KEY", "")
+	t.Setenv("WECHAT_NOTIFY_URL", "")
+
+	_, err := Load()
+	if err == nil ||
+		!strings.Contains(err.Error(), "WECHAT_MCH_ID_REQUIRED") ||
+		!strings.Contains(err.Error(), "WECHAT_MCH_CERT_SERIAL_REQUIRED") ||
+		!strings.Contains(err.Error(), "WECHAT_MCH_PRIVATE_KEY_REQUIRED") ||
+		!strings.Contains(err.Error(), "WECHAT_NOTIFY_URL_REQUIRED") {
+		t.Fatalf("expected WeChat payment credential validation, got %v", err)
+	}
+}
+
+func TestSecureDeploymentRejectsNonPublicNotifyURL(t *testing.T) {
+	cfg := Config{
+		AppEnv:                       "staging",
+		DatabaseURL:                  "postgresql://u:p@db:5432/app",
+		RedisURL:                     "redis://redis:6379/0",
+		DatabaseMaxConns:             4,
+		DatabaseMinConns:             1,
+		RedisPoolSize:                4,
+		ReadinessRequireRedis:        true,
+		AuthProvider:                 "wechat",
+		PaymentProvider:              "wechat",
+		RefundProvider:               "manual",
+		SessionSigningKey:            "01234567890123456789012345678901",
+		AccessTokenTTLSeconds:        900,
+		RefreshTokenTTLSeconds:       3600,
+		WeChatAppID:                  "wx-test",
+		WeChatAppSecret:              "secret",
+		WeChatAuthTimeout:            time.Second,
+		WeChatMchID:                  "mch",
+		WeChatMchCertSerial:          "serial",
+		WeChatMchPrivateKey:          "key",
+		WeChatNotifyURL:              "http://127.0.0.1/callback",
+		WeChatPayAPIV3Key:            "01234567890123456789012345678901",
+		WeChatPayPlatformCertSerial:  "platform-serial",
+		WeChatPayPlatformCertificate: "certificate",
+		WeChatPayTimeout:             time.Second,
+		ShutdownTimeout:              time.Second,
+	}
+	err := cfg.Validate()
+	if err == nil || !strings.Contains(err.Error(), "WECHAT_NOTIFY_URL_MUST_BE_PUBLIC_HTTPS") {
+		t.Fatalf("expected public HTTPS notify validation, got %v", err)
 	}
 }

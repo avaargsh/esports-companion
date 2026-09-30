@@ -10,13 +10,13 @@ import (
 
 type MockProvider struct{}
 
+func (MockProvider) Name() string {
+	return "MOCK"
+}
+
 func (MockProvider) CreatePayment(
 	_ context.Context,
-	_ string,
-	_ int64,
-	_ string,
-	_ string,
-	_ string,
+	request ports.PaymentRequest,
 ) (ports.PaymentIntent, error) {
 	value, err := idgen.UUIDv4()
 	if err != nil {
@@ -26,6 +26,10 @@ func (MockProvider) CreatePayment(
 		Provider:      "MOCK",
 		ProviderTxnID: "mock_" + strings.ReplaceAll(value, "-", ""),
 		Status:        "SUCCESS",
+		RawPayload: map[string]any{
+			"mode":           "mock",
+			"idempotencyKey": request.IdempotencyKey,
+		},
 		ClientPayload: map[string]string{},
 	}, nil
 }

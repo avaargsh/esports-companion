@@ -28,16 +28,16 @@ func NewRepository(db *pgxpool.Pool) Repository {
 	return Repository{db: db}
 }
 
-func (r Repository) Pay(
+func (r Repository) Prepare(
 	ctx context.Context,
 	userID string,
 	orderID string,
 	idempotencyKey string,
 	provider ports.PaymentProvider,
-) (orders.Order, error) {
+) (Preparation, error) {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
-		return orders.Order{}, fmt.Errorf("begin payment transaction: %w", err)
+		return Preparation{}, fmt.Errorf("begin payment transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
@@ -61,97 +61,118 @@ func (r Repository) Pay(
 		FOR UPDATE
 	`, orderID))
 	if errors.Is(err, pgx.ErrNoRows) {
-		return orders.Order{}, orders.ErrOrderNotFound
+		return Preparation{}, orders.ErrOrderNotFound
 	}
 	if err != nil {
-		return orders.Order{}, fmt.Errorf("lock payment order: %w", err)
+		return Preparation{}, fmt.Errorf("lock payment order: %w", err)
 	}
 	if order.UserID != userID {
-		return orders.Order{}, orders.ErrOrderNotOwned
+		return Preparation{}, orders.ErrOrderNotOwned
 	}
 
-	var existingOrderID string
+	var (
+		existingOrderID  string
+		existingProvider string
+		existingStatus   string
+		existingRaw      []byte
+	)
 	err = tx.QueryRow(ctx, `
-		SELECT order_id::text
+		SELECT
+			order_id::text,
+			provider,
+			status,
+			raw_payload
 		FROM payment_transactions
 		WHERE idempotency_key = $1
-	`, idempotencyKey).Scan(&existingOrderID)
+	`, idempotencyKey).Scan(
+		&existingOrderID,
+		&existingProvider,
+		&existingStatus,
+		&existingRaw,
+	)
 	switch {
 	case err == nil:
 		if existingOrderID != order.ID {
-			return orders.Order{}, ErrIdempotencyKeyReused
+			return Preparation{}, ErrIdempotencyKeyReused
 		}
-		return order, nil
+		clientPayload, err := storedClientPayload(existingRaw)
+		if err != nil {
+			return Preparation{}, err
+		}
+		return Preparation{
+			Order:         order,
+			Provider:      existingProvider,
+			PaymentStatus: existingStatus,
+			ClientPayload: clientPayload,
+			Replayed:      true,
+		}, nil
 	case !errors.Is(err, pgx.ErrNoRows):
-		return orders.Order{}, fmt.Errorf("load payment idempotency key: %w", err)
+		return Preparation{}, fmt.Errorf("load payment idempotency key: %w", err)
 	}
 
 	if orders.Status(order.Status) != orders.StatusWaitingPayment {
-		return orders.Order{}, ErrOrderNotWaitingPayment
+		return Preparation{}, ErrOrderNotWaitingPayment
 	}
 
+	providerName := strings.ToUpper(strings.TrimSpace(provider.Name()))
 	var pending bool
 	if err := tx.QueryRow(ctx, `
 		SELECT EXISTS(
 			SELECT 1
 			FROM payment_transactions
 			WHERE order_id = $1::uuid
-			  AND provider = 'MOCK'
+			  AND provider = $2
 			  AND status = 'PENDING'
 		)
-	`, orderID).Scan(&pending); err != nil {
-		return orders.Order{}, fmt.Errorf("check pending payment: %w", err)
+	`, orderID, providerName).Scan(&pending); err != nil {
+		return Preparation{}, fmt.Errorf("check pending payment: %w", err)
 	}
 	if pending {
-		return orders.Order{}, ErrPaymentAttemptExists
+		return Preparation{}, ErrPaymentAttemptExists
 	}
 
-	var payerExists bool
-	if err := tx.QueryRow(ctx, `
-		SELECT EXISTS(
-			SELECT 1
-			FROM users
-			WHERE id = $1::uuid
-		)
-	`, order.UserID).Scan(&payerExists); err != nil {
-		return orders.Order{}, fmt.Errorf("load payment payer: %w", err)
+	var payerOpenID pgtype.Text
+	err = tx.QueryRow(ctx, `
+		SELECT openid
+		FROM users
+		WHERE id = $1::uuid
+	`, order.UserID).Scan(&payerOpenID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Preparation{}, ErrPaymentPayerNotFound
 	}
-	if !payerExists {
-		return orders.Order{}, ErrPaymentPayerNotFound
-	}
-
-	intent, err := provider.CreatePayment(
-		ctx,
-		order.ID,
-		int64(order.TotalAmount),
-		"CNY",
-		idempotencyKey,
-		"",
-	)
 	if err != nil {
-		return orders.Order{}, err
+		return Preparation{}, fmt.Errorf("load payment payer: %w", err)
 	}
-	providerName := strings.ToUpper(intent.Provider)
-	if providerName != "MOCK" {
-		return orders.Order{}, ErrPaymentProviderMismatch
+
+	intent, err := provider.CreatePayment(ctx, ports.PaymentRequest{
+		OrderID:        order.ID,
+		OrderNo:        order.OrderNo,
+		Description:    "Esports Companion " + order.OrderNo,
+		AmountMinor:    int64(order.TotalAmount),
+		Currency:       "CNY",
+		IdempotencyKey: idempotencyKey,
+		PayerSubject:   payerOpenID.String,
+	})
+	if err != nil {
+		return Preparation{}, err
 	}
-	if intent.Status != "SUCCESS" {
-		return orders.Order{}, ErrPaymentProviderBadStatus
+	if strings.ToUpper(strings.TrimSpace(intent.Provider)) != providerName {
+		return Preparation{}, ErrPaymentProviderMismatch
+	}
+	if intent.Status != "PENDING" && intent.Status != "SUCCESS" {
+		return Preparation{}, ErrPaymentProviderBadStatus
 	}
 
 	rawPayload, err := json.Marshal(map[string]any{
-		"provider": map[string]any{
-			"mode":           "mock",
-			"idempotencyKey": idempotencyKey,
-		},
-		"clientPayload": map[string]any{},
+		"provider":      intent.RawPayload,
+		"clientPayload": intent.ClientPayload,
 	})
 	if err != nil {
-		return orders.Order{}, err
+		return Preparation{}, err
 	}
 	paymentID, err := idgen.UUIDv4()
 	if err != nil {
-		return orders.Order{}, err
+		return Preparation{}, err
 	}
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO payment_transactions (
@@ -171,8 +192,8 @@ func (r Repository) Pay(
 			$4,
 			$5,
 			$6,
-			'SUCCESS',
-			$7::json
+			$7,
+			$8::json
 		)
 	`,
 		paymentID,
@@ -181,49 +202,94 @@ func (r Repository) Pay(
 		intent.ProviderTxnID,
 		idempotencyKey,
 		order.TotalAmount,
+		intent.Status,
 		string(rawPayload),
 	); err != nil {
-		return orders.Order{}, fmt.Errorf("insert payment transaction: %w", err)
+		return Preparation{}, fmt.Errorf("insert payment transaction: %w", err)
 	}
 
-	order, err = transitionOrder(
-		ctx,
-		tx,
-		order,
-		orders.StatusPaid,
-		"PAYMENT_SUCCESS",
-		"PAYMENT",
-		"",
-		map[string]any{"provider": providerName},
-	)
-	if err != nil {
-		return orders.Order{}, err
-	}
-	order, err = transitionOrder(
-		ctx,
-		tx,
-		order,
-		orders.StatusMatching,
-		"ORDER_ENTERED_MATCHING",
-		"SYSTEM",
-		"",
-		map[string]any{},
-	)
-	if err != nil {
-		return orders.Order{}, err
-	}
-
-	if order.DesignatedPlayerID != nil {
-		order, err = assignDesignated(ctx, tx, order, userID)
+	if intent.Status == "SUCCESS" {
+		order, err = transitionOrder(
+			ctx,
+			tx,
+			order,
+			orders.StatusPaid,
+			"PAYMENT_SUCCESS",
+			"PAYMENT",
+			"",
+			map[string]any{"provider": providerName},
+		)
 		if err != nil {
-			return orders.Order{}, err
+			return Preparation{}, err
+		}
+		order, err = transitionOrder(
+			ctx,
+			tx,
+			order,
+			orders.StatusMatching,
+			"ORDER_ENTERED_MATCHING",
+			"SYSTEM",
+			"",
+			map[string]any{},
+		)
+		if err != nil {
+			return Preparation{}, err
+		}
+
+		if order.DesignatedPlayerID != nil {
+			order, err = assignDesignated(ctx, tx, order, userID)
+			if err != nil {
+				return Preparation{}, err
+			}
 		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return orders.Order{}, fmt.Errorf("commit payment transaction: %w", err)
+		return Preparation{}, fmt.Errorf("commit payment transaction: %w", err)
 	}
-	return order, nil
+	return Preparation{
+		Order:         order,
+		Provider:      providerName,
+		PaymentStatus: intent.Status,
+		ClientPayload: intent.ClientPayload,
+		Replayed:      false,
+	}, nil
+}
+
+func (r Repository) Pay(
+	ctx context.Context,
+	userID string,
+	orderID string,
+	idempotencyKey string,
+	provider ports.PaymentProvider,
+) (orders.Order, error) {
+	preparation, err := r.Prepare(
+		ctx,
+		userID,
+		orderID,
+		idempotencyKey,
+		provider,
+	)
+	if err != nil {
+		return orders.Order{}, err
+	}
+	return preparation.Order, nil
+}
+
+func storedClientPayload(raw []byte) (map[string]string, error) {
+	if len(raw) == 0 {
+		return map[string]string{}, nil
+	}
+	var payload struct {
+		ClientPayload map[string]string `json:"clientPayload"`
+	}
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return nil, fmt.Errorf("decode payment replay payload: %w", err)
+	}
+	if payload.ClientPayload == nil {
+		payload.ClientPayload = map[string]string{}
+	}
+	return payload.ClientPayload, nil
 }
 
 func transitionOrder(
