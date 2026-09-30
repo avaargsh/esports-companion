@@ -2,6 +2,7 @@ package realtime
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"strings"
 	"sync"
@@ -80,7 +81,7 @@ func (h *Hub) runSubscription(ctx context.Context) error {
 			return nil
 		case message, ok := <-messages:
 			if !ok {
-				return redis.ErrClosed
+				return errors.New("REDIS_REALTIME_SUBSCRIPTION_CLOSED")
 			}
 			h.dispatchRedis(ctx, message.Channel, []byte(message.Payload))
 		}
