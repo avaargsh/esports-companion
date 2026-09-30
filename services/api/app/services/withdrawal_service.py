@@ -6,6 +6,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import LedgerEntry, Wallet, Withdrawal
+from app.services.authorization_audit import AuthorizationAudit
+from app.services.resource_authorization_policy import AuthorizationDecision
 
 
 class WithdrawalService:
@@ -75,6 +77,7 @@ class WithdrawalService:
         *,
         withdrawal_id: uuid.UUID,
         provider_txn_id: str | None = None,
+        authorization: AuthorizationDecision | None = None,
     ) -> Withdrawal:
         withdrawal = db.scalar(
             select(Withdrawal)
@@ -132,6 +135,8 @@ class WithdrawalService:
                 balance_after=wallet.available_balance,
             )
         )
+        if authorization is not None:
+            AuthorizationAudit.record(db, decision=authorization)
         try:
             db.commit()
         except IntegrityError:
@@ -155,6 +160,7 @@ class WithdrawalService:
         *,
         withdrawal_id: uuid.UUID,
         reason: str,
+        authorization: AuthorizationDecision | None = None,
     ) -> Withdrawal:
         withdrawal = db.scalar(
             select(Withdrawal)
@@ -193,6 +199,8 @@ class WithdrawalService:
                 balance_after=wallet.available_balance,
             )
         )
+        if authorization is not None:
+            AuthorizationAudit.record(db, decision=authorization)
         db.commit()
         db.refresh(withdrawal)
         return withdrawal
