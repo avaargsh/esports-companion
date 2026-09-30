@@ -151,6 +151,31 @@ def test_admin_withdrawal_completion_requires_real_payout_reference():
                 complete_audit["businessEvidenceRef"]
                 == f"WITHDRAWAL:{withdrawal_id}"
             )
+            authority = complete_audit["authorityEnvelope"]
+            assert authority["envelopeVersion"] == "authority-envelope.v1"
+            assert authority["digestAlgorithm"] == "sha256"
+            assert len(authority["authorityDigest"]) == 64
+            assert authority["approvalId"] is None
+            assert authority["authorization"]["requestId"] == complete_request_id
+            assert authority["authorization"]["sessionId"] == session_id
+            assert authority["expectedState"]["withdrawalStatus"] == "PENDING"
+            assert authority["expectedState"]["withdrawalAmount"] == 2500
+            assert authority["expectedState"]["walletAvailableBalance"] == 7500
+            assert authority["expectedState"]["walletFrozenBalance"] == 2500
+            assert authority["boundedWrite"] == {
+                "operation": "WITHDRAWAL_COMPLETE",
+                "providerTxnId": "wechat-transfer-20260929-001",
+                "withdrawalStatus": "COMPLETED",
+                "walletFrozenDelta": -2500,
+            }
+            assert (
+                authority["resourceVersion"]
+                == (
+                    f"withdrawal:{withdrawal_id}:status=PENDING;"
+                    f"wallet:{authority['expectedState']['walletId']}:"
+                    f"v{authority['expectedState']['walletVersion']}"
+                )
+            )
 
             read_audit = next(
                 item
@@ -237,6 +262,30 @@ def test_admin_withdrawal_reject_binds_request_and_session_evidence():
             assert audit.payload_json["requestId"] == reject_request_id
             assert audit.payload_json["businessEvidenceRef"] == (
                 f"WITHDRAWAL:{withdrawal_id}"
+            )
+            authority = audit.payload_json["authorityEnvelope"]
+            assert authority["envelopeVersion"] == "authority-envelope.v1"
+            assert len(authority["authorityDigest"]) == 64
+            assert authority["authorization"]["requestId"] == reject_request_id
+            assert authority["authorization"]["sessionId"] == session_id
+            assert authority["expectedState"]["withdrawalStatus"] == "PENDING"
+            assert authority["expectedState"]["withdrawalAmount"] == 1200
+            assert authority["expectedState"]["walletAvailableBalance"] == 8800
+            assert authority["expectedState"]["walletFrozenBalance"] == 1200
+            assert authority["boundedWrite"] == {
+                "operation": "WITHDRAWAL_REJECT",
+                "reason": "REJECTED_BY_PLATFORM",
+                "withdrawalStatus": "REJECTED",
+                "walletFrozenDelta": -1200,
+                "walletAvailableDelta": 1200,
+            }
+            assert (
+                authority["resourceVersion"]
+                == (
+                    f"withdrawal:{withdrawal_id}:status=PENDING;"
+                    f"wallet:{authority['expectedState']['walletId']}:"
+                    f"v{authority['expectedState']['walletVersion']}"
+                )
             )
 
 
