@@ -233,17 +233,23 @@ Python reference and must not emit duplicate evidence.
 
 #### M3.4 - Customer confirm / settlement
 
-Deferred to a separate money-sensitive slice:
+Go owns the money-sensitive confirmation transaction:
 
-- customer confirmation;
+- customer owner check under an order row lock;
+- idempotent replay after `SETTLED`;
 - `FINISH_REQUESTED -> COMPLETED -> SETTLED`;
-- settlement idempotency;
-- provider/platform wallet locking;
-- ledger entries and settlement evidence.
+- atomic `USER_CONFIRMED_FINISH` and `SETTLEMENT_COMPLETED` evidence;
+- one Settlement row per order;
+- provider and platform wallets created-if-missing and locked before credit;
+- wallet version increments;
+- `PROVIDER_INCOME` and `PLATFORM_FEE` ledger entries.
+
+The entire value flow commits once or rolls back once. Acceptance includes
+cross-runtime replay plus a 20-request concurrent confirmation race and requires
+one settlement, two ledger rows and one balance increment per wallet.
 
 Customer/player/platform resource access must continue to preserve the same
-structured authorization semantics as the Python reference; money mutations
-must be tested independently from provider lifecycle transitions.
+structured authorization semantics as the Python reference.
 
 ### M4 - Payment/refund
 

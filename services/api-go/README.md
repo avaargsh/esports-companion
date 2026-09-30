@@ -90,6 +90,7 @@ The loader accepts the current Python-style
 - `POST /api/v1/player/orders/{order_id}/claim`
 - `POST /api/v1/player/orders/{order_id}/start`
 - `POST /api/v1/player/orders/{order_id}/finish`
+- `POST /api/v1/orders/{order_id}/confirm`
 
 The M1 catalog/marketplace routes and M2 auth/session routes are compatibility
 targets. M2.2 also carries the structured authorization/authority kernel used by
@@ -113,8 +114,10 @@ from both runtimes. M3 parity creates/pays/claims an order through FastAPI, then
 requires Go to read the exact same customer list, order detail, assigned provider,
 OrderEvent evidence, and customer/player/platform access outcomes from shared
 PostgreSQL truth. M3.2 additionally proves one-winner atomic claim under a
-100-provider race. M3.3 owns provider start/finish only; customer confirmation
-and settlement remain deferred to the money-sensitive M3.4 slice. M3.1 then gives Go ownership of one bounded write: order
+100-provider race. M3.3 owns provider start/finish. M3.4 owns customer confirmation and the
+atomic settlement transaction: COMPLETED/SETTLED evidence, one Settlement,
+provider/platform wallet credits and two ledger entries. Replayed or concurrent
+confirmation must settle exactly once. M3.1 then gives Go ownership of one bounded write: order
 creation. The parity gate verifies pooled and designated order economics,
 self-order rejection, input/error compatibility, and the atomic
 `orders + ORDER_CREATED + outbox_events` durable evidence set. M3.2 moves

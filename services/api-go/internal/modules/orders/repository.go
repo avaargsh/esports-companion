@@ -572,11 +572,11 @@ func appendOrderEvidence(
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO order_events (
 			id, order_id, event_type, from_status, to_status,
-			actor_type, actor_id, payload_json
+			actor_type, actor_id, payload_json, created_at
 		)
 		VALUES (
 			$1::uuid, $2::uuid, $3, $4, $5,
-			$6, $7, $8::json
+			$6, NULLIF($7, ''), $8::json, clock_timestamp()
 		)
 	`,
 		eventID,
@@ -608,10 +608,12 @@ func appendOrderEvidence(
 	}
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO outbox_events (
-			id, aggregate_type, aggregate_id, event_type, payload_json, status
+			id, aggregate_type, aggregate_id, event_type, payload_json, status,
+			created_at
 		)
 		VALUES (
-			$1::uuid, 'ORDER', $2, $3, $4::json, 'PENDING'
+			$1::uuid, 'ORDER', $2, $3, $4::json, 'PENDING',
+			clock_timestamp()
 		)
 	`, outboxID, orderID, eventType, string(encodedOutboxPayload)); err != nil {
 		return fmt.Errorf("insert %s outbox event: %w", eventType, err)
