@@ -102,7 +102,7 @@ The acceptance runner verifies:
 5. provider wallet available balance increases by exactly `player_amount`;
 6. the corresponding `PROVIDER_INCOME` ledger entry exists;
 7. the submitted review becomes visible on the public provider profile;
-8. the append-only order event trail contains every required business event.
+8. the append-only order event trail covers the expected state path in order.
 
 CI uploads the resulting evidence JSON for each commit.
 
@@ -116,7 +116,7 @@ The generated evidence contains:
 - total/provider/platform money split;
 - provider wallet before/after and ledger entry;
 - review ID, public visibility and provider reputation snapshot;
-- observed order event types;
+- observed order event types and durable `to_status` transition evidence;
 - per-step acceptance results.
 
 This makes the sample product a repeatable vertical slice rather than a screenshots-only demo.
