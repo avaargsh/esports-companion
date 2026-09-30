@@ -159,7 +159,10 @@ class WithdrawalService:
                     "withdrawalStatus": "COMPLETED",
                     "walletFrozenDelta": -withdrawal.amount,
                 },
-                resource_version=f"wallet:{wallet.id}:v{wallet.version}",
+                resource_version=(
+                    f"withdrawal:{withdrawal.id}:status={withdrawal.status};"
+                    f"wallet:{wallet.id}:v{wallet.version}"
+                ),
             )
 
         wallet.frozen_balance -= withdrawal.amount
@@ -249,7 +252,10 @@ class WithdrawalService:
                     "walletFrozenDelta": -withdrawal.amount,
                     "walletAvailableDelta": withdrawal.amount,
                 },
-                resource_version=f"wallet:{wallet.id}:v{wallet.version}",
+                resource_version=(
+                    f"withdrawal:{withdrawal.id}:status={withdrawal.status};"
+                    f"wallet:{wallet.id}:v{wallet.version}"
+                ),
             )
 
         wallet.frozen_balance -= withdrawal.amount
