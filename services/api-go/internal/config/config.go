@@ -45,6 +45,10 @@ type Config struct {
 	WeChatPayTimeout             time.Duration
 	OutboxPollInterval           time.Duration
 	OutboxBatchSize              int
+	FinishConfirmTimeout         time.Duration
+	AssignmentStartTimeout       time.Duration
+	OrderTimeoutScanInterval     time.Duration
+	OrderTimeoutBatchSize        int
 	ShutdownTimeout              time.Duration
 }
 
@@ -142,6 +146,22 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	finishConfirmSeconds, err := envInt("FINISH_CONFIRM_TIMEOUT_SECONDS", 1800)
+	if err != nil {
+		return Config{}, err
+	}
+	assignmentStartSeconds, err := envInt("ASSIGNMENT_START_TIMEOUT_SECONDS", 600)
+	if err != nil {
+		return Config{}, err
+	}
+	orderTimeoutScanSeconds, err := envInt("ORDER_TIMEOUT_SCAN_SECONDS", 30)
+	if err != nil {
+		return Config{}, err
+	}
+	orderTimeoutBatchSize, err := envInt("ORDER_TIMEOUT_BATCH_SIZE", 50)
+	if err != nil {
+		return Config{}, err
+	}
 	shutdownSeconds, err := envInt("SHUTDOWN_TIMEOUT_SECONDS", 15)
 	if err != nil {
 		return Config{}, err
@@ -180,6 +200,10 @@ func Load() (Config, error) {
 		WeChatPayTimeout:             time.Duration(wechatPayTimeoutSeconds) * time.Second,
 		OutboxPollInterval:           time.Duration(outboxPollMilliseconds) * time.Millisecond,
 		OutboxBatchSize:              outboxBatchSize,
+		FinishConfirmTimeout:         time.Duration(finishConfirmSeconds) * time.Second,
+		AssignmentStartTimeout:       time.Duration(assignmentStartSeconds) * time.Second,
+		OrderTimeoutScanInterval:     time.Duration(orderTimeoutScanSeconds) * time.Second,
+		OrderTimeoutBatchSize:        orderTimeoutBatchSize,
 		ShutdownTimeout:              time.Duration(shutdownSeconds) * time.Second,
 	}
 
@@ -227,6 +251,18 @@ func (c Config) Validate() error {
 	}
 	if c.OutboxBatchSize <= 0 || c.OutboxBatchSize > 500 {
 		return errors.New("OUTBOX_BATCH_SIZE_INVALID")
+	}
+	if c.FinishConfirmTimeout <= 0 {
+		return errors.New("FINISH_CONFIRM_TIMEOUT_MUST_BE_POSITIVE")
+	}
+	if c.AssignmentStartTimeout <= 0 {
+		return errors.New("ASSIGNMENT_START_TIMEOUT_MUST_BE_POSITIVE")
+	}
+	if c.OrderTimeoutScanInterval <= 0 {
+		return errors.New("ORDER_TIMEOUT_SCAN_MUST_BE_POSITIVE")
+	}
+	if c.OrderTimeoutBatchSize <= 0 || c.OrderTimeoutBatchSize > 500 {
+		return errors.New("ORDER_TIMEOUT_BATCH_SIZE_INVALID")
 	}
 	if c.ShutdownTimeout <= 0 {
 		return errors.New("SHUTDOWN_TIMEOUT_INVALID")
