@@ -16,6 +16,8 @@ on:
       - "scripts/go_settlement_parity.py"
       - "scripts/go_mock_payment_parity.py"
       - "scripts/go_payment_prepare_parity.py"
+      - "scripts/generate_wechat_callback_fixture.py"
+      - "scripts/go_payment_callback_parity.py"
       - "docs/go-backend-migration.md"
       - ".github/workflows/api-go.yml"
   pull_request:
@@ -31,6 +33,8 @@ on:
       - "scripts/go_settlement_parity.py"
       - "scripts/go_mock_payment_parity.py"
       - "scripts/go_payment_prepare_parity.py"
+      - "scripts/generate_wechat_callback_fixture.py"
+      - "scripts/go_payment_callback_parity.py"
       - "docs/go-backend-migration.md"
       - ".github/workflows/api-go.yml"
 
@@ -138,6 +142,9 @@ jobs:
       - name: Install FastAPI reference
         run: python -m pip install -e "./services/api[dev]"
 
+      - name: Generate WeChat callback parity fixture
+        run: python3 scripts/generate_wechat_callback_fixture.py --github-env "$GITHUB_ENV"
+
       - name: Download Go modules
         working-directory: services/api-go
         run: go mod download
@@ -203,6 +210,9 @@ jobs:
 
       - name: Compare M4.1 payment prepare contracts
         run: python3 scripts/go_payment_prepare_parity.py
+
+      - name: Compare M4.2 signed payment callback contracts
+        run: python3 scripts/go_payment_callback_parity.py
 
       - name: Dump runtime logs on failure
         if: failure()

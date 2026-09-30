@@ -50,3 +50,10 @@ func (s Service) Prepare(
 		s.configuredProvider,
 	)
 }
+
+func (s Service) ApplyVerifiedSuccess(
+	ctx context.Context,
+	callback ports.PaymentCallback,
+) (Preparation, error) {
+	return s.repo.ApplyVerifiedSuccess(ctx, callback)
+}
