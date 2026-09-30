@@ -226,20 +226,57 @@ func ResolvePrincipal(service Service, secure bool, r *http.Request) (Principal,
 	}
 }
 
+func RequireSession(principal Principal) (Principal, *RequestError) {
+	if principal.Legacy || principal.SessionID == "" {
+		return Principal{}, &RequestError{
+			Status: http.StatusUnauthorized,
+			Code:   "SESSION_AUTH_REQUIRED",
+		}
+	}
+	return principal, nil
+}
+
 func RequirePlayer(service Service, secure bool, r *http.Request) (Principal, *RequestError) {
 	principal, requestErr := ResolvePrincipal(service, secure, r)
 	if requestErr != nil {
 		return Principal{}, requestErr
 	}
-	for _, role := range principal.Roles {
-		if role == "PLAYER" {
-			return principal, nil
+	if !principalHasRole(principal, "PLAYER") {
+		return Principal{}, &RequestError{
+			Status: http.StatusForbidden,
+			Code:   "PLAYER_REQUIRED",
 		}
 	}
-	return Principal{}, &RequestError{
-		Status: http.StatusForbidden,
-		Code:   "PLAYER_REQUIRED",
+	if secure {
+		return RequireSession(principal)
 	}
+	return principal, nil
+}
+
+func RequirePlatform(service Service, secure bool, r *http.Request) (Principal, *RequestError) {
+	principal, requestErr := ResolvePrincipal(service, secure, r)
+	if requestErr != nil {
+		return Principal{}, requestErr
+	}
+	if !principalHasRole(principal, "PLATFORM") {
+		return Principal{}, &RequestError{
+			Status: http.StatusForbidden,
+			Code:   "PLATFORM_REQUIRED",
+		}
+	}
+	if secure {
+		return RequireSession(principal)
+	}
+	return principal, nil
+}
+
+func principalHasRole(principal Principal, role string) bool {
+	for _, candidate := range principal.Roles {
+		if candidate == role {
+			return true
+		}
+	}
+	return false
 }
 
 func WriteRequestError(w http.ResponseWriter, requestErr *RequestError) {
