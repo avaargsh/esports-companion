@@ -1,4 +1,5 @@
 import uuid
+from dataclasses import replace
 from datetime import datetime, timezone
 
 from sqlalchemy import select
@@ -18,6 +19,7 @@ class WithdrawalService:
         user_id: uuid.UUID,
         amount: int,
         idempotency_key: str,
+        authorization: AuthorizationDecision | None = None,
     ) -> Withdrawal:
         if amount <= 0:
             raise ValueError("WITHDRAWAL_AMOUNT_INVALID")
@@ -38,6 +40,16 @@ class WithdrawalService:
         if existing:
             if existing.user_id != user_id or existing.amount != amount:
                 raise ValueError("IDEMPOTENCY_KEY_REUSED")
+            if authorization is not None:
+                AuthorizationAudit.record(
+                    db,
+                    decision=replace(
+                        authorization,
+                        resource_id=str(existing.id),
+                        business_evidence_ref=f"WITHDRAWAL:{existing.id}",
+                    ),
+                )
+                db.commit()
             return existing
 
         if wallet.available_balance < amount:
@@ -67,6 +79,15 @@ class WithdrawalService:
                 balance_after=wallet.available_balance,
             )
         )
+        if authorization is not None:
+            AuthorizationAudit.record(
+                db,
+                decision=replace(
+                    authorization,
+                    resource_id=str(withdrawal.id),
+                    business_evidence_ref=f"WITHDRAWAL:{withdrawal.id}",
+                ),
+            )
         db.commit()
         db.refresh(withdrawal)
         return withdrawal

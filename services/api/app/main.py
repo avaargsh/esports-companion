@@ -1,10 +1,14 @@
 import asyncio
+import logging
 from contextlib import asynccontextmanager, suppress
+from dataclasses import replace
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.config import settings
+from app.db import SessionLocal
 
 from app.health import router as health_router
 from app.metrics import router as metrics_router
@@ -32,6 +36,8 @@ from app.routers.refunds import router as refunds_router
 from app.routers.wallet import router as wallet_router
 from app.routers.marketplace import router as marketplace_router
 from app.routers.withdrawals import router as withdrawals_router
+from app.services.authorization_audit import AuthorizationAudit
+from app.services.resource_authorization_policy import ResourceAuthorizationDenied
 
 
 @asynccontextmanager
@@ -63,6 +69,34 @@ app = FastAPI(
     redoc_url="/redoc" if settings.expose_api_docs else None,
     openapi_url="/openapi.json" if settings.expose_api_docs else None,
 )
+
+
+@app.exception_handler(ResourceAuthorizationDenied)
+async def resource_authorization_denied(
+    request: Request,
+    exc: ResourceAuthorizationDenied,
+):
+    decision = exc.decision
+    if decision.request_id is None:
+        decision = replace(
+            decision,
+            request_id=getattr(request.state, "request_id", None),
+        )
+
+    try:
+        with SessionLocal() as db:
+            AuthorizationAudit.record(db, decision=decision)
+            db.commit()
+    except Exception:
+        logging.getLogger("authorization.audit").exception(
+            "failed to persist denied authorization decision",
+            extra={"request_id": decision.request_id},
+        )
+
+    return JSONResponse(
+        status_code=403,
+        content={"detail": decision.reason_code},
+    )
 
 app.add_middleware(
     CORSMiddleware,
