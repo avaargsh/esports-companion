@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extract the declared Mini Program starter into a standalone smoke-test workspace."""
+"""Extract the declared Mini Program starter into a standalone workspace."""
 
 from __future__ import annotations
 
@@ -27,13 +27,15 @@ def copy_surface(destination_root: Path, includes: list[str]) -> None:
 
 def render_package(source: dict) -> dict:
     return {
-        "name": "@starter/miniapp-smoke",
-        "version": "0.0.0",
+        "name": "@starter/miniapp",
+        "version": source.get("version", "0.1.0"),
         "private": True,
         "license": source.get("license", "Apache-2.0"),
         "scripts": {
+            "dev:mp-weixin": "uni -p mp-weixin",
             "build:mp-weixin": "uni build -p mp-weixin",
             "type-check": "vue-tsc --noEmit",
+            "theme:sync": "python3 ../../scripts/sync_miniapp_theme.py",
             "theme:check": "python3 ../../scripts/sync_miniapp_theme.py --check",
         },
         "dependencies": source["dependencies"],
@@ -124,9 +126,9 @@ def write_scaffold(destination_root: Path) -> None:
     (src / "manifest.json").write_text(
         json.dumps(
             {
-                "name": "miniapp-starter-smoke",
+                "name": "miniapp-starter",
                 "appid": "__UNI__MINIAPP_STARTER",
-                "description": "Standalone extraction smoke test",
+                "description": "Reusable UniApp + WeChat Mini Program starter",
                 "versionName": "0.0.0",
                 "versionCode": "1",
                 "mp-weixin": {
@@ -138,6 +140,27 @@ def write_scaffold(destination_root: Path) -> None:
             indent=2,
         )
         + "\n",
+        encoding="utf-8",
+    )
+
+    (app / ".env.example").write_text(
+        "VITE_AUTH_MODE=demo\n"
+        "VITE_API_ORIGIN=http://localhost:8000\n",
+        encoding="utf-8",
+    )
+
+    (destination_root / "README.md").write_text(
+        "# Mini Program Starter\n\n"
+        "Reusable UniApp + Vue 3 + TypeScript WeChat Mini Program starter.\n\n"
+        "## Start\n\n"
+        "\`\`\`bash\n"
+        "cd apps/miniapp\n"
+        "npm install\n"
+        "npm run dev:mp-weixin\n"
+        "\`\`\`\n\n"
+        "Open \`dist/dev/mp-weixin\` in WeChat DevTools.\n\n"
+        "See \`docs/miniapp-ui.md\`, \`docs/miniapp-theme.md\` and "
+        "\`docs/miniapp-starter-boundary.md\` for the reusable contracts.\n",
         encoding="utf-8",
     )
 
@@ -173,6 +196,8 @@ def verify_extraction(destination_root: Path, product_roots: list[str]) -> None:
 
     required = [
         "apps/miniapp/package.json",
+        "README.md",
+        "apps/miniapp/.env.example",
         "apps/miniapp/src/main.ts",
         "apps/miniapp/src/App.vue",
         "apps/miniapp/src/pages.json",
