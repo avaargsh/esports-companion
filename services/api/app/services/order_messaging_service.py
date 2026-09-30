@@ -4,13 +4,8 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models import (
-    Order,
-    OrderAssignment,
-    OrderMessage,
-    OutboxEvent,
-    PlayerProfile,
-)
+from app.models import Order, OrderMessage, OutboxEvent
+from app.services.order_authorization_policy import OrderAuthorizationPolicy
 
 
 class OrderMessagingService:
@@ -22,50 +17,6 @@ class OrderMessagingService:
     }
 
     @staticmethod
-    def _player_profile(db: Session, user_id: uuid.UUID) -> PlayerProfile | None:
-        return db.scalar(
-            select(PlayerProfile).where(PlayerProfile.user_id == user_id)
-        )
-
-    @staticmethod
-    def participant_role(
-        db: Session,
-        *,
-        order: Order,
-        user_id: uuid.UUID,
-        roles: tuple[str, ...],
-        require_active_assignment: bool = False,
-    ) -> str:
-        if "PLATFORM" in roles and not require_active_assignment:
-            return "PLATFORM"
-        if order.user_id == user_id:
-            if require_active_assignment:
-                active = db.scalar(
-                    select(OrderAssignment.id).where(
-                        OrderAssignment.order_id == order.id,
-                        OrderAssignment.status == "ACTIVE",
-                    )
-                )
-                if not active:
-                    raise PermissionError("ORDER_CHAT_NOT_ACTIVE")
-            return "USER"
-
-        if "PLAYER" in roles:
-            player = OrderMessagingService._player_profile(db, user_id)
-            if player:
-                stmt = select(OrderAssignment.id).where(
-                    OrderAssignment.order_id == order.id,
-                    OrderAssignment.player_id == player.id,
-                )
-                if require_active_assignment:
-                    stmt = stmt.where(OrderAssignment.status == "ACTIVE")
-                assignment = db.scalar(stmt.order_by(OrderAssignment.created_at.desc()))
-                if assignment:
-                    return "PLAYER"
-
-        raise PermissionError("ORDER_MESSAGE_ACCESS_DENIED")
-
-    @staticmethod
     def list_messages(
         db: Session,
         *,
@@ -74,23 +25,16 @@ class OrderMessagingService:
         roles: tuple[str, ...],
         limit: int = 100,
     ) -> list[OrderMessage]:
+        actor = OrderAuthorizationPolicy.require_chat_reader(
+            db,
+            order=order,
+            user_id=user_id,
+            roles=roles,
+        )
         stmt = select(OrderMessage).where(OrderMessage.order_id == order.id)
 
-        if "PLATFORM" in roles or order.user_id == user_id:
-            pass
-        elif "PLAYER" in roles:
-            player = OrderMessagingService._player_profile(db, user_id)
-            if not player:
-                raise PermissionError("ORDER_MESSAGE_ACCESS_DENIED")
-
-            assignment = db.scalar(
-                select(OrderAssignment)
-                .where(
-                    OrderAssignment.order_id == order.id,
-                    OrderAssignment.player_id == player.id,
-                )
-                .order_by(OrderAssignment.created_at.desc())
-            )
+        if actor.role == "PLAYER":
+            assignment = actor.assignment
             if not assignment:
                 raise PermissionError("ORDER_MESSAGE_ACCESS_DENIED")
 
@@ -100,8 +44,6 @@ class OrderMessagingService:
                 if not assignment.released_at:
                     raise PermissionError("ORDER_MESSAGE_ACCESS_DENIED")
                 stmt = stmt.where(OrderMessage.created_at <= assignment.released_at)
-        else:
-            raise PermissionError("ORDER_MESSAGE_ACCESS_DENIED")
 
         rows = list(
             db.scalars(
@@ -122,17 +64,25 @@ class OrderMessagingService:
         client_message_id: str,
         content: str,
     ) -> OrderMessage:
-        if order.status not in OrderMessagingService.SENDABLE_STATUSES:
-            raise ValueError("ORDER_CHAT_NOT_SENDABLE")
-
-        sender_role = OrderMessagingService.participant_role(
+        # Authorize before exposing state-machine details. Historical participants
+        # may inspect their own chat window, but unrelated users must not learn
+        # whether an order is currently sendable.
+        OrderAuthorizationPolicy.require_chat_reader(
             db,
             order=order,
             user_id=user_id,
             roles=roles,
-            require_active_assignment=True,
         )
-        if sender_role == "PLATFORM":
+        if order.status not in OrderMessagingService.SENDABLE_STATUSES:
+            raise ValueError("ORDER_CHAT_NOT_SENDABLE")
+
+        actor = OrderAuthorizationPolicy.require_chat_sender(
+            db,
+            order=order,
+            user_id=user_id,
+            roles=roles,
+        )
+        if actor.role == "PLATFORM":
             raise PermissionError("PLATFORM_CHAT_SEND_DISABLED")
 
         normalized_content = content.strip()
@@ -154,7 +104,7 @@ class OrderMessagingService:
         message = OrderMessage(
             order_id=order.id,
             sender_user_id=user_id,
-            sender_role=sender_role,
+            sender_role=actor.role,
             message_type="TEXT",
             content=normalized_content,
             client_message_id=client_message_id,
@@ -171,7 +121,7 @@ class OrderMessagingService:
                         "orderId": str(order.id),
                         "messageId": str(message.id),
                         "senderUserId": str(user_id),
-                        "senderRole": sender_role,
+                        "senderRole": actor.role,
                     },
                 )
             )

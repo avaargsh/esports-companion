@@ -10,9 +10,9 @@ from app.models import (
     Dispute,
     Order,
     OrderAssignment,
-    PlayerProfile,
     Refund,
 )
+from app.services.order_authorization_policy import OrderAuthorizationPolicy
 from app.services.order_service import OrderNotFound, OrderService
 from app.services.settlement_service import SettlementService
 
@@ -34,6 +34,7 @@ class DisputeService:
         reason_code: str,
         description: str,
         idempotency_key: str,
+        actor_roles: tuple[str, ...] | None = None,
     ) -> Dispute:
         existing = db.scalar(
             select(Dispute).where(Dispute.idempotency_key == idempotency_key)
@@ -62,14 +63,16 @@ class DisputeService:
                 raise ValueError("IDEMPOTENCY_KEY_REUSED")
             return existing
 
+        actor = OrderAuthorizationPolicy.require_dispute_actor(
+            db,
+            order=order,
+            user_id=actor_user_id,
+            roles=actor_roles,
+        )
         if order.status not in DisputeService.OPENABLE_STATUSES:
             raise ValueError("ORDER_NOT_DISPUTABLE")
 
-        actor_role = DisputeService._actor_role(
-            db,
-            order=order,
-            actor_user_id=actor_user_id,
-        )
+        actor_role = actor.role
         dispute = Dispute(
             order_id=order.id,
             status="OPEN",
@@ -323,31 +326,6 @@ class DisputeService:
             raise
         db.refresh(refund)
         return refund
-
-    @staticmethod
-    def _actor_role(
-        db: Session,
-        *,
-        order: Order,
-        actor_user_id: uuid.UUID,
-    ) -> str:
-        if order.user_id == actor_user_id:
-            return "USER"
-
-        player = db.scalar(
-            select(PlayerProfile).where(PlayerProfile.user_id == actor_user_id)
-        )
-        if player:
-            assignment = db.scalar(
-                select(OrderAssignment).where(
-                    OrderAssignment.order_id == order.id,
-                    OrderAssignment.player_id == player.id,
-                    OrderAssignment.status == "ACTIVE",
-                )
-            )
-            if assignment:
-                return "PLAYER"
-        raise PermissionError("DISPUTE_ACTOR_NOT_ORDER_PARTICIPANT")
 
     @staticmethod
     def _locked_open_dispute(

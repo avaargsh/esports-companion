@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.domain.order_state_machine import OrderStatus
 from app.models import Order
+from app.services.order_authorization_policy import OrderAuthorizationPolicy
 from app.services.order_service import OrderNotFound, OrderService
 from app.services.settlement_service import SettlementService
 
@@ -24,8 +25,7 @@ class CompletionService:
         )
         if not order:
             raise OrderNotFound(str(order_id))
-        if order.user_id != user_id:
-            raise PermissionError("ORDER_NOT_OWNED")
+        OrderAuthorizationPolicy.require_owner(order, user_id=user_id)
         if order.status == OrderStatus.SETTLED.value:
             return order
         CompletionService.complete_and_settle(

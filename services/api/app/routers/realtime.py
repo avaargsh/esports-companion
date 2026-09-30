@@ -7,7 +7,7 @@ from app.config import settings
 from app.db import SessionLocal
 from app.models import Order, User
 from app.realtime import manager
-from app.services.order_messaging_service import OrderMessagingService
+from app.services.order_authorization_policy import OrderAuthorizationPolicy
 from app.services.session_service import SessionService
 
 router = APIRouter(tags=["realtime"])
@@ -81,17 +81,12 @@ def _authorized_channels(
                 rejected.append(channel)
                 continue
 
-            if order.user_id == user_id or "PLATFORM" in roles:
-                accepted.append(channel)
-                continue
-
             try:
-                OrderMessagingService.participant_role(
+                OrderAuthorizationPolicy.require_viewer(
                     db,
                     order=order,
                     user_id=user_id,
                     roles=roles,
-                    require_active_assignment=True,
                 )
                 accepted.append(channel)
             except PermissionError:
