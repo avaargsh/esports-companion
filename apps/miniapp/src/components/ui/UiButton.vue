@@ -1,6 +1,4 @@
 <script setup lang="ts">
-defineOptions({ inheritAttrs: false })
-
 const props = withDefaults(defineProps<{
   variant?: "primary" | "secondary" | "danger" | "plain"
   size?: "md" | "sm"
@@ -25,7 +23,6 @@ function handleClick() {
 
 <template>
   <button
-    v-bind="$attrs"
     class="ui-button"
     :class="[
       'ui-button--' + variant,
