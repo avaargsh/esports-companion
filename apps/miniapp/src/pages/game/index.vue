@@ -6,7 +6,7 @@ import { getDemoIdentities } from "../../api/demo"
 import CheckoutBar from "../../components/CheckoutBar.vue"
 import EmptyState from "../../components/EmptyState.vue"
 import type { Order, ServiceSku } from "../../types/domain"
-import { showMessage } from "../../ui/feedback"
+import { showMessage } from "../../ui/feedback"\nimport { navigation } from "../../platform/navigation"
 
 const gameId=ref("")
 const gameName=ref("选择服务")
@@ -54,7 +54,7 @@ async function createOrder(){
       userId:identities.customer.userId,
       data:{sku_id:selected.value.id,quantity:quantity.value,remark:remark.value.trim()}
     })
-    uni.redirectTo({url:`/pages/order-detail/index?id=${order.id}`})
+    navigation.replace("/pages/order-detail/index",{id:order.id})
   }catch(error){
     showMessage(error instanceof Error?error.message:"下单失败")
   }finally{creating.value=false}
