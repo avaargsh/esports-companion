@@ -134,6 +134,19 @@ Tones:
 
 Badges are for compact status or metadata. They are not buttons.
 
+## Interaction contract
+
+Mini Program page files must not call `uni.showToast`, `uni.showModal`, `uni.showLoading` or `uni.hideLoading` directly.
+
+All transient feedback goes through `src/ui/feedback.ts`. This keeps wording, duration, confirmation behavior and future analytics/accessibility changes in one place. CI enforces this rule with:
+
+```bash
+cd apps/miniapp
+npm run ui-check
+```
+
+Consequential state changes require an explicit confirmation before the mutation starts. Current guarded examples include customer order completion/cancellation/refund/dispute flows and provider withdrawal submission.
+
 ## Feedback helpers
 
 `src/ui/feedback.ts`
@@ -241,6 +254,7 @@ For a new Mini Program page:
 ```bash
 cd apps/miniapp
 npm install
+npm run ui-check
 npm run type-check
 npm run build:mp-weixin
 npm run build:mp-weixin:staging
