@@ -6,6 +6,7 @@ import { getDemoIdentities } from "../../api/demo"
 import type { Order, Wallet } from "../../types/domain"
 import OfferingPanel from "./OfferingPanel.vue"
 import SkillPanel from "./SkillPanel.vue"
+import { showMessage } from "../../ui/feedback"
 
 type Player={id:string;user_id:string;display_name:string;verification_status:string;service_status:string}
 const profile=ref<Player|null>(null)
@@ -34,11 +35,11 @@ async function load(){
 }
 async function toggleStatus(){
   if(!profile.value||!playerUserId.value||busy.value)return
-  if(!verified.value){uni.showToast({title:"认证通过后才能开启接单",icon:"none"});return}
+  if(!verified.value){showMessage("认证通过后才能开启接单");return}
   busy.value=true
   try{
     profile.value=await request<Player>("/player/profile",{method:"PUT",userId:playerUserId.value,data:{service_status:online.value?"OFFLINE":"AVAILABLE"}})
-  }catch(error){uni.showToast({title:error instanceof Error?error.message:"状态切换失败",icon:"none"})}
+  }catch(error){showMessage(error instanceof Error?error.message:"状态切换失败")}
   finally{busy.value=false}
 }
 function openPool(){uni.navigateTo({url:"/pages-player/order-pool/index"})}
