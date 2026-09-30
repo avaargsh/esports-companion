@@ -63,11 +63,11 @@ type Detail struct {
 }
 
 type Event struct {
-	ID         string    `json:"id"`
-	EventType  string    `json:"event_type"`
-	FromStatus *string   `json:"from_status"`
-	ToStatus   *string   `json:"to_status"`
-	ActorType  string    `json:"actor_type"`
+	ID         string         `json:"id"`
+	EventType  string         `json:"event_type"`
+	FromStatus *string        `json:"from_status"`
+	ToStatus   *string        `json:"to_status"`
+	ActorType  string         `json:"actor_type"`
 	CreatedAt  httpx.JSONTime `json:"created_at"`
 }
 
