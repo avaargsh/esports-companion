@@ -177,6 +177,26 @@ def test_admin_withdrawal_completion_requires_real_payout_reference():
                 )
             )
 
+            admission_event = db.scalar(
+                select(OutboxEvent).where(
+                    OutboxEvent.aggregate_type == "AUDIT",
+                    OutboxEvent.aggregate_id == f"WITHDRAWAL:{withdrawal_id}",
+                    OutboxEvent.event_type == "AUTHORITY_ADMISSION",
+                )
+            )
+            assert admission_event is not None
+            admission_payload = admission_event.payload_json
+            admission = admission_payload["admission"]
+            assert admission["decision"] == "ADMIT"
+            assert admission["reasonCode"] == "AUTHORITY_EXACT_MATCH"
+            assert admission["admissionVersion"] == "authority-admission.v1"
+            assert admission["authorityDigest"] == authority["authorityDigest"]
+            assert admission["currentState"] == authority["expectedState"]
+            assert admission["currentResourceVersion"] == authority["resourceVersion"]
+            assert admission["requestedWrite"] == authority["boundedWrite"]
+            assert admission["stateDiff"] == {}
+            assert admission["writeDiff"] == {}
+
             read_audit = next(
                 item
                 for item in payloads
