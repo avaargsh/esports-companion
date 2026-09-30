@@ -33,6 +33,7 @@ def main() -> int:
                 )
 
     required = {
+        "LICENSE",
         "apps/miniapp/theme.json",
         "apps/miniapp/src/platform",
         "apps/miniapp/src/ui",
