@@ -340,20 +340,25 @@ def run(base_url, evidence_path=None):
     )
     expect_status(status, 200, "order events")
     event_types = [item["event_type"] for item in events]
-    required_events = [
-        "ORDER_CREATED",
-        "PAYMENT_SUCCESS",
-        "ORDER_ENTERED_MATCHING",
-        "ORDER_CLAIMED",
-        "SERVICE_STARTED",
-        "FINISH_REQUESTED",
-        "USER_CONFIRMED_FINISH",
-        "ORDER_SETTLED",
+    observed_to_statuses = [
+        item["to_status"]
+        for item in events
+        if item.get("to_status")
     ]
-    missing_events = [item for item in required_events if item not in event_types]
-    if missing_events:
-        raise ScenarioError(f"order evidence: missing events {missing_events}")
-    passed("order evidence trail complete", eventTypes=event_types)
+    cursor = 0
+    for status_name in observed_to_statuses:
+        if cursor < len(state_path) and status_name == state_path[cursor]:
+            cursor += 1
+    if cursor != len(state_path):
+        raise ScenarioError(
+            "order evidence: state path not covered in order "
+            f"expected={state_path} observed={observed_to_statuses}"
+        )
+    passed(
+        "order evidence trail complete",
+        eventTypes=event_types,
+        observedToStatuses=observed_to_statuses,
+    )
 
     evidence = {
         "schemaVersion": 1,
@@ -395,7 +400,8 @@ def run(base_url, evidence_path=None):
             "publicRating": public_player["rating"],
         },
         "evidence": {
-            "requiredEventTypes": required_events,
+            "requiredStatePath": state_path,
+            "observedToStatuses": observed_to_statuses,
             "observedEventTypes": event_types,
         },
         "steps": steps,
