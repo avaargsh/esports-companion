@@ -117,6 +117,7 @@ def _load_pending(limit: int = 50) -> list[dict]:
             result.append(
                 {
                     "id": str(event.id),
+                    "aggregate_type": event.aggregate_type,
                     "aggregate_id": event.aggregate_id,
                     "event_type": event.event_type,
                     "payload": event.payload_json,
@@ -150,6 +151,10 @@ async def run_outbox_publisher() -> None:
         events = await asyncio.to_thread(_load_pending)
         published = []
         for event in events:
+            if event["aggregate_type"] != "ORDER":
+                published.append(event["id"])
+                continue
+
             channels = [f"order:{event['aggregate_id']}"]
             if event["user_id"]:
                 channels.append(f"user:{event['user_id']}")

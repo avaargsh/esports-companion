@@ -5,7 +5,7 @@ from sqlalchemy import select
 
 from app.db import SessionLocal
 from app.main import app
-from app.models import Wallet
+from app.models import OutboxEvent, Wallet
 
 
 def test_admin_withdrawal_completion_requires_real_payout_reference():
@@ -85,6 +85,20 @@ def test_admin_withdrawal_completion_requires_real_payout_reference():
             "WITHDRAWAL_FROZEN",
             "WITHDRAWAL_COMPLETED",
         ]
+
+        with SessionLocal() as db:
+            audit = db.scalar(
+                select(OutboxEvent).where(
+                    OutboxEvent.aggregate_type == "AUDIT",
+                    OutboxEvent.aggregate_id == f"WITHDRAWAL:{withdrawal_id}",
+                    OutboxEvent.event_type == "AUTHORIZATION_DECISION",
+                )
+            )
+            assert audit is not None
+            assert audit.payload_json["actorUserId"] == admin_user_id
+            assert audit.payload_json["action"] == "WITHDRAWAL_COMPLETE"
+            assert audit.payload_json["scope"] == "PLATFORM"
+            assert audit.payload_json["decision"] == "ALLOW"
 
 
 def test_admin_withdrawal_evidence_returns_404_for_unknown_id():
