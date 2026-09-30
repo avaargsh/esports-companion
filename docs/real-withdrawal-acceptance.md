@@ -46,8 +46,10 @@ My -> Player Workspace -> Earnings & Withdrawal -> Request Withdrawal
 
 Use the smallest operationally meaningful amount.
 
-Record the resulting `withdrawal_id`. The request must become `PENDING`, and the
-requested amount must move from available balance to frozen balance.
+Record the resulting `withdrawal_id`. The Mini Program withdrawal history shows the
+short request ID and provides an explicit copy action for the full ID. The request must
+become `PENDING`, and the requested amount must move from available balance to frozen
+balance.
 
 ### 2. Admin verifies the request
 
@@ -57,7 +59,8 @@ In Admin:
 Finance -> Withdrawal Review
 ```
 
-Confirm the amount and player are the intended acceptance account.
+Confirm the amount and player are the intended acceptance account. The Admin row exposes
+the same withdrawal ID and lets the operator copy the full value used by the verifier.
 
 Do **not** click Approve yet.
 
@@ -73,7 +76,9 @@ amount to available balance.
 
 ### 4. Approve only after payout success
 
-Click **Approve** in Admin and paste the exact external payout reference.
+Click **Approve** in Admin and paste the exact external payout reference. After completion,
+Admin and the player withdrawal history both expose that payout reference for explicit copy
+and reconciliation.
 
 Expected business state:
 
