@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import gzip
 import hashlib
+import io
 import json
 import os
 import shutil
@@ -20,10 +21,6 @@ ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "apps" / "miniapp" / "starter.manifest.json"
 EXTRACTOR = ROOT / "scripts" / "extract_miniapp_starter.py"
 ARCHIVE_ROOT = "miniapp-starter"
-
-
-def sha256_bytes(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
 
 
 def sha256_file(path: Path) -> str:
@@ -93,7 +90,7 @@ def create_tar_gz(source: Path, output: Path) -> None:
                     info.uname = ""
                     info.gname = ""
                     info.mode = normalized_mode(relative)
-                    tar.addfile(info, fileobj=__import__("io").BytesIO(data))
+                    tar.addfile(info, fileobj=io.BytesIO(data))
 
 
 def create_zip(source: Path, output: Path) -> None:
