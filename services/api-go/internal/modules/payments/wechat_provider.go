@@ -223,7 +223,8 @@ func (p *WeChatProvider) CreatePayment(
 			code = fmt.Sprint(value)
 		}
 		return ports.PaymentIntent{}, fmt.Errorf(
-			"WECHAT_PAYMENT_HTTP_ERROR:%d:%s",
+			"%w:%d:%s",
+			ErrWeChatPaymentHTTP,
 			response.StatusCode,
 			code,
 		)
