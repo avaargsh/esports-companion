@@ -28,6 +28,7 @@ def open_dispute(
             db,
             order_id=order_id,
             actor_user_id=principal.user_id,
+            actor_roles=principal.roles,
             reason_code=body.reason_code,
             description=body.description,
             idempotency_key=idempotency_key,
