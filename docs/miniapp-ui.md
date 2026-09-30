@@ -85,6 +85,7 @@ States:
 - disabled
 - pressed feedback
 - block / compact sizing
+- inverse surface for dark containers
 
 Example:
 
@@ -100,7 +101,7 @@ import UiButton from "@/components/ui/UiButton.vue"
 </template>
 ```
 
-Attributes not consumed by the wrapper are forwarded to the native `button`, so Mini Program capabilities such as `open-type` can still be used when needed.
+The uni-app Mini Program compiler does not support arbitrary attribute spreading on this wrapper. Use `UiButton` for ordinary product actions. When a button requires a WeChat capability contract such as `open-type` plus capability-specific events, use the native `button` directly (or add an explicit typed prop/event to `UiButton`) rather than relying on implicit passthrough.
 
 ### UiCell
 
@@ -124,6 +125,8 @@ A cell is only tappable when `clickable` is explicit. This avoids visual rows ac
 
 `src/components/ui/UiBadge.vue`
 
+Use `dot` for compact state indicators. Order `StatusTag` is built on this primitive so customer/provider status surfaces share the same visual semantics.
+
 Tones:
 
 - neutral
@@ -133,6 +136,12 @@ Tones:
 - danger
 
 Badges are for compact status or metadata. They are not buttons.
+
+### PrimaryActionBar
+
+`src/components/PrimaryActionBar.vue`
+
+Fixed bottom actions are built on `UiButton` and include bottom safe-area handling. Use this shared bar for the dominant page mutation instead of hand-building another fixed CTA layer.
 
 ## Interaction contract
 
