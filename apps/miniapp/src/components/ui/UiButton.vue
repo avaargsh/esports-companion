@@ -5,12 +5,14 @@ const props = withDefaults(defineProps<{
   block?: boolean
   loading?: boolean
   disabled?: boolean
+  inverse?: boolean
 }>(), {
   variant: "primary",
   size: "md",
   block: false,
   loading: false,
-  disabled: false
+  disabled: false,
+  inverse: false
 })
 
 const emit = defineEmits<{ click: [] }>()
@@ -27,7 +29,10 @@ function handleClick() {
     :class="[
       'ui-button--' + variant,
       'ui-button--' + size,
-      { 'ui-button--block': block }
+      {
+        'ui-button--block': block,
+        'ui-button--inverse': inverse
+      }
     ]"
     :loading="loading"
     :disabled="disabled"
@@ -80,6 +85,12 @@ function handleClick() {
   border: 1rpx solid var(--line);
   background: var(--surface);
   color: var(--ink);
+}
+
+.ui-button--secondary.ui-button--inverse {
+  border-color: rgba(255, 255, 255, 0.06);
+  background: #24242d;
+  color: #bdbbc7;
 }
 
 .ui-button--danger {
