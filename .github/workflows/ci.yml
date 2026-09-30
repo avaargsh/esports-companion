@@ -99,6 +99,38 @@ jobs:
         run: |
           test -f /tmp/miniapp-starter/apps/miniapp/dist/build/mp-weixin/app.json
           test -d /tmp/miniapp-starter/apps/miniapp/dist/build/mp-weixin/pages-lab/ui
+      - name: Build deterministic starter distribution twice
+        run: |
+          python3 scripts/package_miniapp_starter.py /tmp/miniapp-starter-dist-a --source-revision "$GITHUB_SHA"
+          python3 scripts/package_miniapp_starter.py /tmp/miniapp-starter-dist-b --source-revision "$GITHUB_SHA"
+      - name: Verify reproducible distribution and checksums
+        run: |
+          for file in miniapp-starter.tar.gz miniapp-starter.zip miniapp-starter.provenance.json SHA256SUMS
+          do
+            cmp "/tmp/miniapp-starter-dist-a/$file" "/tmp/miniapp-starter-dist-b/$file"
+          done
+          cd /tmp/miniapp-starter-dist-a
+          sha256sum -c SHA256SUMS
+          tar -tzf miniapp-starter.tar.gz | grep -Fxq 'miniapp-starter/STARTER-PROVENANCE.json'
+          unzip -l miniapp-starter.zip | grep -q 'miniapp-starter/STARTER-PROVENANCE.json'
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          provenance = json.loads(Path("miniapp-starter.provenance.json").read_text())
+          assert provenance["sourceRevision"] == os.environ["GITHUB_SHA"]
+          assert provenance["artifacts"][0]["name"] == "miniapp-starter.tar.gz"
+          assert provenance["artifacts"][1]["name"] == "miniapp-starter.zip"
+          assert provenance["files"]
+          PY
+      - name: Upload starter distribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: miniapp-starter-${{ github.sha }}
+          path: /tmp/miniapp-starter-dist-a/*
+          if-no-files-found: error
+          retention-days: 14
 
   admin:
     runs-on: ubuntu-latest
