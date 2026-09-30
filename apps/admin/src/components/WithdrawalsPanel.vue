@@ -2,7 +2,6 @@
 import { computed, onMounted, ref } from "vue"
 
 import { adminRequest } from "../api"
-import WithdrawalEvidencePanel from "./WithdrawalEvidencePanel.vue"
 
 type Withdrawal = {
   id: string
@@ -18,7 +17,6 @@ type Withdrawal = {
 const items = ref<Withdrawal[]>([])
 const error = ref("")
 const busyId = ref("")
-const evidenceId = ref("")
 
 const pending = computed(() => items.value.filter(item => item.status === "PENDING"))
 const pendingAmount = computed(() => pending.value.reduce((sum,item)=>sum+item.amount,0))
@@ -85,7 +83,7 @@ onMounted(load)
       <header>
         <div>
           <h2>提现审核</h2>
-          <p>申请后金额会冻结；确认打款完成时必须填写真实外部流水号。</p>
+          <p>申请后金额会冻结；运营只处理通过或拒绝，通过时录入真实外部打款流水。</p>
         </div>
         <button class="ghost" @click="load">刷新</button>
       </header>
@@ -100,21 +98,15 @@ onMounted(load)
           <span><em :class="{ pending:item.status==='PENDING' }">{{ item.status }}</em></span>
           <span class="actions">
             <template v-if="item.status === 'PENDING'">
-              <button class="complete" :disabled="!!busyId" @click="act(item,'complete')">录入流水并完成</button>
+              <button class="complete" :disabled="!!busyId" @click="act(item,'complete')">通过</button>
               <button class="reject" :disabled="!!busyId" @click="act(item,'reject')">拒绝</button>
             </template>
             <small v-else>{{ item.providerTxnId || item.failureReason || "已处理" }}</small>
-            <button class="evidence" @click="evidenceId = item.id">对账</button>
           </span>
         </div>
       </div>
     </section>
 
-    <WithdrawalEvidencePanel
-      v-if="evidenceId"
-      :withdrawal-id="evidenceId"
-      @close="evidenceId = ''"
-    />
   </section>
 </template>
 
@@ -144,5 +136,4 @@ button { border:0; border-radius:9px; padding:7px 9px; cursor:pointer; font-size
 button:disabled { opacity:.45; cursor:not-allowed; }
 .complete { background:#6c5ce7; color:#fff; }
 .reject { background:#f2f1f5; color:#686872; }
-.evidence { border:1px solid #dfdee7; background:#fff; color:#6c5ce7; }
 </style>
