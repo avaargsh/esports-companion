@@ -92,9 +92,19 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		pg.Close()
 		return nil, err
 	}
+	callbackVerifier, callbackErr := payments.NewWeChatCallbackVerifier(cfg)
+	if callbackErr != nil && cfg.IsSecureDeployment() {
+		_ = redisClient.Close()
+		pg.Close()
+		return nil, callbackErr
+	}
+	if callbackErr != nil {
+		callbackVerifier = nil
+	}
 	paymentsHandler := payments.NewHandler(
 		payments.NewService(payments.NewRepository(pg), paymentProvider),
 		authService,
+		callbackVerifier,
 		cfg.IsSecureDeployment(),
 	)
 
