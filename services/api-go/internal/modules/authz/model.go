@@ -16,19 +16,19 @@ const (
 )
 
 type AuthorizationDecision struct {
-	ActorUserID        string
-	ActorRoles         []string
-	Action             string
-	ResourceType       string
-	ResourceID         string
-	Scope              string
-	Decision           string
-	ReasonCode         string
-	PolicyVersion      string
-	SessionID          string
-	RequestID          string
+	ActorUserID         string
+	ActorRoles          []string
+	Action              string
+	ResourceType        string
+	ResourceID          string
+	Scope               string
+	Decision            string
+	ReasonCode          string
+	PolicyVersion       string
+	SessionID           string
+	RequestID           string
 	BusinessEvidenceRef string
-	OccurredAt         string
+	OccurredAt          string
 }
 
 func (d AuthorizationDecision) Payload() map[string]any {
@@ -41,19 +41,19 @@ func (d AuthorizationDecision) Payload() map[string]any {
 		occurredAt = utcISO(time.Now())
 	}
 	return map[string]any{
-		"actorUserId":        d.ActorUserID,
-		"actorRoles":         append([]string(nil), d.ActorRoles...),
-		"action":             d.Action,
-		"resourceType":       d.ResourceType,
-		"resourceId":         d.ResourceID,
-		"scope":              d.Scope,
-		"decision":           d.Decision,
-		"reasonCode":         d.ReasonCode,
-		"policyVersion":      policyVersion,
-		"sessionId":          nullableString(d.SessionID),
-		"requestId":          nullableString(d.RequestID),
+		"actorUserId":         d.ActorUserID,
+		"actorRoles":          append([]string(nil), d.ActorRoles...),
+		"action":              d.Action,
+		"resourceType":        d.ResourceType,
+		"resourceId":          d.ResourceID,
+		"scope":               d.Scope,
+		"decision":            d.Decision,
+		"reasonCode":          d.ReasonCode,
+		"policyVersion":       policyVersion,
+		"sessionId":           nullableString(d.SessionID),
+		"requestId":           nullableString(d.RequestID),
 		"businessEvidenceRef": nullableString(d.BusinessEvidenceRef),
-		"occurredAt":         occurredAt,
+		"occurredAt":          occurredAt,
 	}
 }
 
@@ -199,16 +199,16 @@ type DiffValue struct {
 }
 
 type AuthorityAdmissionDecision struct {
-	AuthorityDigest       string
-	Decision              string
-	ReasonCode            string
-	CurrentState          map[string]any
+	AuthorityDigest        string
+	Decision               string
+	ReasonCode             string
+	CurrentState           map[string]any
 	CurrentResourceVersion string
-	RequestedWrite        map[string]any
-	StateDiff             map[string]DiffValue
-	WriteDiff             map[string]DiffValue
-	AdmissionVersion      string
-	AdmittedAt            string
+	RequestedWrite         map[string]any
+	StateDiff              map[string]DiffValue
+	WriteDiff              map[string]DiffValue
+	AdmissionVersion       string
+	AdmittedAt             string
 }
 
 func (d AuthorityAdmissionDecision) Payload() map[string]any {
@@ -343,4 +343,3 @@ func contains(values []string, target string) bool {
 func utcISO(value time.Time) string {
 	return value.UTC().Format("2006-01-02T15:04:05.999999999+00:00")
 }
-
