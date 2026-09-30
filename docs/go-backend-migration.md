@@ -156,6 +156,26 @@ accepted/rotated by Go, Go-issued tokens are accepted/rotated by FastAPI, and
 revocation/reuse containment performed by either runtime is immediately visible
 to the other.
 
+### M2.2 - Authorization / authority convergence
+
+Before order write-path migration, converge the Go runtime on the current
+production authorization model introduced on `main`:
+
+- secure role guards require session-backed principals;
+- resource authorization returns structured `resource-authz.v2` decisions;
+- decisions carry actor roles, session/request correlation and business evidence refs;
+- bounded write authority uses `authority-envelope.v1` with canonical SHA256 digests;
+- execution admission rejects state drift and bounded-write mismatch;
+- authorization/admission evidence persists through the existing `outbox_events` audit channel.
+
+The Go canonical envelope digest is pinned against a cross-language golden vector
+produced by the Python implementation. This prevents the two runtimes from
+quietly diverging on authority serialization while the migration is in progress.
+
+M2.2 intentionally introduces the reusable policy/evidence kernel **before**
+binding it to order/dispatch routes. M3 handlers must consume this kernel rather
+than reintroducing endpoint-local ownership checks.
+
 ### M3 - Order/dispatch
 
 Port:
@@ -167,7 +187,10 @@ Port:
 - lifecycle transitions.
 
 Acceptance: PostgreSQL concurrency test still runs 100 claims against one order
-and produces exactly one winner.
+and produces exactly one winner. Customer/player/platform resource access must
+also emit or preserve the same structured authorization semantics as the Python
+reference; mutating operations that use authority envelopes must re-admit the
+exact current resource state immediately before the durable write.
 
 ### M4 - Payment/refund
 
