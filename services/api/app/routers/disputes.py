@@ -9,6 +9,7 @@ from app.models import Dispute, Order
 from app.schemas import DisputeCreate, DisputeOut
 from app.security import Principal, current_principal
 from app.services.dispute_service import DisputeService
+from app.services.order_authorization_policy import OrderAuthorizationPolicy
 from app.services.order_service import OrderNotFound
 
 router = APIRouter(prefix="/api/v1/orders", tags=["disputes"])
@@ -48,15 +49,15 @@ def get_dispute(
     order = db.get(Order, order_id)
     if not order:
         raise HTTPException(404, "ORDER_NOT_FOUND")
-    if order.user_id != principal.user_id and "PLATFORM" not in principal.roles:
-        try:
-            DisputeService._actor_role(
-                db,
-                order=order,
-                actor_user_id=principal.user_id,
-            )
-        except PermissionError as exc:
-            raise HTTPException(403, str(exc)) from exc
+    try:
+        OrderAuthorizationPolicy.require_viewer(
+            db,
+            order=order,
+            user_id=principal.user_id,
+            roles=principal.roles,
+        )
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
 
     dispute = db.scalar(select(Dispute).where(Dispute.order_id == order_id))
     if not dispute:
