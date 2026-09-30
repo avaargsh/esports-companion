@@ -93,7 +93,7 @@ Expected final output resembles:
 {"status":"PASS","orderId":"...","finalState":"SETTLED","providerIncome":2400}
 ```
 
-See [Quick Start](docs/quickstart.md) for Mini Program and Admin startup. Mini Program screens should follow the built-in [UI Foundation](docs/miniapp-ui.md) so new pages keep WeChat-native interaction semantics without adding a second component framework.
+See [Quick Start](docs/quickstart.md) for Mini Program and Admin startup. Mini Program screens should follow the built-in [UI Foundation](docs/miniapp-ui.md). Re-branding is driven from the single-source [Mini Program Theme](docs/miniapp-theme.md), with a developer-only UI Showcase for visual verification.
 
 ## Architecture
 
