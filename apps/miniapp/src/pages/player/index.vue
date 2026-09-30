@@ -197,7 +197,7 @@ async function createDesignatedOrder(){
 .profile-row{position:relative;display:flex;gap:22rpx;align-items:center}
 .avatar-wrap{position:relative;flex:none}
 .avatar,.avatar-image{width:116rpx;height:116rpx;border-radius:34rpx}
-.avatar{display:flex;align-items:center;justify-content:center;background:linear-gradient(145deg,#6757e6,#8b79f5);font-size:39rpx;font-weight:850}
+.avatar{display:flex;align-items:center;justify-content:center;background:linear-gradient(145deg,var(--brand),#8b79f5);font-size:39rpx;font-weight:850}
 .presence{position:absolute;right:-2rpx;bottom:-2rpx;width:24rpx;height:24rpx;border:5rpx solid #22202e;border-radius:50%;background:#38cc84}
 .profile-main{flex:1;min-width:0}
 .name-row{display:flex;align-items:center;gap:10rpx}
