@@ -35,12 +35,12 @@ type Detail struct {
 }
 
 type Event struct {
-	ID         string     `json:"id"`
-	EventType  string     `json:"event_type"`
-	FromStatus *string    `json:"from_status"`
-	ToStatus   *string    `json:"to_status"`
-	ActorType  string     `json:"actor_type"`
-	CreatedAt  time.Time  `json:"created_at"`
+	ID         string    `json:"id"`
+	EventType  string    `json:"event_type"`
+	FromStatus *string   `json:"from_status"`
+	ToStatus   *string   `json:"to_status"`
+	ActorType  string    `json:"actor_type"`
+	CreatedAt  time.Time `json:"created_at"`
 }
 
 func availableActions(status string) []string {
