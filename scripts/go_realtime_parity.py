@@ -513,7 +513,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--python-base", default="http://127.0.0.1:8000")
     parser.add_argument("--go-base", default="http://127.0.0.1:8080")
-    parser.add_argument("--go-base-2", default="http://127.0.0.1:8081")
+    parser.add_argument("--go-base-2", default="http://127.0.0.1:8091")
     args = parser.parse_args()
     asyncio.run(run(args))
     print("M5.2 realtime WebSocket parity PASS")
