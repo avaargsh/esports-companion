@@ -37,6 +37,7 @@ from app.routers.wallet import router as wallet_router
 from app.routers.marketplace import router as marketplace_router
 from app.routers.withdrawals import router as withdrawals_router
 from app.services.authorization_audit import AuthorizationAudit
+from app.services.authority_admission import AuthorityAdmissionDenied
 from app.services.resource_authorization_policy import ResourceAuthorizationDenied
 
 
@@ -69,6 +70,34 @@ app = FastAPI(
     redoc_url="/redoc" if settings.expose_api_docs else None,
     openapi_url="/openapi.json" if settings.expose_api_docs else None,
 )
+
+
+@app.exception_handler(AuthorityAdmissionDenied)
+async def authority_admission_denied(
+    request: Request,
+    exc: AuthorityAdmissionDenied,
+):
+    try:
+        with SessionLocal() as db:
+            AuthorizationAudit.record_admission(
+                db,
+                authority=exc.authority,
+                admission=exc.admission,
+            )
+            db.commit()
+    except Exception:
+        logging.getLogger("authorization.audit").exception(
+            "failed to persist denied authority admission",
+            extra={
+                "request_id": exc.authority.authorization.request_id,
+                "authority_digest": exc.authority.digest,
+            },
+        )
+
+    return JSONResponse(
+        status_code=409,
+        content={"detail": exc.admission.reason_code},
+    )
 
 
 @app.exception_handler(ResourceAuthorizationDenied)
