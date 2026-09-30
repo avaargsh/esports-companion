@@ -21,6 +21,7 @@ var (
 	ErrWeChatPaymentNetwork            = errors.New("WECHAT_PAYMENT_NETWORK_ERROR")
 	ErrWeChatPaymentInvalidJSON        = errors.New("WECHAT_PAYMENT_INVALID_JSON")
 	ErrWeChatPaymentInvalidResponse    = errors.New("WECHAT_PAYMENT_INVALID_RESPONSE")
+	ErrWeChatPaymentHTTP               = errors.New("WECHAT_PAYMENT_HTTP_ERROR")
 	ErrWeChatPaymentPrivateKeyInvalid  = errors.New("WECHAT_PAYMENT_PRIVATE_KEY_INVALID")
 	ErrWeChatPaymentCallbackNotMigrated = errors.New("WECHAT_PAYMENT_CALLBACK_NOT_MIGRATED")
 	ErrWeChatPaymentQueryNotMigrated    = errors.New("WECHAT_PAYMENT_QUERY_NOT_MIGRATED")
