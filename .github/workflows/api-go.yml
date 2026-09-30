@@ -179,13 +179,13 @@ jobs:
         run: |
           /tmp/esports-api-go >/tmp/api-go.log 2>&1 &
           echo $! >/tmp/api-go.pid
-          API_GO_HTTP_ADDR=127.0.0.1:8081 /tmp/esports-api-go >/tmp/api-go-2.log 2>&1 &
+          API_GO_HTTP_ADDR=127.0.0.1:8091 /tmp/esports-api-go >/tmp/api-go-2.log 2>&1 &
           echo $! >/tmp/api-go-2.pid
 
       - name: Wait for both runtimes
         run: |
           for i in $(seq 1 45); do
-            if curl -fsS http://127.0.0.1:8000/readyz >/dev/null && curl -fsS http://127.0.0.1:8080/readyz >/dev/null && curl -fsS http://127.0.0.1:8081/readyz >/dev/null; then
+            if curl -fsS http://127.0.0.1:8000/readyz >/dev/null && curl -fsS http://127.0.0.1:8080/readyz >/dev/null && curl -fsS http://127.0.0.1:8091/readyz >/dev/null; then
               exit 0
             fi
             sleep 1
@@ -236,7 +236,7 @@ jobs:
         run: python3 scripts/go_outbox_parity.py
 
       - name: Compare M5.2 realtime WebSocket contracts
-        run: python3 scripts/go_realtime_parity.py --go-base-2 http://127.0.0.1:8081
+        run: python3 scripts/go_realtime_parity.py --go-base-2 http://127.0.0.1:8091
 
       - name: Dump runtime logs on failure
         if: failure()
