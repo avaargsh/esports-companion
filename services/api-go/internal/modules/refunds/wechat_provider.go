@@ -184,22 +184,17 @@ func (p *WeChatProvider) CreateRefund(
 		return ports.RefundIntent{}, err
 	}
 	signature, err := p.sign(
-		[]byte("POST
-" + weChatRefundPath + "
-" + timestamp + "
-" + nonce + "
-" + string(body) + "
-"),
+		[]byte("POST\n" + weChatRefundPath + "\n" + timestamp + "\n" + nonce + "\n" + string(body) + "\n"),
 	)
 	if err != nil {
 		return ports.RefundIntent{}, err
 	}
 	authorization := "WECHATPAY2-SHA256-RSA2048 " +
-		"mchid="" + p.cfg.MchID + ""," +
-		"nonce_str="" + nonce + ""," +
-		"signature="" + signature + ""," +
-		"timestamp="" + timestamp + ""," +
-		"serial_no="" + p.cfg.CertSerial + """
+		"mchid=\"" + p.cfg.MchID + "\"," +
+		"nonce_str=\"" + nonce + "\"," +
+		"signature=\"" + signature + "\"," +
+		"timestamp=\"" + timestamp + "\"," +
+		"serial_no=\"" + p.cfg.CertSerial + "\""
 
 	httpRequest, err := http.NewRequestWithContext(
 		ctx,
@@ -293,10 +288,7 @@ func (p *WeChatProvider) verifyResponseSignature(
 	if err != nil {
 		return ErrWeChatRefundSignatureInvalid
 	}
-	message := []byte(timestamp + "
-" + nonce + "
-" + string(body) + "
-")
+	message := []byte(timestamp + "\n" + nonce + "\n" + string(body) + "\n")
 	digest := sha256.Sum256(message)
 	if err := rsa.VerifyPKCS1v15(
 		p.platformPublicKey,
@@ -324,8 +316,7 @@ func (p *WeChatProvider) sign(message []byte) (string, error) {
 }
 
 func parseRSAPrivateKey(value string) (*rsa.PrivateKey, error) {
-	material := strings.ReplaceAll(strings.TrimSpace(value), "\n", "
-")
+	material := strings.ReplaceAll(strings.TrimSpace(value), "\\n", "\n")
 	block, _ := pem.Decode([]byte(material))
 	if block == nil {
 		return nil, ErrWeChatRefundPrivateKeyInvalid
