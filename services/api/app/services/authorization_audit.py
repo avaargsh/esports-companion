@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 
 from app.models import OutboxEvent
+from app.services.authority_envelope import AuthorityEnvelope
 from app.services.resource_authorization_policy import AuthorizationDecision
 
 
@@ -10,12 +11,17 @@ class AuthorizationAudit:
         db: Session,
         *,
         decision: AuthorizationDecision,
+        authority: AuthorityEnvelope | None = None,
     ) -> OutboxEvent:
+        payload = decision.as_payload()
+        if authority is not None:
+            payload["authorityEnvelope"] = authority.as_payload()
+
         event = OutboxEvent(
             aggregate_type="AUDIT",
             aggregate_id=f"{decision.resource_type}:{decision.resource_id}",
             event_type="AUTHORIZATION_DECISION",
-            payload_json=decision.as_payload(),
+            payload_json=payload,
         )
         db.add(event)
         return event
