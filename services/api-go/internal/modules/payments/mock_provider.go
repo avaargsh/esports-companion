@@ -25,7 +25,7 @@ func (MockProvider) CreatePayment(
 	return ports.PaymentIntent{
 		Provider:      "MOCK",
 		ProviderTxnID: "mock_" + strings.ReplaceAll(value, "-", ""),
-		Status: "SUCCESS",
+		Status:        "SUCCESS",
 		RawPayload: map[string]any{
 			"mode":           "mock",
 			"idempotencyKey": request.IdempotencyKey,
