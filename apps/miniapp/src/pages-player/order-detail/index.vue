@@ -11,8 +11,8 @@ import PriceText from "../../components/PriceText.vue"
 import PrimaryActionBar from "../../components/PrimaryActionBar.vue"
 import StatusTag from "../../components/StatusTag.vue"
 import type { Order, OrderEvent } from "../../types/domain"
+import { showMessage, showSuccess } from "../../ui/feedback"
 import {
-import { showSuccess, showMessage } from "../../ui/feedback"
   orderStatusMeta,
   playerActionErrorMessage
 } from "../../utils/order"
