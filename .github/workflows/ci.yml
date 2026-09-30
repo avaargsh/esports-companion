@@ -72,6 +72,34 @@ jobs:
           sed -i 's#api-staging.example.com#api-staging.example.test#' .env.staging
           npm run build:mp-weixin:staging
 
+  miniapp-starter:
+    name: MiniApp Starter Smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Extract standalone starter
+        run: |
+          python3 scripts/check_miniapp_starter_manifest.py
+          python3 scripts/extract_miniapp_starter.py /tmp/miniapp-starter
+      - name: Install standalone starter
+        run: cd /tmp/miniapp-starter/apps/miniapp && npm install
+      - name: Validate extracted theme
+        run: cd /tmp/miniapp-starter/apps/miniapp && npm run theme:check
+      - name: Type-check standalone starter
+        run: cd /tmp/miniapp-starter/apps/miniapp && npm run type-check
+      - name: Build standalone WeChat Mini Program
+        run: cd /tmp/miniapp-starter/apps/miniapp && npm run build:mp-weixin
+      - name: Verify standalone build output
+        run: |
+          test -f /tmp/miniapp-starter/apps/miniapp/dist/build/mp-weixin/app.json
+          test -d /tmp/miniapp-starter/apps/miniapp/dist/build/mp-weixin/pages-lab/ui
+
   admin:
     runs-on: ubuntu-latest
     defaults:
@@ -292,6 +320,7 @@ jobs:
     needs:
       - api
       - miniapp
+      - miniapp-starter
       - admin
       - api-image
       - smoke
@@ -306,6 +335,7 @@ jobs:
         env:
           API_RESULT: ${{ needs.api.result }}
           MINIAPP_RESULT: ${{ needs.miniapp.result }}
+          STARTER_RESULT: ${{ needs['miniapp-starter'].result }}
           ADMIN_RESULT: ${{ needs.admin.result }}
           API_IMAGE_RESULT: ${{ needs['api-image'].result }}
           SMOKE_RESULT: ${{ needs.smoke.result }}
@@ -317,6 +347,7 @@ jobs:
           for result in \
             "$API_RESULT" \
             "$MINIAPP_RESULT" \
+            "$STARTER_RESULT" \
             "$ADMIN_RESULT" \
             "$API_IMAGE_RESULT" \
             "$SMOKE_RESULT" \
