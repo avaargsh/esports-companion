@@ -4,7 +4,7 @@ import { onShow } from "@dcloudio/uni-app"
 import { request } from "../../api/client"
 import { getDemoIdentities } from "../../api/demo"
 import { isWeChatAuthMode } from "../../api/config"
-import { showSuccess, showMessage } from "../../ui/feedback"
+import { showSuccess, showMessage } from "../../ui/feedback"\nimport { navigation } from "../../platform/navigation"
 
 type PlayerProfile={
   id:string
@@ -51,9 +51,9 @@ async function loadIdentity(){
 onShow(()=>{void loadIdentity()})
 function openPlayerWorkspace(){
   if(wechatMode&&playerProfile.value?.verification_status!=="APPROVED")return
-  uni.navigateTo({url:"/pages-player/workbench/index"})
+  navigation.push("/pages-player/workbench/index")
 }
-function openOrders(){uni.switchTab({url:"/pages/orders/index"})}
+function openOrders(){navigation.tab("/pages/orders/index")}
 async function applyPlayer(){
   if(!wechatMode||!userId.value||applying.value)return
   const displayName=applyName.value.trim()
