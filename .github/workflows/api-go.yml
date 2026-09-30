@@ -232,11 +232,11 @@ jobs:
       - name: Compare M4.4 refund recovery contracts
         run: python3 scripts/go_refund_recovery_parity.py
 
-      - name: Compare M5.1 transactional outbox contracts
-        run: python3 scripts/go_outbox_parity.py
-
       - name: Compare M5.2 realtime WebSocket contracts
         run: python3 scripts/go_realtime_parity.py --go-base-2 http://127.0.0.1:8091
+
+      - name: Compare M5.1 transactional outbox contracts
+        run: python3 scripts/go_outbox_parity.py
 
       - name: Dump runtime logs on failure
         if: failure()
