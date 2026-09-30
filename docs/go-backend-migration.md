@@ -178,13 +178,24 @@ than reintroducing endpoint-local ownership checks.
 
 ### M3 - Order/dispatch
 
-Port:
+Start with the read/evidence surface before moving write ownership:
 
+- customer order list;
+- order detail projection, including active/designated service player;
+- OrderEvent evidence stream;
+- customer / active-player / platform viewer parity.
+
+The read slice is validated by writing the transaction through FastAPI against
+the shared database, then requiring the Go runtime to produce the same HTTP
+contract and authorization outcome.
+
+Then port the mutation surface:
+
+- order create + designated provider validation;
 - order state machine;
-- OrderEvent append;
-- designated provider;
+- OrderEvent + Outbox append;
 - atomic claim;
-- lifecycle transitions.
+- start / finish / customer confirm lifecycle transitions.
 
 Acceptance: PostgreSQL concurrency test still runs 100 claims against one order
 and produces exactly one winner. Customer/player/platform resource access must
