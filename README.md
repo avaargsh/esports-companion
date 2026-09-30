@@ -17,6 +17,10 @@ Customer
   -> Review
 ```
 
+## Current status
+
+The project has reached a staging-acceptance milestone: the customer/provider/admin transaction slice is implemented, while the remaining release gate is real WeChat/payment/refund/withdrawal validation and operational drills. See [Project Status](docs/project-status.md) for the current snapshot and next milestone.
+
 ## Included
 
 - **UniApp WeChat Mini Program** — customer and provider workspaces in one app
