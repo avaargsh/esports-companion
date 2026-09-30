@@ -21,6 +21,7 @@ on:
       - "scripts/go_refund_submit_parity.py"
       - "scripts/go_refund_recovery_parity.py"
       - "scripts/go_outbox_parity.py"
+      - "scripts/go_realtime_parity.py"
       - "docs/go-backend-migration.md"
       - ".github/workflows/api-go.yml"
   pull_request:
@@ -41,6 +42,7 @@ on:
       - "scripts/go_refund_submit_parity.py"
       - "scripts/go_refund_recovery_parity.py"
       - "scripts/go_outbox_parity.py"
+      - "scripts/go_realtime_parity.py"
       - "docs/go-backend-migration.md"
       - ".github/workflows/api-go.yml"
 
@@ -173,15 +175,17 @@ jobs:
           uvicorn app.main:app --host 127.0.0.1 --port 8000 >/tmp/fastapi.log 2>&1 &
           echo $! >/tmp/fastapi.pid
 
-      - name: Start Go target
+      - name: Start Go targets
         run: |
           /tmp/esports-api-go >/tmp/api-go.log 2>&1 &
           echo $! >/tmp/api-go.pid
+          API_GO_HTTP_ADDR=127.0.0.1:8081 /tmp/esports-api-go >/tmp/api-go-2.log 2>&1 &
+          echo $! >/tmp/api-go-2.pid
 
       - name: Wait for both runtimes
         run: |
           for i in $(seq 1 45); do
-            if curl -fsS http://127.0.0.1:8000/readyz >/dev/null && curl -fsS http://127.0.0.1:8080/readyz >/dev/null; then
+            if curl -fsS http://127.0.0.1:8000/readyz >/dev/null && curl -fsS http://127.0.0.1:8080/readyz >/dev/null && curl -fsS http://127.0.0.1:8081/readyz >/dev/null; then
               exit 0
             fi
             sleep 1
@@ -231,13 +235,18 @@ jobs:
       - name: Compare M5.1 transactional outbox contracts
         run: python3 scripts/go_outbox_parity.py
 
+      - name: Compare M5.2 realtime WebSocket contracts
+        run: python3 scripts/go_realtime_parity.py --go-base-2 http://127.0.0.1:8081
+
       - name: Dump runtime logs on failure
         if: failure()
         run: |
           echo "=== FastAPI ==="
           cat /tmp/fastapi.log || true
-          echo "=== Go API ==="
+          echo "=== Go API 1 ==="
           cat /tmp/api-go.log || true
+          echo "=== Go API 2 ==="
+          cat /tmp/api-go-2.log || true
           echo "=== Go outbox worker 1 ==="
           cat /tmp/api-go-outbox-worker-1.log || true
           echo "=== Go outbox worker 2 ==="
@@ -248,3 +257,4 @@ jobs:
         run: |
           test ! -f /tmp/fastapi.pid || kill "$(cat /tmp/fastapi.pid)" || true
           test ! -f /tmp/api-go.pid || kill "$(cat /tmp/api-go.pid)" || true
+          test ! -f /tmp/api-go-2.pid || kill "$(cat /tmp/api-go-2.pid)" || true
