@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
 
 	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/auth"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/authz"
@@ -70,7 +71,7 @@ func (h Handler) get(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
 		return
 	}
-	if _, err := h.repo.AuthorizeViewer(r.Context(), order, principal); err != nil {
+	if _, err := h.repo.AuthorizeViewer(r.Context(), order, principal, chimiddleware.GetReqID(r.Context())); err != nil {
 		var denied *authz.ResourceAuthorizationDenied
 		if errors.As(err, &denied) {
 			httpx.Error(w, http.StatusForbidden, denied.Decision.ReasonCode)
@@ -107,7 +108,7 @@ func (h Handler) events(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
 		return
 	}
-	if _, err := h.repo.AuthorizeViewer(r.Context(), order, principal); err != nil {
+	if _, err := h.repo.AuthorizeViewer(r.Context(), order, principal, chimiddleware.GetReqID(r.Context())); err != nil {
 		var denied *authz.ResourceAuthorizationDenied
 		if errors.As(err, &denied) {
 			httpx.Error(w, http.StatusForbidden, denied.Decision.ReasonCode)
