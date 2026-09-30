@@ -73,30 +73,30 @@ func (s *OperationalScanner) Run(ctx context.Context) error {
 
 func (s *OperationalScanner) Refresh(ctx context.Context, now time.Time) error {
 	if err := s.refreshOutbox(ctx, now); err != nil {
-		s.metrics.operationalScanSuccess.WithLabelValues("postgres").Set(0)
+		s.metrics.operationalScanSuccess.Set(0)
 		return err
 	}
 	if err := s.refreshRefunds(ctx, now); err != nil {
-		s.metrics.operationalScanSuccess.WithLabelValues("postgres").Set(0)
+		s.metrics.operationalScanSuccess.Set(0)
 		return err
 	}
 	if err := s.refreshWithdrawals(ctx, now); err != nil {
-		s.metrics.operationalScanSuccess.WithLabelValues("postgres").Set(0)
+		s.metrics.operationalScanSuccess.Set(0)
 		return err
 	}
 	if err := s.refreshDisputes(ctx, now); err != nil {
-		s.metrics.operationalScanSuccess.WithLabelValues("postgres").Set(0)
+		s.metrics.operationalScanSuccess.Set(0)
 		return err
 	}
 	if err := s.refreshFinishRequests(ctx, now); err != nil {
-		s.metrics.operationalScanSuccess.WithLabelValues("postgres").Set(0)
+		s.metrics.operationalScanSuccess.Set(0)
 		return err
 	}
 	if err := s.refreshAssignmentTimeouts(ctx, now); err != nil {
-		s.metrics.operationalScanSuccess.WithLabelValues("postgres").Set(0)
+		s.metrics.operationalScanSuccess.Set(0)
 		return err
 	}
-	s.metrics.operationalScanSuccess.WithLabelValues("postgres").Set(1)
+	s.metrics.operationalScanSuccess.Set(1)
 	return nil
 }
 
