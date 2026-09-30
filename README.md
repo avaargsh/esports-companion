@@ -81,7 +81,15 @@ Liveness   http://localhost:8000/livez
 Readiness  http://localhost:8000/readyz
 ```
 
-Then execute the complete running HTTP path:
+Run the first focused sample-product loop:
+
+```bash
+make sample-product-01
+```
+
+This proves the core marketplace flywheel: order → payment → matching → fulfillment → settlement → review → public reputation, and writes machine-readable evidence. See [Sample Product 01](samples/01-on-demand-service/README.md).
+
+Then execute the wider release HTTP path:
 
 ```bash
 make smoke
@@ -193,8 +201,12 @@ deploy/
   compose/production.yml    hardened single-node reference
   secrets/README.md         required secret files
 
+samples/
+  01-on-demand-service/     first product vertical slice contract
+
 scripts/
-  smoke_demo.py             real HTTP Golden Slice
+  sample_product_01.py      focused marketplace product acceptance
+  smoke_demo.py             wider release HTTP Golden Slice
 
 docs/
   architecture.md
