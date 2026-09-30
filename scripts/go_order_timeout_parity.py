@@ -282,6 +282,7 @@ def start_worker(index: int) -> tuple[subprocess.Popen[bytes], Any]:
     env["ASSIGNMENT_START_TIMEOUT_SECONDS"] = "600"
     env["OUTBOX_POLL_INTERVAL_MS"] = "25"
     env["OUTBOX_BATCH_SIZE"] = "20"
+    env["WORKER_METRICS_ADDR"] = f"127.0.0.1:{19200 + index}"
     log = open(f"/tmp/api-go-timeout-worker-{index}.log", "wb")
     process = subprocess.Popen(
         ["/tmp/esports-worker-go"],
