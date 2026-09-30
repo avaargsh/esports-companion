@@ -1,14 +1,9 @@
 import { API_BASE_URL, isWeChatAuthMode } from "./config"
 import { createHttpClient } from "../platform/http"
-import {
-  canRefreshSession,
-  createSessionStore,
-  createSingleFlight,
-  isSessionFresh
-} from "../platform/session"
+import { createTokenSessionAdapter } from "../platform/token-session"
 
 const STORAGE_KEY = "esports-companion.auth.v1"
-const ACCESS_REFRESH_SKEW_MS = 30_000
+const authHttp = createHttpClient({ baseUrl: API_BASE_URL })
 
 type AuthResponse = {
   userId: string
@@ -43,28 +38,6 @@ function isAuthSession(value: unknown): value is AuthSession {
   )
 }
 
-const sessionStore = createSessionStore<AuthSession>(
-  STORAGE_KEY,
-  isAuthSession
-)
-const authFlight = createSingleFlight<AuthSession>()
-const authHttp = createHttpClient({ baseUrl: API_BASE_URL })
-
-function persistSession(payload: AuthResponse): AuthSession {
-  const now = Date.now()
-  const session: AuthSession = {
-    userId: payload.userId,
-    roles: payload.roles,
-    tokenType: payload.tokenType || "Bearer",
-    accessToken: payload.accessToken,
-    refreshToken: payload.refreshToken,
-    expiresAt: now + payload.expiresIn * 1000,
-    refreshExpiresAt: now + payload.refreshExpiresIn * 1000
-  }
-  sessionStore.write(session)
-  return session
-}
-
 async function rawPost<T>(
   path: string,
   data: Record<string, unknown>
@@ -97,71 +70,52 @@ function wechatLoginCode(): Promise<string> {
   })
 }
 
-async function loginWithWeChat(): Promise<AuthSession> {
-  const code = await wechatLoginCode()
-  const payload = await rawPost<AuthResponse>("/auth/wechat/login", { code })
-  return persistSession(payload)
-}
+const sessionAdapter = createTokenSessionAdapter<AuthSession, AuthResponse>({
+  storageKey: STORAGE_KEY,
+  validate: isAuthSession,
+  async login() {
+    const code = await wechatLoginCode()
+    return rawPost<AuthResponse>("/auth/wechat/login", { code })
+  },
+  refresh(session) {
+    return rawPost<AuthResponse>("/auth/refresh", {
+      refreshToken: session.refreshToken
+    })
+  },
+  toSession(payload, now) {
+    return {
+      userId: payload.userId,
+      roles: payload.roles,
+      tokenType: payload.tokenType || "Bearer",
+      accessToken: payload.accessToken,
+      refreshToken: payload.refreshToken,
+      expiresAt: now + payload.expiresIn * 1000,
+      refreshExpiresAt: now + payload.refreshExpiresIn * 1000
+    }
+  }
+})
 
-async function rotateRefresh(current: AuthSession): Promise<AuthSession> {
-  const payload = await rawPost<AuthResponse>("/auth/refresh", {
-    refreshToken: current.refreshToken
-  })
-  return persistSession(payload)
+function requireWeChatMode() {
+  if (!isWeChatAuthMode()) throw new Error("WECHAT_AUTH_MODE_REQUIRED")
 }
 
 export function getStoredSession(): AuthSession | null {
-  return sessionStore.read()
+  return sessionAdapter.read()
 }
 
 export async function ensureSession(): Promise<AuthSession> {
-  if (!isWeChatAuthMode()) {
-    throw new Error("WECHAT_AUTH_MODE_REQUIRED")
-  }
-
-  const current = sessionStore.read()
-  if (current && isSessionFresh(current, ACCESS_REFRESH_SKEW_MS)) {
-    return current
-  }
-
-  return authFlight.run(async () => {
-    const latest = sessionStore.read()
-    if (latest && isSessionFresh(latest, ACCESS_REFRESH_SKEW_MS)) {
-      return latest
-    }
-
-    if (latest && canRefreshSession(latest)) {
-      try {
-        return await rotateRefresh(latest)
-      } catch {
-        sessionStore.clear()
-      }
-    }
-    return loginWithWeChat()
-  })
+  requireWeChatMode()
+  return sessionAdapter.ensure()
 }
 
 export async function refreshSession(): Promise<AuthSession> {
-  if (!isWeChatAuthMode()) {
-    throw new Error("WECHAT_AUTH_MODE_REQUIRED")
-  }
-
-  return authFlight.run(async () => {
-    const current = sessionStore.read()
-    if (current && canRefreshSession(current)) {
-      try {
-        return await rotateRefresh(current)
-      } catch {
-        sessionStore.clear()
-      }
-    }
-    return loginWithWeChat()
-  })
+  requireWeChatMode()
+  return sessionAdapter.refresh()
 }
 
 export async function logoutSession(): Promise<void> {
-  const current = sessionStore.read()
-  sessionStore.clear()
+  const current = sessionAdapter.read()
+  sessionAdapter.clear()
   if (!current?.refreshToken || !isWeChatAuthMode()) return
   try {
     await rawPost("/auth/logout", { refreshToken: current.refreshToken })
