@@ -8,10 +8,28 @@ from app.db import get_db
 from app.models import Game, LedgerEntry, Order, PlayerProfile, PlayerSkill, Settlement, Wallet, Withdrawal
 from app.schemas import WithdrawalComplete
 from app.security import Principal, require_platform
+from app.services.authorization_audit import AuthorizationAudit
 from app.services.operations_queue_service import build_operations_queue
+from app.services.resource_authorization_policy import ResourceAuthorizationPolicy
 from app.services.withdrawal_service import WithdrawalService
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
+
+
+def _platform_decision(
+    principal: Principal,
+    *,
+    action: str,
+    resource_type: str,
+    resource_id: str,
+):
+    return ResourceAuthorizationPolicy.require_platform(
+        actor_user_id=principal.user_id,
+        actor_roles=principal.roles,
+        action=action,
+        resource_type=resource_type,
+        resource_id=resource_id,
+    )
 
 
 @router.get("/operations/queue")
@@ -55,8 +73,15 @@ def approve_player(
     player = db.get(PlayerProfile, player_id)
     if not player:
         raise HTTPException(404, "PLAYER_NOT_FOUND")
+    decision = _platform_decision(
+        principal,
+        action="PLAYER_APPROVE",
+        resource_type="PLAYER_PROFILE",
+        resource_id=str(player.id),
+    )
     player.verification_status = "APPROVED"
     player.service_status = "OFFLINE"
+    AuthorizationAudit.record(db, decision=decision)
     db.commit()
     return {"id": str(player.id), "verificationStatus": player.verification_status}
 
@@ -70,8 +95,15 @@ def reject_player(
     player = db.get(PlayerProfile, player_id)
     if not player:
         raise HTTPException(404, "PLAYER_NOT_FOUND")
+    decision = _platform_decision(
+        principal,
+        action="PLAYER_REJECT",
+        resource_type="PLAYER_PROFILE",
+        resource_id=str(player.id),
+    )
     player.verification_status = "REJECTED"
     player.service_status = "SUSPENDED"
+    AuthorizationAudit.record(db, decision=decision)
     db.commit()
     return {"id": str(player.id), "verificationStatus": player.verification_status}
 
@@ -118,8 +150,15 @@ def approve_player_skill(
     skill = db.get(PlayerSkill, skill_id)
     if not skill:
         raise HTTPException(404, "PLAYER_SKILL_NOT_FOUND")
+    decision = _platform_decision(
+        principal,
+        action="PLAYER_SKILL_APPROVE",
+        resource_type="PLAYER_SKILL",
+        resource_id=str(skill.id),
+    )
     skill.verification_status = "APPROVED"
     skill.review_note = ""
+    AuthorizationAudit.record(db, decision=decision)
     db.commit()
     return {"id": str(skill.id), "verificationStatus": skill.verification_status}
 
@@ -134,8 +173,15 @@ def reject_player_skill(
     skill = db.get(PlayerSkill, skill_id)
     if not skill:
         raise HTTPException(404, "PLAYER_SKILL_NOT_FOUND")
+    decision = _platform_decision(
+        principal,
+        action="PLAYER_SKILL_REJECT",
+        resource_type="PLAYER_SKILL",
+        resource_id=str(skill.id),
+    )
     skill.verification_status = "REJECTED"
     skill.review_note = note.strip()
+    AuthorizationAudit.record(db, decision=decision)
     db.commit()
     return {
         "id": str(skill.id),
@@ -223,6 +269,12 @@ def withdrawal_evidence(
     item = db.get(Withdrawal, withdrawal_id)
     if not item:
         raise HTTPException(404, "WITHDRAWAL_NOT_FOUND")
+    _platform_decision(
+        principal,
+        action="WITHDRAWAL_EVIDENCE_READ",
+        resource_type="WITHDRAWAL",
+        resource_id=str(item.id),
+    )
 
     wallet = db.get(Wallet, item.wallet_id)
     ledger = list(
@@ -280,10 +332,17 @@ def complete_withdrawal(
     db: Session = Depends(get_db),
 ):
     try:
+        decision = _platform_decision(
+            principal,
+            action="WITHDRAWAL_COMPLETE",
+            resource_type="WITHDRAWAL",
+            resource_id=str(withdrawal_id),
+        )
         item = WithdrawalService.complete(
             db,
             withdrawal_id=withdrawal_id,
             provider_txn_id=body.provider_txn_id.strip(),
+            authorization=decision,
         )
         return {"id": str(item.id), "status": item.status}
     except LookupError as exc:
@@ -300,10 +359,17 @@ def reject_withdrawal(
     db: Session = Depends(get_db),
 ):
     try:
+        decision = _platform_decision(
+            principal,
+            action="WITHDRAWAL_REJECT",
+            resource_type="WITHDRAWAL",
+            resource_id=str(withdrawal_id),
+        )
         item = WithdrawalService.reject(
             db,
             withdrawal_id=withdrawal_id,
             reason=reason,
+            authorization=decision,
         )
         return {"id": str(item.id), "status": item.status}
     except LookupError as exc:
