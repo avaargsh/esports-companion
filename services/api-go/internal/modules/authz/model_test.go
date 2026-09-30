@@ -27,9 +27,9 @@ func referenceAuthority() AuthorityEnvelope {
 	return AuthorityEnvelope{
 		Authorization: referenceDecision(),
 		ExpectedState: map[string]any{
-			"withdrawalStatus":       "PENDING",
-			"walletVersion":          7,
-			"walletFrozenBalance":    2500,
+			"withdrawalStatus":    "PENDING",
+			"walletVersion":       7,
+			"walletFrozenBalance": 2500,
 		},
 		BoundedWrite: map[string]any{
 			"operation":        "WITHDRAWAL_COMPLETE",
