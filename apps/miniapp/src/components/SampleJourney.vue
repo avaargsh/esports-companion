@@ -3,16 +3,18 @@ withDefaults(defineProps<{
   step: number
   total?: number
   role?: "用户端" | "陪玩端"
+  dark?: boolean
   title: string
   description: string
 }>(), {
   total: 6,
-  role: "用户端"
+  role: "用户端",
+  dark: false
 })
 </script>
 
 <template>
-  <view class="journey">
+  <view class="journey" :class="{ dark }">
     <view class="journey-head">
       <view class="journey-badge">样板体验</view>
       <text class="journey-role">{{ role }}</text>
@@ -45,4 +47,10 @@ withDefaults(defineProps<{
 .journey-track{display:flex;gap:7rpx;margin-top:17rpx}
 .journey-track-item{height:5rpx;flex:1;border-radius:999rpx;background:var(--line)}
 .journey-track-item.active{background:var(--brand)}
+.journey.dark{border-color:var(--inverse-line);background:var(--inverse-surface);box-shadow:none}
+.journey.dark .journey-title{color:#fff}
+.journey.dark .journey-desc{color:var(--inverse-muted)}
+.journey.dark .journey-step{color:#777582}
+.journey.dark .journey-track-item{background:var(--inverse-control-strong)}
+.journey.dark .journey-track-item.active{background:var(--brand)}
 </style>
