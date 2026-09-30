@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "description": "Reusable WeChat Mini Program starter extraction surface.",
   "include": [
+    "LICENSE",
     "apps/miniapp/theme.json",
     "apps/miniapp/src/platform",
     "apps/miniapp/src/ui",
