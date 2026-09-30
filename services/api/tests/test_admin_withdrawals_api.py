@@ -308,6 +308,25 @@ def test_admin_withdrawal_reject_binds_request_and_session_evidence():
                 )
             )
 
+            admission_event = db.scalar(
+                select(OutboxEvent).where(
+                    OutboxEvent.aggregate_type == "AUDIT",
+                    OutboxEvent.aggregate_id == f"WITHDRAWAL:{withdrawal_id}",
+                    OutboxEvent.event_type == "AUTHORITY_ADMISSION",
+                )
+            )
+            assert admission_event is not None
+            admission = admission_event.payload_json["admission"]
+            assert admission["decision"] == "ADMIT"
+            assert admission["reasonCode"] == "AUTHORITY_EXACT_MATCH"
+            assert admission["admissionVersion"] == "authority-admission.v1"
+            assert admission["authorityDigest"] == authority["authorityDigest"]
+            assert admission["currentState"] == authority["expectedState"]
+            assert admission["currentResourceVersion"] == authority["resourceVersion"]
+            assert admission["requestedWrite"] == authority["boundedWrite"]
+            assert admission["stateDiff"] == {}
+            assert admission["writeDiff"] == {}
+
 
 def test_admin_withdrawal_evidence_returns_404_for_unknown_id():
     with TestClient(app) as client:
