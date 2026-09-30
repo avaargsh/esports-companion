@@ -11,6 +11,7 @@ on:
       - "scripts/go_offering_parity.py"
       - "scripts/go_order_read_parity.py"
       - "scripts/go_order_create_parity.py"
+      - "scripts/go_claim_parity.py"
       - "docs/go-backend-migration.md"
       - ".github/workflows/api-go.yml"
   pull_request:
@@ -21,6 +22,7 @@ on:
       - "scripts/go_offering_parity.py"
       - "scripts/go_order_read_parity.py"
       - "scripts/go_order_create_parity.py"
+      - "scripts/go_claim_parity.py"
       - "docs/go-backend-migration.md"
       - ".github/workflows/api-go.yml"
 
@@ -178,6 +180,9 @@ jobs:
 
       - name: Compare M3.1 order create contracts
         run: python3 scripts/go_order_create_parity.py
+
+      - name: Compare M3.2 atomic claim contracts
+        run: python3 scripts/go_claim_parity.py
 
       - name: Dump runtime logs on failure
         if: failure()
