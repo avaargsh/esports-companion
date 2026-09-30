@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.models import LedgerEntry, Wallet, Withdrawal
 from app.services.authorization_audit import AuthorizationAudit
+from app.services.authority_envelope import AuthorityEnvelope
 from app.services.resource_authorization_policy import AuthorizationDecision
 
 
@@ -140,6 +141,27 @@ class WithdrawalService:
         if not wallet or wallet.frozen_balance < withdrawal.amount:
             raise ValueError("WITHDRAWAL_FROZEN_BALANCE_INVALID")
 
+        authority = None
+        if authorization is not None:
+            authority = AuthorityEnvelope(
+                authorization=authorization,
+                expected_state={
+                    "withdrawalStatus": withdrawal.status,
+                    "withdrawalAmount": withdrawal.amount,
+                    "walletId": str(wallet.id),
+                    "walletVersion": wallet.version,
+                    "walletAvailableBalance": wallet.available_balance,
+                    "walletFrozenBalance": wallet.frozen_balance,
+                },
+                bounded_write={
+                    "operation": "WITHDRAWAL_COMPLETE",
+                    "providerTxnId": provider_txn_id,
+                    "withdrawalStatus": "COMPLETED",
+                    "walletFrozenDelta": -withdrawal.amount,
+                },
+                resource_version=f"wallet:{wallet.id}:v{wallet.version}",
+            )
+
         wallet.frozen_balance -= withdrawal.amount
         wallet.version += 1
         withdrawal.status = "COMPLETED"
@@ -157,7 +179,11 @@ class WithdrawalService:
             )
         )
         if authorization is not None:
-            AuthorizationAudit.record(db, decision=authorization)
+            AuthorizationAudit.record(
+                db,
+                decision=authorization,
+                authority=authority,
+            )
         try:
             db.commit()
         except IntegrityError:
@@ -203,6 +229,29 @@ class WithdrawalService:
         if not wallet or wallet.frozen_balance < withdrawal.amount:
             raise ValueError("WITHDRAWAL_FROZEN_BALANCE_INVALID")
 
+        authority = None
+        if authorization is not None:
+            normalized_reason = reason[:256]
+            authority = AuthorityEnvelope(
+                authorization=authorization,
+                expected_state={
+                    "withdrawalStatus": withdrawal.status,
+                    "withdrawalAmount": withdrawal.amount,
+                    "walletId": str(wallet.id),
+                    "walletVersion": wallet.version,
+                    "walletAvailableBalance": wallet.available_balance,
+                    "walletFrozenBalance": wallet.frozen_balance,
+                },
+                bounded_write={
+                    "operation": "WITHDRAWAL_REJECT",
+                    "reason": normalized_reason,
+                    "withdrawalStatus": "REJECTED",
+                    "walletFrozenDelta": -withdrawal.amount,
+                    "walletAvailableDelta": withdrawal.amount,
+                },
+                resource_version=f"wallet:{wallet.id}:v{wallet.version}",
+            )
+
         wallet.frozen_balance -= withdrawal.amount
         wallet.available_balance += withdrawal.amount
         wallet.version += 1
@@ -221,7 +270,11 @@ class WithdrawalService:
             )
         )
         if authorization is not None:
-            AuthorizationAudit.record(db, decision=authorization)
+            AuthorizationAudit.record(
+                db,
+                decision=authorization,
+                authority=authority,
+            )
         db.commit()
         db.refresh(withdrawal)
         return withdrawal
