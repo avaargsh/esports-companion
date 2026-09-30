@@ -79,8 +79,9 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		authService,
 		cfg.IsSecureDeployment(),
 	)
+	orderRepository := orders.NewRepository(pg)
 	ordersHandler := orders.NewHandler(
-		orders.NewRepository(pg),
+		orders.NewService(orderRepository),
 		authService,
 		cfg.IsSecureDeployment(),
 	)
