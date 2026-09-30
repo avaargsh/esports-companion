@@ -69,3 +69,31 @@ func (s Service) Claim(
 ) (Order, error) {
 	return s.repo.Claim(ctx, userID, orderID, input.ExpectedVersion)
 }
+
+func (s Service) Start(
+	ctx context.Context,
+	userID string,
+	orderID string,
+) (Order, error) {
+	return s.repo.TransitionAssignedPlayer(
+		ctx,
+		userID,
+		orderID,
+		StatusInService,
+		"SERVICE_STARTED",
+	)
+}
+
+func (s Service) Finish(
+	ctx context.Context,
+	userID string,
+	orderID string,
+) (Order, error) {
+	return s.repo.TransitionAssignedPlayer(
+		ctx,
+		userID,
+		orderID,
+		StatusFinishRequested,
+		"FINISH_REQUESTED",
+	)
+}
