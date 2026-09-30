@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.models import Review
 from app.services.dispatch_service import DispatchService
+from app.services.order_authorization_policy import OrderAuthorizationPolicy
 from app.services.order_service import OrderNotFound, OrderService
 from app.security import current_user_id
 
@@ -28,8 +29,7 @@ def create_review(
 ):
     try:
         order = OrderService.get(db, order_id)
-        if order.user_id != user_id:
-            raise PermissionError("ORDER_NOT_OWNED")
+        OrderAuthorizationPolicy.require_owner(order, user_id=user_id)
         if order.status != "SETTLED":
             raise ValueError("ORDER_NOT_SETTLED")
         assignment = DispatchService.active_assignment(db, order.id)
