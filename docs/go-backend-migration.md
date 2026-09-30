@@ -295,6 +295,30 @@ Acceptance includes bidirectional FastAPI/Go replay, same-key and distinct-key
 Payment success callbacks are intentionally excluded from M4.1. No client-side
 success signal may advance the order.
 
+#### M4.2 - Verified payment callback
+
+Go owns the WeChat payment success callback boundary:
+
+- `POST /api/v1/payments/wechat/callback`;
+- platform certificate serial and RSA signature verification;
+- callback timestamp freshness;
+- AEAD_AES_256_GCM decryption using the API v3 key;
+- event/trade/appid/mchid validation;
+- order amount, CNY currency and payer-openid binding;
+- row-locked PENDING payment completion;
+- provider transaction reuse protection;
+- `WAITING_PAYMENT -> PAID -> MATCHING` plus designated assignment when needed;
+- replay after SUCCESS is idempotent across FastAPI and Go.
+
+The callback returns WeChat's `{"code":"SUCCESS","message":"成功"}` envelope only
+after verified durable application. Known invalid callbacks return a 400 FAIL
+envelope; unexpected storage failures remain 5xx so the provider can retry.
+
+Acceptance uses an ephemeral RSA platform certificate generated inside CI. Both
+runtimes receive the same public certificate/API-v3 configuration and the parity
+runner signs/encrypts real callback bodies with the private fixture key. It also
+runs a 20-request callback race and verifies exactly-once state/evidence.
+
 ### M4 - Payment/refund
 
 Port last among request-path modules:
