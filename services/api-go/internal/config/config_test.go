@@ -2,8 +2,8 @@ package config
 
 import (
 	"strings"
-	"time"
 	"testing"
+	"time"
 )
 
 func TestDevDefaultsAreValid(t *testing.T) {
@@ -84,31 +84,31 @@ func TestSecureDeploymentRequiresPaymentCredentials(t *testing.T) {
 
 func TestSecureDeploymentRejectsNonPublicNotifyURL(t *testing.T) {
 	cfg := Config{
-		AppEnv:                        "staging",
+		AppEnv:                       "staging",
 		DatabaseURL:                   "postgresql://u:p@db:5432/app",
-		RedisURL:                      "redis://redis:6379/0",
-		DatabaseMaxConns:              4,
-		DatabaseMinConns:              1,
-		RedisPoolSize:                 4,
-		ReadinessRequireRedis:         true,
-		AuthProvider:                  "wechat",
-		PaymentProvider:               "wechat",
-		RefundProvider:                "manual",
-		SessionSigningKey:             "01234567890123456789012345678901",
-		AccessTokenTTLSeconds:         900,
-		RefreshTokenTTLSeconds:        3600,
-		WeChatAppID:                   "wx-test",
-		WeChatAppSecret:               "secret",
-		WeChatAuthTimeout:             time.Second,
-		WeChatMchID:                   "mch",
-		WeChatMchCertSerial:           "serial",
-		WeChatMchPrivateKey:           "key",
-		WeChatNotifyURL:               "http://127.0.0.1/callback",
-		WeChatPayAPIV3Key:             "01234567890123456789012345678901",
-		WeChatPayPlatformCertSerial:   "platform-serial",
-		WeChatPayPlatformCertificate:  "certificate",
-		WeChatPayTimeout:              time.Second,
-		ShutdownTimeout:               time.Second,
+		RedisURL:                     "redis://redis:6379/0",
+		DatabaseMaxConns:             4,
+		DatabaseMinConns:             1,
+		RedisPoolSize:                4,
+		ReadinessRequireRedis:        true,
+		AuthProvider:                 "wechat",
+		PaymentProvider:              "wechat",
+		RefundProvider:               "manual",
+		SessionSigningKey:            "01234567890123456789012345678901",
+		AccessTokenTTLSeconds:        900,
+		RefreshTokenTTLSeconds:       3600,
+		WeChatAppID:                  "wx-test",
+		WeChatAppSecret:              "secret",
+		WeChatAuthTimeout:            time.Second,
+		WeChatMchID:                  "mch",
+		WeChatMchCertSerial:          "serial",
+		WeChatMchPrivateKey:          "key",
+		WeChatNotifyURL:              "http://127.0.0.1/callback",
+		WeChatPayAPIV3Key:            "01234567890123456789012345678901",
+		WeChatPayPlatformCertSerial:  "platform-serial",
+		WeChatPayPlatformCertificate: "certificate",
+		WeChatPayTimeout:             time.Second,
+		ShutdownTimeout:              time.Second,
 	}
 	err := cfg.Validate()
 	if err == nil || !strings.Contains(err.Error(), "WECHAT_NOTIFY_URL_MUST_BE_PUBLIC_HTTPS") {
