@@ -1,6 +1,7 @@
 import uuid
 from dataclasses import replace
 from datetime import datetime, timezone
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -8,11 +9,102 @@ from sqlalchemy.orm import Session
 
 from app.models import LedgerEntry, Wallet, Withdrawal
 from app.services.authorization_audit import AuthorizationAudit
+from app.services.authority_admission import AuthorityAdmission
 from app.services.authority_envelope import AuthorityEnvelope
 from app.services.resource_authorization_policy import AuthorizationDecision
 
 
 class WithdrawalService:
+    @staticmethod
+    def _resource_version(
+        *,
+        withdrawal_id: uuid.UUID,
+        withdrawal_status: str,
+        wallet_id: uuid.UUID,
+        wallet_version: int | None,
+    ) -> str:
+        wallet_version_value = (
+            f"v{wallet_version}" if wallet_version is not None else "missing"
+        )
+        return (
+            f"withdrawal:{withdrawal_id}:status={withdrawal_status};"
+            f"wallet:{wallet_id}:{wallet_version_value}"
+        )
+
+    @staticmethod
+    def _read_authority_snapshot(
+        db: Session,
+        *,
+        withdrawal_id: uuid.UUID,
+    ) -> tuple[dict[str, Any], str] | None:
+        withdrawal_row = db.execute(
+            select(
+                Withdrawal.id.label("withdrawal_id"),
+                Withdrawal.status.label("withdrawal_status"),
+                Withdrawal.amount.label("withdrawal_amount"),
+                Withdrawal.wallet_id.label("wallet_id"),
+            ).where(Withdrawal.id == withdrawal_id)
+        ).mappings().one_or_none()
+        if not withdrawal_row:
+            return None
+
+        wallet_row = db.execute(
+            select(
+                Wallet.id.label("wallet_id"),
+                Wallet.version.label("wallet_version"),
+                Wallet.available_balance.label("wallet_available_balance"),
+                Wallet.frozen_balance.label("wallet_frozen_balance"),
+            ).where(Wallet.id == withdrawal_row["wallet_id"])
+        ).mappings().one_or_none()
+
+        state = {
+            "withdrawalStatus": withdrawal_row["withdrawal_status"],
+            "withdrawalAmount": withdrawal_row["withdrawal_amount"],
+            "walletId": str(withdrawal_row["wallet_id"]),
+            "walletVersion": (
+                wallet_row["wallet_version"] if wallet_row is not None else None
+            ),
+            "walletAvailableBalance": (
+                wallet_row["wallet_available_balance"]
+                if wallet_row is not None
+                else None
+            ),
+            "walletFrozenBalance": (
+                wallet_row["wallet_frozen_balance"] if wallet_row is not None else None
+            ),
+        }
+        resource_version = WithdrawalService._resource_version(
+            withdrawal_id=withdrawal_row["withdrawal_id"],
+            withdrawal_status=withdrawal_row["withdrawal_status"],
+            wallet_id=withdrawal_row["wallet_id"],
+            wallet_version=(
+                wallet_row["wallet_version"] if wallet_row is not None else None
+            ),
+        )
+        return state, resource_version
+
+    @staticmethod
+    def _locked_authority_snapshot(
+        *,
+        withdrawal: Withdrawal,
+        wallet: Wallet,
+    ) -> tuple[dict[str, Any], str]:
+        state = {
+            "withdrawalStatus": withdrawal.status,
+            "withdrawalAmount": withdrawal.amount,
+            "walletId": str(wallet.id),
+            "walletVersion": wallet.version,
+            "walletAvailableBalance": wallet.available_balance,
+            "walletFrozenBalance": wallet.frozen_balance,
+        }
+        resource_version = WithdrawalService._resource_version(
+            withdrawal_id=withdrawal.id,
+            withdrawal_status=withdrawal.status,
+            wallet_id=wallet.id,
+            wallet_version=wallet.version,
+        )
+        return state, resource_version
+
     @staticmethod
     def request(
         db: Session,
@@ -101,6 +193,34 @@ class WithdrawalService:
         provider_txn_id: str | None = None,
         authorization: AuthorizationDecision | None = None,
     ) -> Withdrawal:
+        preliminary = WithdrawalService._read_authority_snapshot(
+            db,
+            withdrawal_id=withdrawal_id,
+        )
+        if preliminary is None:
+            raise LookupError("WITHDRAWAL_NOT_FOUND")
+
+        preliminary_state, preliminary_resource_version = preliminary
+        authority = None
+        if (
+            authorization is not None
+            and preliminary_state["withdrawalStatus"] == "PENDING"
+        ):
+            if not provider_txn_id or not provider_txn_id.strip():
+                raise ValueError("WITHDRAWAL_PAYOUT_REFERENCE_REQUIRED")
+            normalized_provider_txn_id = provider_txn_id.strip()
+            authority = AuthorityEnvelope(
+                authorization=authorization,
+                expected_state=preliminary_state,
+                bounded_write={
+                    "operation": "WITHDRAWAL_COMPLETE",
+                    "providerTxnId": normalized_provider_txn_id,
+                    "withdrawalStatus": "COMPLETED",
+                    "walletFrozenDelta": -preliminary_state["withdrawalAmount"],
+                },
+                resource_version=preliminary_resource_version,
+            )
+
         withdrawal = db.scalar(
             select(Withdrawal)
             .where(Withdrawal.id == withdrawal_id)
@@ -116,8 +236,6 @@ class WithdrawalService:
             ):
                 raise ValueError("WITHDRAWAL_PAYOUT_REFERENCE_MISMATCH")
             return withdrawal
-        if withdrawal.status != "PENDING":
-            raise ValueError("WITHDRAWAL_NOT_PENDING")
 
         if not provider_txn_id or not provider_txn_id.strip():
             raise ValueError("WITHDRAWAL_PAYOUT_REFERENCE_REQUIRED")
@@ -138,32 +256,36 @@ class WithdrawalService:
             .where(Wallet.id == withdrawal.wallet_id)
             .with_for_update()
         )
-        if not wallet or wallet.frozen_balance < withdrawal.amount:
+        if not wallet:
             raise ValueError("WITHDRAWAL_FROZEN_BALANCE_INVALID")
 
-        authority = None
-        if authorization is not None:
-            authority = AuthorityEnvelope(
-                authorization=authorization,
-                expected_state={
-                    "withdrawalStatus": withdrawal.status,
-                    "withdrawalAmount": withdrawal.amount,
-                    "walletId": str(wallet.id),
-                    "walletVersion": wallet.version,
-                    "walletAvailableBalance": wallet.available_balance,
-                    "walletFrozenBalance": wallet.frozen_balance,
-                },
-                bounded_write={
-                    "operation": "WITHDRAWAL_COMPLETE",
-                    "providerTxnId": provider_txn_id,
-                    "withdrawalStatus": "COMPLETED",
-                    "walletFrozenDelta": -withdrawal.amount,
-                },
-                resource_version=(
-                    f"withdrawal:{withdrawal.id}:status={withdrawal.status};"
-                    f"wallet:{wallet.id}:v{wallet.version}"
-                ),
+        current_state, current_resource_version = (
+            WithdrawalService._locked_authority_snapshot(
+                withdrawal=withdrawal,
+                wallet=wallet,
             )
+        )
+        admission = None
+        if authorization is not None and authority is not None:
+            requested_write = {
+                "operation": "WITHDRAWAL_COMPLETE",
+                "providerTxnId": provider_txn_id,
+                "withdrawalStatus": "COMPLETED",
+                "walletFrozenDelta": -withdrawal.amount,
+            }
+            admission = AuthorityAdmission.admit(
+                authority=authority,
+                current_state=current_state,
+                current_resource_version=current_resource_version,
+                requested_write=requested_write,
+            )
+        elif authorization is not None and withdrawal.status == "PENDING":
+            raise ValueError("AUTHORITY_ENVELOPE_NOT_ISSUED")
+
+        if withdrawal.status != "PENDING":
+            raise ValueError("WITHDRAWAL_NOT_PENDING")
+        if wallet.frozen_balance < withdrawal.amount:
+            raise ValueError("WITHDRAWAL_FROZEN_BALANCE_INVALID")
 
         wallet.frozen_balance -= withdrawal.amount
         wallet.version += 1
@@ -182,6 +304,11 @@ class WithdrawalService:
             )
         )
         if authorization is not None:
+            AuthorizationAudit.record_admission(
+                db,
+                authority=authority,
+                admission=admission,
+            )
             AuthorizationAudit.record(
                 db,
                 decision=authorization,
@@ -212,6 +339,33 @@ class WithdrawalService:
         reason: str,
         authorization: AuthorizationDecision | None = None,
     ) -> Withdrawal:
+        preliminary = WithdrawalService._read_authority_snapshot(
+            db,
+            withdrawal_id=withdrawal_id,
+        )
+        if preliminary is None:
+            raise LookupError("WITHDRAWAL_NOT_FOUND")
+
+        preliminary_state, preliminary_resource_version = preliminary
+        normalized_reason = reason[:256]
+        authority = None
+        if (
+            authorization is not None
+            and preliminary_state["withdrawalStatus"] == "PENDING"
+        ):
+            authority = AuthorityEnvelope(
+                authorization=authorization,
+                expected_state=preliminary_state,
+                bounded_write={
+                    "operation": "WITHDRAWAL_REJECT",
+                    "reason": normalized_reason,
+                    "withdrawalStatus": "REJECTED",
+                    "walletFrozenDelta": -preliminary_state["withdrawalAmount"],
+                    "walletAvailableDelta": preliminary_state["withdrawalAmount"],
+                },
+                resource_version=preliminary_resource_version,
+            )
+
         withdrawal = db.scalar(
             select(Withdrawal)
             .where(Withdrawal.id == withdrawal_id)
@@ -221,48 +375,49 @@ class WithdrawalService:
             raise LookupError("WITHDRAWAL_NOT_FOUND")
         if withdrawal.status == "REJECTED":
             return withdrawal
-        if withdrawal.status != "PENDING":
-            raise ValueError("WITHDRAWAL_NOT_PENDING")
 
         wallet = db.scalar(
             select(Wallet)
             .where(Wallet.id == withdrawal.wallet_id)
             .with_for_update()
         )
-        if not wallet or wallet.frozen_balance < withdrawal.amount:
+        if not wallet:
             raise ValueError("WITHDRAWAL_FROZEN_BALANCE_INVALID")
 
-        authority = None
-        if authorization is not None:
-            normalized_reason = reason[:256]
-            authority = AuthorityEnvelope(
-                authorization=authorization,
-                expected_state={
-                    "withdrawalStatus": withdrawal.status,
-                    "withdrawalAmount": withdrawal.amount,
-                    "walletId": str(wallet.id),
-                    "walletVersion": wallet.version,
-                    "walletAvailableBalance": wallet.available_balance,
-                    "walletFrozenBalance": wallet.frozen_balance,
-                },
-                bounded_write={
-                    "operation": "WITHDRAWAL_REJECT",
-                    "reason": normalized_reason,
-                    "withdrawalStatus": "REJECTED",
-                    "walletFrozenDelta": -withdrawal.amount,
-                    "walletAvailableDelta": withdrawal.amount,
-                },
-                resource_version=(
-                    f"withdrawal:{withdrawal.id}:status={withdrawal.status};"
-                    f"wallet:{wallet.id}:v{wallet.version}"
-                ),
+        current_state, current_resource_version = (
+            WithdrawalService._locked_authority_snapshot(
+                withdrawal=withdrawal,
+                wallet=wallet,
             )
+        )
+        admission = None
+        if authorization is not None and authority is not None:
+            requested_write = {
+                "operation": "WITHDRAWAL_REJECT",
+                "reason": normalized_reason,
+                "withdrawalStatus": "REJECTED",
+                "walletFrozenDelta": -withdrawal.amount,
+                "walletAvailableDelta": withdrawal.amount,
+            }
+            admission = AuthorityAdmission.admit(
+                authority=authority,
+                current_state=current_state,
+                current_resource_version=current_resource_version,
+                requested_write=requested_write,
+            )
+        elif authorization is not None and withdrawal.status == "PENDING":
+            raise ValueError("AUTHORITY_ENVELOPE_NOT_ISSUED")
+
+        if withdrawal.status != "PENDING":
+            raise ValueError("WITHDRAWAL_NOT_PENDING")
+        if wallet.frozen_balance < withdrawal.amount:
+            raise ValueError("WITHDRAWAL_FROZEN_BALANCE_INVALID")
 
         wallet.frozen_balance -= withdrawal.amount
         wallet.available_balance += withdrawal.amount
         wallet.version += 1
         withdrawal.status = "REJECTED"
-        withdrawal.failure_reason = reason[:256]
+        withdrawal.failure_reason = normalized_reason
         withdrawal.rejected_at = datetime.now(timezone.utc)
 
         db.add(
@@ -276,6 +431,11 @@ class WithdrawalService:
             )
         )
         if authorization is not None:
+            AuthorizationAudit.record_admission(
+                db,
+                authority=authority,
+                admission=admission,
+            )
             AuthorizationAudit.record(
                 db,
                 decision=authorization,
