@@ -101,7 +101,7 @@ func (r Repository) OrderAllowedUsers(
 	err := r.db.QueryRow(ctx, `
 		SELECT user_id::text
 		FROM orders
-		WHERE id = $1::uuid
+		WHERE id::text = $1
 	`, orderID).Scan(&ownerID)
 	if err == pgx.ErrNoRows {
 		return allowed, nil
