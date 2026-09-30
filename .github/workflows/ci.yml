@@ -280,3 +280,48 @@ jobs:
             config > /tmp/staging-compose.yml
           grep -q 'name: esports-companion-staging' /tmp/staging-compose.yml
           grep -q 'APP_ENV: staging' /tmp/staging-compose.yml
+
+
+  release-gate:
+    name: Release Checklist Gate
+    if: always()
+    needs:
+      - api
+      - miniapp
+      - admin
+      - api-image
+      - smoke
+      - backup-restore
+      - ingress
+      - metrics-config
+      - staging-config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require automated checklist prerequisites
+        env:
+          API_RESULT: ${{ needs.api.result }}
+          MINIAPP_RESULT: ${{ needs.miniapp.result }}
+          ADMIN_RESULT: ${{ needs.admin.result }}
+          API_IMAGE_RESULT: ${{ needs['api-image'].result }}
+          SMOKE_RESULT: ${{ needs.smoke.result }}
+          BACKUP_RESTORE_RESULT: ${{ needs['backup-restore'].result }}
+          INGRESS_RESULT: ${{ needs.ingress.result }}
+          METRICS_RESULT: ${{ needs['metrics-config'].result }}
+          STAGING_RESULT: ${{ needs['staging-config'].result }}
+        run: |
+          for result in \
+            "$API_RESULT" \
+            "$MINIAPP_RESULT" \
+            "$ADMIN_RESULT" \
+            "$API_IMAGE_RESULT" \
+            "$SMOKE_RESULT" \
+            "$BACKUP_RESTORE_RESULT" \
+            "$INGRESS_RESULT" \
+            "$METRICS_RESULT" \
+            "$STAGING_RESULT"
+          do
+            test "$result" = "success"
+          done
+          grep -Fq "Change freeze:" docs/release-checklist.md
+          grep -Fq "low-value real withdrawal" docs/release-checklist.md
