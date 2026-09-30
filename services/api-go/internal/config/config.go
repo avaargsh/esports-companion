@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -29,10 +30,20 @@ type Config struct {
 	SessionSigningKey      string
 	AccessTokenTTLSeconds  int
 	RefreshTokenTTLSeconds int
-	WeChatAppID            string
-	WeChatAppSecret        string
-	WeChatAuthTimeout      time.Duration
-	ShutdownTimeout        time.Duration
+	WeChatAppID                   string
+	WeChatAppSecret               string
+	WeChatAuthTimeout             time.Duration
+	WeChatMchID                   string
+	WeChatMchCertSerial           string
+	WeChatMchPrivateKey           string
+	WeChatNotifyURL               string
+	WeChatRefundNotifyURL         string
+	WeChatPayAPIBaseURL           string
+	WeChatPayAPIV3Key             string
+	WeChatPayPlatformCertSerial   string
+	WeChatPayPlatformCertificate  string
+	WeChatPayTimeout              time.Duration
+	ShutdownTimeout               time.Duration
 }
 
 func Load() (Config, error) {
@@ -67,6 +78,28 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("wechat app secret: %w", err)
 	}
 
+	wechatMchPrivateKey, err := valueOrFile(
+		env("WECHAT_MCH_PRIVATE_KEY", ""),
+		os.Getenv("WECHAT_MCH_PRIVATE_KEY_FILE"),
+	)
+	if err != nil {
+		return Config{}, fmt.Errorf("wechat merchant private key: %w", err)
+	}
+	wechatAPIV3Key, err := valueOrFile(
+		env("WECHAT_PAY_API_V3_KEY", ""),
+		os.Getenv("WECHAT_PAY_API_V3_KEY_FILE"),
+	)
+	if err != nil {
+		return Config{}, fmt.Errorf("wechat api v3 key: %w", err)
+	}
+	wechatPlatformCertificate, err := valueOrFile(
+		env("WECHAT_PAY_PLATFORM_CERTIFICATE", ""),
+		os.Getenv("WECHAT_PAY_PLATFORM_CERTIFICATE_FILE"),
+	)
+	if err != nil {
+		return Config{}, fmt.Errorf("wechat platform certificate: %w", err)
+	}
+
 	maxConns, err := envInt("DATABASE_MAX_CONNS", 32)
 	if err != nil {
 		return Config{}, err
@@ -95,6 +128,10 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	wechatPayTimeoutSeconds, err := envInt("WECHAT_PAY_TIMEOUT_SECONDS", 8)
+	if err != nil {
+		return Config{}, err
+	}
 	shutdownSeconds, err := envInt("SHUTDOWN_TIMEOUT_SECONDS", 15)
 	if err != nil {
 		return Config{}, err
@@ -118,10 +155,20 @@ func Load() (Config, error) {
 		SessionSigningKey:      signingKey,
 		AccessTokenTTLSeconds:  accessTTL,
 		RefreshTokenTTLSeconds: refreshTTL,
-		WeChatAppID:            env("WECHAT_APP_ID", ""),
-		WeChatAppSecret:        wechatSecret,
-		WeChatAuthTimeout:      time.Duration(wechatTimeoutSeconds) * time.Second,
-		ShutdownTimeout:        time.Duration(shutdownSeconds) * time.Second,
+		WeChatAppID:                  env("WECHAT_APP_ID", ""),
+		WeChatAppSecret:              wechatSecret,
+		WeChatAuthTimeout:            time.Duration(wechatTimeoutSeconds) * time.Second,
+		WeChatMchID:                  env("WECHAT_MCH_ID", ""),
+		WeChatMchCertSerial:          env("WECHAT_MCH_CERT_SERIAL", ""),
+		WeChatMchPrivateKey:          wechatMchPrivateKey,
+		WeChatNotifyURL:              env("WECHAT_NOTIFY_URL", ""),
+		WeChatRefundNotifyURL:        env("WECHAT_REFUND_NOTIFY_URL", ""),
+		WeChatPayAPIBaseURL:          env("WECHAT_PAY_API_BASE_URL", "https://api.mch.weixin.qq.com"),
+		WeChatPayAPIV3Key:            wechatAPIV3Key,
+		WeChatPayPlatformCertSerial:  env("WECHAT_PAY_PLATFORM_CERT_SERIAL", ""),
+		WeChatPayPlatformCertificate: wechatPlatformCertificate,
+		WeChatPayTimeout:             time.Duration(wechatPayTimeoutSeconds) * time.Second,
+		ShutdownTimeout:              time.Duration(shutdownSeconds) * time.Second,
 	}
 
 	if err := cfg.Validate(); err != nil {
@@ -160,6 +207,9 @@ func (c Config) Validate() error {
 	if c.WeChatAuthTimeout <= 0 {
 		return errors.New("WECHAT_AUTH_TIMEOUT_MUST_BE_POSITIVE")
 	}
+	if c.WeChatPayTimeout <= 0 {
+		return errors.New("WECHAT_PAY_TIMEOUT_MUST_BE_POSITIVE")
+	}
 	if c.ShutdownTimeout <= 0 {
 		return errors.New("SHUTDOWN_TIMEOUT_INVALID")
 	}
@@ -183,6 +233,29 @@ func (c Config) Validate() error {
 		}
 		if c.WeChatAppSecret == "" {
 			violations = append(violations, "WECHAT_APP_SECRET_REQUIRED")
+		}
+		required := map[string]string{
+			"WECHAT_MCH_ID":                    c.WeChatMchID,
+			"WECHAT_MCH_CERT_SERIAL":           c.WeChatMchCertSerial,
+			"WECHAT_MCH_PRIVATE_KEY":           c.WeChatMchPrivateKey,
+			"WECHAT_NOTIFY_URL":                c.WeChatNotifyURL,
+			"WECHAT_PAY_API_V3_KEY":            c.WeChatPayAPIV3Key,
+			"WECHAT_PAY_PLATFORM_CERT_SERIAL":  c.WeChatPayPlatformCertSerial,
+			"WECHAT_PAY_PLATFORM_CERTIFICATE":  c.WeChatPayPlatformCertificate,
+		}
+		if c.RefundProvider == "wechat" {
+			required["WECHAT_REFUND_NOTIFY_URL"] = c.WeChatRefundNotifyURL
+		}
+		for name, value := range required {
+			if strings.TrimSpace(value) == "" {
+				violations = append(violations, name+"_REQUIRED")
+			}
+		}
+		if c.WeChatNotifyURL != "" && !isPublicHTTPS(c.WeChatNotifyURL) {
+			violations = append(violations, "WECHAT_NOTIFY_URL_MUST_BE_PUBLIC_HTTPS")
+		}
+		if c.WeChatRefundNotifyURL != "" && !isPublicHTTPS(c.WeChatRefundNotifyURL) {
+			violations = append(violations, "WECHAT_REFUND_NOTIFY_URL_MUST_BE_PUBLIC_HTTPS")
 		}
 		if len(violations) > 0 {
 			return fmt.Errorf("SECURE_CONFIG_INVALID:%s", strings.Join(violations, ","))
@@ -229,4 +302,13 @@ func envBool(name string, fallback bool) (bool, error) {
 		return false, fmt.Errorf("%s_INVALID", name)
 	}
 	return value, nil
+}
+
+func isPublicHTTPS(value string) bool {
+	parsed, err := url.Parse(strings.TrimSpace(value))
+	if err != nil || parsed.Scheme != "https" || parsed.Host == "" {
+		return false
+	}
+	host := strings.ToLower(parsed.Hostname())
+	return host != "localhost" && host != "127.0.0.1"
 }
