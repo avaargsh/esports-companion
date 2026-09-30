@@ -87,7 +87,7 @@ Run the first focused sample-product loop:
 make sample-product-01
 ```
 
-This proves the core marketplace flywheel: order → payment → matching → fulfillment → settlement → review → public reputation, and writes machine-readable evidence. See [Sample Product 01](samples/01-on-demand-service/README.md).
+This proves the core marketplace flywheel: order → payment → matching → fulfillment → settlement → review → public reputation, and writes machine-readable evidence. See [Sample Product 01](samples/01-on-demand-service/README.md) and the [7-minute esports companion demo script](samples/01-on-demand-service/demo-script.md).
 
 Then execute the wider release HTTP path:
 
