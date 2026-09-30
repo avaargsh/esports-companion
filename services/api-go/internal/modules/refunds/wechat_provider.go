@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -264,10 +265,96 @@ func (p *WeChatProvider) CreateRefund(
 }
 
 func (p *WeChatProvider) QueryRefund(
-	_ context.Context,
-	_ string,
+	ctx context.Context,
+	outRefundNo string,
 ) (ports.RefundIntent, error) {
-	return ports.RefundIntent{}, ErrWeChatRefundQueryNotMigrated
+	outRefundNo = strings.TrimSpace(outRefundNo)
+	if outRefundNo == "" {
+		return ports.RefundIntent{}, ErrRefundOutRefundNoMissing
+	}
+	path := "/v3/refund/domestic/refunds/" + url.PathEscape(outRefundNo)
+	timestamp := fmt.Sprintf("%d", p.now().Unix())
+	nonce, err := p.nonce()
+	if err != nil {
+		return ports.RefundIntent{}, err
+	}
+	signature, err := p.sign(
+		[]byte("GET\n" + path + "\n" + timestamp + "\n" + nonce + "\n\n"),
+	)
+	if err != nil {
+		return ports.RefundIntent{}, err
+	}
+	authorization := "WECHATPAY2-SHA256-RSA2048 " +
+		"mchid=\"" + p.cfg.MchID + "\"," +
+		"nonce_str=\"" + nonce + "\"," +
+		"signature=\"" + signature + "\"," +
+		"timestamp=\"" + timestamp + "\"," +
+		"serial_no=\"" + p.cfg.CertSerial + "\""
+
+	request, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodGet,
+		p.cfg.APIBaseURL+path,
+		nil,
+	)
+	if err != nil {
+		return ports.RefundIntent{}, err
+	}
+	request.Header.Set("Authorization", authorization)
+	request.Header.Set("Accept", "application/json")
+	request.Header.Set("User-Agent", "esports-companion/0.2")
+
+	response, err := p.client.Do(request)
+	if err != nil {
+		return ports.RefundIntent{}, ErrWeChatRefundQueryNetwork
+	}
+	defer response.Body.Close()
+
+	raw, err := io.ReadAll(response.Body)
+	if err != nil {
+		return ports.RefundIntent{}, ErrWeChatRefundQueryNetwork
+	}
+	var payload map[string]any
+	if len(raw) > 0 {
+		if err := json.Unmarshal(raw, &payload); err != nil {
+			return ports.RefundIntent{}, ErrWeChatRefundQueryInvalidJSON
+		}
+	} else {
+		payload = map[string]any{}
+	}
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		code := "UNKNOWN"
+		if value, ok := payload["code"]; ok {
+			code = fmt.Sprint(value)
+		}
+		return ports.RefundIntent{}, fmt.Errorf(
+			"%w:%d:%s",
+			ErrWeChatRefundQueryHTTP,
+			response.StatusCode,
+			code,
+		)
+	}
+	if err := p.verifyResponseSignature(response.Header, raw); err != nil {
+		return ports.RefundIntent{}, err
+	}
+
+	providerRefundID, _ := payload["refund_id"].(string)
+	responseOutRefundNo, _ := payload["out_refund_no"].(string)
+	status := strings.ToUpper(fmt.Sprint(payload["status"]))
+	if strings.TrimSpace(providerRefundID) == "" || responseOutRefundNo != outRefundNo {
+		return ports.RefundIntent{}, ErrWeChatRefundQueryInvalidResponse
+	}
+	switch status {
+	case "SUCCESS", "PROCESSING", "CLOSED", "ABNORMAL":
+	default:
+		return ports.RefundIntent{}, ErrWeChatRefundStatusInvalid
+	}
+	return ports.RefundIntent{
+		Provider:         p.Name(),
+		ProviderRefundID: providerRefundID,
+		Status:           status,
+		RawPayload:       payload,
+	}, nil
 }
 
 func (p *WeChatProvider) verifyResponseSignature(
