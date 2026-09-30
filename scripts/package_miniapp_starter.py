@@ -31,6 +31,14 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def source_repository(explicit: str | None) -> str:
+    return (
+        (explicit or "").strip()
+        or os.environ.get("GITHUB_REPOSITORY", "").strip()
+        or "avaargsh/esports-companion"
+    )
+
+
 def source_revision(explicit: str | None) -> str:
     if explicit:
         return explicit.strip()
@@ -59,10 +67,15 @@ def collect_files(root: Path) -> list[Path]:
     )
 
 
-def write_internal_provenance(root: Path, revision: str, manifest_sha: str) -> None:
+def write_internal_provenance(
+    root: Path,
+    repository: str,
+    revision: str,
+    manifest_sha: str,
+) -> None:
     payload = {
         "schemaVersion": 1,
-        "sourceRepository": "avaargsh/esports-companion",
+        "sourceRepository": repository,
         "sourceRevision": revision,
         "starterManifestSha256": manifest_sha,
         "generator": "scripts/package_miniapp_starter.py",
@@ -129,6 +142,7 @@ def build_inventory(source: Path) -> list[dict[str, object]]:
 
 def write_external_provenance(
     output: Path,
+    repository: str,
     revision: str,
     manifest_sha: str,
     inventory: list[dict[str, object]],
@@ -136,7 +150,7 @@ def write_external_provenance(
 ) -> None:
     payload = {
         "schemaVersion": 1,
-        "sourceRepository": "avaargsh/esports-companion",
+        "sourceRepository": repository,
         "sourceRevision": revision,
         "starterManifestSha256": manifest_sha,
         "archiveRoot": ARCHIVE_ROOT,
@@ -164,6 +178,7 @@ def write_checksums(output: Path, paths: list[Path]) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("output", type=Path)
+    parser.add_argument("--source-repository")
     parser.add_argument("--source-revision")
     args = parser.parse_args()
 
@@ -171,6 +186,7 @@ def main() -> int:
     if output_dir == ROOT or ROOT in output_dir.parents:
         raise SystemExit("output must be outside the repository root")
 
+    repository = source_repository(args.source_repository)
     revision = source_revision(args.source_revision)
     manifest_sha = sha256_file(MANIFEST)
 
@@ -184,7 +200,12 @@ def main() -> int:
             [sys.executable, str(EXTRACTOR), str(extracted)],
             check=True,
         )
-        write_internal_provenance(extracted, revision, manifest_sha)
+        write_internal_provenance(
+            extracted,
+            repository,
+            revision,
+            manifest_sha,
+        )
         inventory = build_inventory(extracted)
 
         tar_path = output_dir / "miniapp-starter.tar.gz"
@@ -195,6 +216,7 @@ def main() -> int:
     provenance_path = output_dir / "miniapp-starter.provenance.json"
     write_external_provenance(
         provenance_path,
+        repository,
         revision,
         manifest_sha,
         inventory,
