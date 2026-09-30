@@ -32,6 +32,7 @@ class OrderAuthorizationPolicy:
         order: Order,
         *,
         user_id: uuid.UUID,
+        roles: tuple[str, ...] | None = None,
     ) -> OrderActor:
         if order.user_id != user_id:
             raise PermissionError("ORDER_NOT_OWNED")
@@ -75,7 +76,7 @@ class OrderAuthorizationPolicy:
             db,
             order=order,
             user_id=user_id,
-            roles=None,
+            roles=roles,
             active_only=True,
         )
         if assignment:
