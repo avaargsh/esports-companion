@@ -15,6 +15,7 @@ on:
       - "scripts/go_lifecycle_parity.py"
       - "scripts/go_settlement_parity.py"
       - "scripts/go_mock_payment_parity.py"
+      - "scripts/go_payment_prepare_parity.py"
       - "docs/go-backend-migration.md"
       - ".github/workflows/api-go.yml"
   pull_request:
@@ -29,6 +30,7 @@ on:
       - "scripts/go_lifecycle_parity.py"
       - "scripts/go_settlement_parity.py"
       - "scripts/go_mock_payment_parity.py"
+      - "scripts/go_payment_prepare_parity.py"
       - "docs/go-backend-migration.md"
       - ".github/workflows/api-go.yml"
 
@@ -198,6 +200,9 @@ jobs:
 
       - name: Compare M3.5 mock payment contracts
         run: python3 scripts/go_mock_payment_parity.py
+
+      - name: Compare M4.1 payment prepare contracts
+        run: python3 scripts/go_payment_prepare_parity.py
 
       - name: Dump runtime logs on failure
         if: failure()
