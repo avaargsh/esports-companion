@@ -300,6 +300,6 @@ onShow(() => {
 .live-dot { margin-right:8rpx; color:currentColor; }
 .notice { margin-top:22rpx; padding:26rpx; border-radius:26rpx; background:#221f31; color:#b3accf; font-size:21rpx; line-height:1.6; }
 .notice.success { background:rgba(34,197,94,.10); color:#64cf8e; }
-.notice.danger { background:rgba(239,68,68,.10); color:#dc7779; }
+.notice.danger { background:rgba(239,68,68,.10); color:var(--danger-on-inverse); }
 .bottom-spacer { height:126rpx; }
 </style>
