@@ -6,7 +6,8 @@ import { getDemoIdentities } from "../../api/demo"
 import CheckoutBar from "../../components/CheckoutBar.vue"
 import EmptyState from "../../components/EmptyState.vue"
 import type { Order, ServiceSku } from "../../types/domain"
-import { showMessage } from "../../ui/feedback"\nimport { navigation } from "../../platform/navigation"
+import { showMessage } from "../../ui/feedback"
+import { navigation } from "../../platform/navigation"
 
 const gameId=ref("")
 const gameName=ref("选择服务")
