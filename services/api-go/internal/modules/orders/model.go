@@ -17,6 +17,8 @@ var (
 	ErrPlayerNotEligible       = errors.New("PLAYER_NOT_ELIGIBLE")
 	ErrCannotClaimOwnOrder     = errors.New("CANNOT_CLAIM_OWN_ORDER")
 	ErrPlayerNotOfferingSKU    = errors.New("PLAYER_NOT_OFFERING_SKU")
+	ErrAssignmentNotFound      = errors.New("ACTIVE_ASSIGNMENT_NOT_FOUND")
+	ErrNotOrderPlayer          = errors.New("NOT_ORDER_PLAYER")
 )
 
 type CreateInput struct {
