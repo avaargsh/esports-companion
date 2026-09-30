@@ -162,7 +162,7 @@ func (h Handler) get(w http.ResponseWriter, r *http.Request) {
 		chimiddleware.GetReqID(r.Context()),
 	)
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+		writeReadError(w, err)
 		return
 	}
 	httpx.JSONValue(w, http.StatusOK, detail)
@@ -186,10 +186,23 @@ func (h Handler) events(w http.ResponseWriter, r *http.Request) {
 		chimiddleware.GetReqID(r.Context()),
 	)
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+		writeReadError(w, err)
 		return
 	}
 	httpx.JSONValue(w, http.StatusOK, items)
+}
+
+func writeReadError(w http.ResponseWriter, err error) {
+	if errors.Is(err, ErrOrderNotFound) {
+		httpx.Error(w, http.StatusNotFound, ErrOrderNotFound.Error())
+		return
+	}
+	var denied *authz.ResourceAuthorizationDenied
+	if errors.As(err, &denied) {
+		httpx.Error(w, http.StatusForbidden, denied.Decision.ReasonCode)
+		return
+	}
+	httpx.Error(w, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
 }
 
 func parseLimit(w http.ResponseWriter, r *http.Request) (int, bool) {
