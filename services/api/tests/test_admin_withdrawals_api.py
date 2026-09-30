@@ -46,10 +46,12 @@ def test_admin_withdrawal_completion_requires_real_payout_reference():
                 wallet.frozen_balance = 0
             db.commit()
 
+        withdrawal_request_id = f"withdrawal-request-{uuid.uuid4().hex}"
         requested = client.post(
             "/api/v1/withdrawals",
             headers={
                 "X-User-Id": player_user_id,
+                "X-Request-Id": withdrawal_request_id,
                 "Idempotency-Key": f"admin-withdrawal-{uuid.uuid4()}",
             },
             json={"amount": 2500},
@@ -121,6 +123,21 @@ def test_admin_withdrawal_completion_requires_real_payout_reference():
                 )
             )
             payloads = [item.payload_json for item in audits]
+            request_audit = next(
+                item for item in payloads if item["action"] == "WITHDRAWAL_REQUEST"
+            )
+            assert request_audit["actorUserId"] == player_user_id
+            assert request_audit["scope"] == "OWNER"
+            assert request_audit["decision"] == "ALLOW"
+            assert request_audit["reasonCode"] == "OWNER_MATCH"
+            assert request_audit["policyVersion"] == "resource-authz.v2"
+            assert request_audit["sessionId"] is None
+            assert request_audit["requestId"] == withdrawal_request_id
+            assert (
+                request_audit["businessEvidenceRef"]
+                == f"WITHDRAWAL:{withdrawal_id}"
+            )
+
             complete_audit = next(
                 item for item in payloads if item["action"] == "WITHDRAWAL_COMPLETE"
             )
