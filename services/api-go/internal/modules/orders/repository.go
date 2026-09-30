@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -266,8 +265,8 @@ func (r Repository) AuthorizeViewer(
 	ctx context.Context,
 	order Order,
 	principal auth.Principal,
+	requestID string,
 ) (authz.AuthorizationDecision, error) {
-	requestID := middleware.GetReqID(ctx)
 	common := authz.AuthorizationDecision{
 		ActorUserID:         principal.User.ID,
 		ActorRoles:          append([]string(nil), principal.Roles...),
