@@ -56,16 +56,16 @@ type PaymentProvider interface {
 }
 
 type RefundRequest struct {
-	RefundID        string
-	OutRefundNo     string
-	OrderID         string
-	OrderNo         string
-	PaymentTxnID    string
-	RefundAmount    int64
-	TotalAmount     int64
-	Currency        string
-	IdempotencyKey  string
-	Reason          string
+	RefundID       string
+	OutRefundNo    string
+	OrderID        string
+	OrderNo        string
+	PaymentTxnID   string
+	RefundAmount   int64
+	TotalAmount    int64
+	Currency       string
+	IdempotencyKey string
+	Reason         string
 }
 
 type RefundIntent struct {
