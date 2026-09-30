@@ -12,7 +12,7 @@ func TestJSONTimeMatchesPydanticMicrosecondShape(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := string(encoded), ""2026-09-30T11:15:08.618170Z""; got != want {
+	if got, want := string(encoded), "\"2026-09-30T11:15:08.618170Z\""; got != want {
 		t.Fatalf("timestamp = %s, want %s", got, want)
 	}
 }
@@ -23,7 +23,7 @@ func TestJSONTimeOmitsFractionForExactSecond(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := string(encoded), ""2026-09-30T11:15:08Z""; got != want {
+	if got, want := string(encoded), "\"2026-09-30T11:15:08Z\""; got != want {
 		t.Fatalf("timestamp = %s, want %s", got, want)
 	}
 }
