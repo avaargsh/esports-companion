@@ -33,11 +33,7 @@ func NewWeChatRefundCallbackVerifier(
 ) (*WeChatRefundCallbackVerifier, error) {
 	apiKey := []byte(cfg.WeChatPayAPIV3Key)
 	if len(apiKey) != 32 {
-		return nil, fmt.Errorf(
-			"%w:%d",
-			ErrWeChatRefundCallbackConfigMissing,
-			len(apiKey),
-		)
+		return nil, ErrWeChatPayAPIV3KeyInvalid
 	}
 	required := []struct {
 		name  string
