@@ -15,7 +15,15 @@ var (
 	ErrPaymentProviderBadStatus = errors.New("PAYMENT_PROVIDER_INVALID_STATUS")
 	ErrDesignatedPlayerNotFound = errors.New("DESIGNATED_PLAYER_NOT_FOUND")
 	ErrMockProviderUnsupported  = errors.New("MOCK_PAYMENT_OPERATION_UNSUPPORTED")
-	ErrPaymentProviderMissing   = errors.New("PAYMENT_PROVIDER_NOT_CONFIGURED")
+	ErrPaymentProviderMissing          = errors.New("PAYMENT_PROVIDER_NOT_CONFIGURED")
+	ErrWeChatPaymentCredentialsMissing = errors.New("WECHAT_PAYMENT_CREDENTIALS_MISSING")
+	ErrWeChatPayerOpenIDRequired       = errors.New("WECHAT_PAYER_OPENID_REQUIRED")
+	ErrWeChatPaymentNetwork            = errors.New("WECHAT_PAYMENT_NETWORK_ERROR")
+	ErrWeChatPaymentInvalidJSON        = errors.New("WECHAT_PAYMENT_INVALID_JSON")
+	ErrWeChatPaymentInvalidResponse    = errors.New("WECHAT_PAYMENT_INVALID_RESPONSE")
+	ErrWeChatPaymentPrivateKeyInvalid  = errors.New("WECHAT_PAYMENT_PRIVATE_KEY_INVALID")
+	ErrWeChatPaymentCallbackNotMigrated = errors.New("WECHAT_PAYMENT_CALLBACK_NOT_MIGRATED")
+	ErrWeChatPaymentQueryNotMigrated    = errors.New("WECHAT_PAYMENT_QUERY_NOT_MIGRATED")
 )
 
 type Preparation struct {
