@@ -20,6 +20,7 @@ on:
       - "scripts/go_payment_callback_parity.py"
       - "scripts/go_refund_submit_parity.py"
       - "scripts/go_refund_recovery_parity.py"
+      - "scripts/go_outbox_parity.py"
       - "docs/go-backend-migration.md"
       - ".github/workflows/api-go.yml"
   pull_request:
@@ -39,6 +40,7 @@ on:
       - "scripts/go_payment_callback_parity.py"
       - "scripts/go_refund_submit_parity.py"
       - "scripts/go_refund_recovery_parity.py"
+      - "scripts/go_outbox_parity.py"
       - "docs/go-backend-migration.md"
       - ".github/workflows/api-go.yml"
 
@@ -90,7 +92,7 @@ jobs:
         run: go test -race ./...
 
       - name: Build
-        run: go build ./cmd/api
+        run: go build ./cmd/api ./cmd/worker
 
   parity:
     runs-on: ubuntu-latest
@@ -159,9 +161,11 @@ jobs:
           alembic upgrade head
           python -m app.seed
 
-      - name: Build Go target
+      - name: Build Go targets
         working-directory: services/api-go
-        run: go build -o /tmp/esports-api-go ./cmd/api
+        run: |
+          go build -o /tmp/esports-api-go ./cmd/api
+          go build -o /tmp/esports-worker-go ./cmd/worker
 
       - name: Start FastAPI reference
         run: |
@@ -224,6 +228,9 @@ jobs:
       - name: Compare M4.4 refund recovery contracts
         run: python3 scripts/go_refund_recovery_parity.py
 
+      - name: Compare M5.1 transactional outbox contracts
+        run: python3 scripts/go_outbox_parity.py
+
       - name: Dump runtime logs on failure
         if: failure()
         run: |
@@ -231,6 +238,10 @@ jobs:
           cat /tmp/fastapi.log || true
           echo "=== Go API ==="
           cat /tmp/api-go.log || true
+          echo "=== Go outbox worker 1 ==="
+          cat /tmp/api-go-outbox-worker-1.log || true
+          echo "=== Go outbox worker 2 ==="
+          cat /tmp/api-go-outbox-worker-2.log || true
 
       - name: Stop runtimes
         if: always()

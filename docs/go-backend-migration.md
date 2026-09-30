@@ -387,11 +387,42 @@ No client callback may advance durable payment state.
 
 ### M5 - Background runtime
 
-Port:
+The Go background runtime is a separate `cmd/worker` process built from the
+same modular-monolith codebase. It can scale and restart independently from the
+HTTP API without introducing a separate service codebase or source of truth.
 
-- transactional outbox publisher;
+#### M5.1 - Transactional outbox publisher
+
+Go owns durable outbox delivery:
+
+- PostgreSQL `outbox_events` remains the source of truth;
+- multiple worker processes compete with `FOR UPDATE SKIP LOCKED`;
+- each worker locks one PENDING event at a time;
+- ORDER events publish to namespaced Redis Pub/Sub channels
+  `realtime:order:<order_id>` and `realtime:user:<customer_user_id>`;
+- the message contract preserves `type`, `eventId`, `eventType` plus the
+  durable payload;
+- `ORDER_MESSAGE_CREATED` maps to `order.message_created`; other current
+  order events map to `order.status_changed`;
+- an event is marked PUBLISHED only after all required Redis publishes succeed.
+
+Delivery is intentionally **at least once**. A process crash after Redis publish
+but before the PostgreSQL commit may redeliver the same `eventId`; consumers
+must deduplicate by that durable event id. The design never marks an event
+published before transport succeeds.
+
+Acceptance stops the FastAPI publisher after all request-path parity has run,
+starts two Go worker processes against the same PostgreSQL/Redis, inserts 40
+PENDING events, and requires each event to be observed once on both expected
+Redis channels and end as PUBLISHED with `published_at` set.
+
+#### M5.2+
+
+Next background slices:
+
+- Redis -> authenticated WebSocket realtime bridge;
 - order timeout scanner;
-- refund reconciliation;
+- refund reconciliation scheduler;
 - operational metrics worker.
 
 Workers must use the same durable tables and idempotency rules; do not introduce

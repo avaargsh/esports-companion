@@ -22,7 +22,7 @@ go-test:
 	cd services/api-go && go test -race ./...
 
 go-build:
-	cd services/api-go && go build ./cmd/api
+	cd services/api-go && go build ./cmd/api ./cmd/worker
 
 go-run:
 	cd services/api-go && go run ./cmd/api
@@ -38,6 +38,10 @@ go-parity:
 	python3 scripts/go_settlement_parity.py
 	python3 scripts/go_mock_payment_parity.py
 	python3 scripts/go_payment_prepare_parity.py
+	python3 scripts/go_payment_callback_parity.py
+	python3 scripts/go_refund_submit_parity.py
+	python3 scripts/go_refund_recovery_parity.py
+	python3 scripts/go_outbox_parity.py
 
 smoke:
 	python3 scripts/smoke_demo.py
