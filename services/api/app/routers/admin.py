@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -27,6 +27,7 @@ router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
 def _platform_decision(
     principal: Principal,
+    request: Request,
     *,
     action: str,
     resource_type: str,
@@ -38,6 +39,9 @@ def _platform_decision(
         action=action,
         resource_type=resource_type,
         resource_id=resource_id,
+        session_id=principal.session_id,
+        request_id=getattr(request.state, "request_id", None),
+        business_evidence_ref=f"{resource_type}:{resource_id}",
     )
 
 
@@ -76,6 +80,7 @@ def list_players(
 @router.post("/players/{player_id}/approve")
 def approve_player(
     player_id: uuid.UUID,
+    request: Request,
     principal: Principal = Depends(require_platform),
     db: Session = Depends(get_db),
 ):
@@ -84,6 +89,7 @@ def approve_player(
         raise HTTPException(404, "PLAYER_NOT_FOUND")
     decision = _platform_decision(
         principal,
+        request,
         action="PLAYER_APPROVE",
         resource_type="PLAYER_PROFILE",
         resource_id=str(player.id),
@@ -98,6 +104,7 @@ def approve_player(
 @router.post("/players/{player_id}/reject")
 def reject_player(
     player_id: uuid.UUID,
+    request: Request,
     principal: Principal = Depends(require_platform),
     db: Session = Depends(get_db),
 ):
@@ -106,6 +113,7 @@ def reject_player(
         raise HTTPException(404, "PLAYER_NOT_FOUND")
     decision = _platform_decision(
         principal,
+        request,
         action="PLAYER_REJECT",
         resource_type="PLAYER_PROFILE",
         resource_id=str(player.id),
@@ -153,6 +161,7 @@ def list_player_skills(
 @router.post("/player-skills/{skill_id}/approve")
 def approve_player_skill(
     skill_id: uuid.UUID,
+    request: Request,
     principal: Principal = Depends(require_platform),
     db: Session = Depends(get_db),
 ):
@@ -161,6 +170,7 @@ def approve_player_skill(
         raise HTTPException(404, "PLAYER_SKILL_NOT_FOUND")
     decision = _platform_decision(
         principal,
+        request,
         action="PLAYER_SKILL_APPROVE",
         resource_type="PLAYER_SKILL",
         resource_id=str(skill.id),
@@ -175,6 +185,7 @@ def approve_player_skill(
 @router.post("/player-skills/{skill_id}/reject")
 def reject_player_skill(
     skill_id: uuid.UUID,
+    request: Request,
     note: str = Query(default="EVIDENCE_INSUFFICIENT", max_length=500),
     principal: Principal = Depends(require_platform),
     db: Session = Depends(get_db),
@@ -184,6 +195,7 @@ def reject_player_skill(
         raise HTTPException(404, "PLAYER_SKILL_NOT_FOUND")
     decision = _platform_decision(
         principal,
+        request,
         action="PLAYER_SKILL_REJECT",
         resource_type="PLAYER_SKILL",
         resource_id=str(skill.id),
@@ -272,14 +284,16 @@ def list_withdrawals(
 @router.get("/withdrawals/{withdrawal_id}/evidence")
 def withdrawal_evidence(
     withdrawal_id: uuid.UUID,
+    request: Request,
     principal: Principal = Depends(require_platform),
     db: Session = Depends(get_db),
 ):
     item = db.get(Withdrawal, withdrawal_id)
     if not item:
         raise HTTPException(404, "WITHDRAWAL_NOT_FOUND")
-    _platform_decision(
+    decision = _platform_decision(
         principal,
+        request,
         action="WITHDRAWAL_EVIDENCE_READ",
         resource_type="WITHDRAWAL",
         resource_id=str(item.id),
@@ -297,7 +311,7 @@ def withdrawal_evidence(
         )
     )
 
-    return {
+    payload = {
         "withdrawal": {
             "id": str(item.id),
             "userId": str(item.user_id),
@@ -331,12 +345,16 @@ def withdrawal_evidence(
             for entry in ledger
         ],
     }
+    AuthorizationAudit.record(db, decision=decision)
+    db.commit()
+    return payload
 
 
 @router.post("/withdrawals/{withdrawal_id}/complete")
 def complete_withdrawal(
     withdrawal_id: uuid.UUID,
     body: WithdrawalComplete,
+    request: Request,
     principal: Principal = Depends(require_platform),
     db: Session = Depends(get_db),
 ):
@@ -363,6 +381,7 @@ def complete_withdrawal(
 @router.post("/withdrawals/{withdrawal_id}/reject")
 def reject_withdrawal(
     withdrawal_id: uuid.UUID,
+    request: Request,
     reason: str = Query(default="REJECTED_BY_PLATFORM", max_length=256),
     principal: Principal = Depends(require_platform),
     db: Session = Depends(get_db),
