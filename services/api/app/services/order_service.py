@@ -15,6 +15,7 @@ from app.models import (
     ProviderOffering,
     ServiceSKU,
 )
+from app.services.order_authorization_policy import OrderAuthorizationPolicy
 
 
 class OrderNotFound(LookupError):
@@ -156,8 +157,7 @@ class OrderService:
         )
         if not locked_order:
             raise OrderNotFound(str(order.id))
-        if locked_order.user_id != user_id:
-            raise PermissionError("ORDER_NOT_OWNED")
+        OrderAuthorizationPolicy.require_owner(locked_order, user_id=user_id)
         OrderService.transition(
             db,
             locked_order,
