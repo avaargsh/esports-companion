@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "description": "Reusable WeChat Mini Program starter extraction surface.",
+  "include": [
+    "apps/miniapp/theme.json",
+    "apps/miniapp/src/platform",
+    "apps/miniapp/src/ui",
+    "apps/miniapp/src/styles/foundation.css",
+    "apps/miniapp/src/styles/theme.css",
+    "apps/miniapp/src/components/ui",
+    "apps/miniapp/src/components/EmptyState.vue",
+    "apps/miniapp/src/pages-lab/ui",
+    "scripts/sync_miniapp_theme.py",
+    "scripts/check_miniapp_ui_contract.py",
+    "scripts/check_miniapp_starter_boundary.py",
+    "docs/miniapp-theme.md",
+    "docs/miniapp-ui.md",
+    "docs/miniapp-starter-boundary.md"
+  ],
+  "excludeProductRoots": [
+    "apps/miniapp/src/api",
+    "apps/miniapp/src/pages",
+    "apps/miniapp/src/pages-player",
+    "apps/miniapp/src/types/domain.ts"
+  ]
+}
