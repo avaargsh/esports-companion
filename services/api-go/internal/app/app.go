@@ -24,6 +24,7 @@ import (
 	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/orders"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/payments"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/refunds"
+	realtimex "github.com/avaargsh/esports-companion/services/api-go/internal/modules/realtime"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/platform/httpx"
 	metricsx "github.com/avaargsh/esports-companion/services/api-go/internal/platform/metrics"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/platform/postgresx"
@@ -34,8 +35,9 @@ type App struct {
 	cfg    config.Config
 	logger *slog.Logger
 	server *http.Server
-	pg     *pgxpool.Pool
-	redis  *redis.Client
+	pg       *pgxpool.Pool
+	redis    *redis.Client
+	realtime *realtimex.Hub
 }
 
 func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, error) {
@@ -131,6 +133,22 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		cfg.IsSecureDeployment(),
 	)
 
+	realtimeRepository := realtimex.NewRepository(pg)
+	realtimeHub := realtimex.NewHub(
+		realtimeRepository,
+		redisClient,
+		logger,
+	)
+	realtimeHandler := realtimex.NewHandler(
+		ctx,
+		authService,
+		realtimeRepository,
+		realtimeHub,
+		cfg.IsSecureDeployment(),
+	)
+
+	realtimeHandler.Register(router)
+
 	router.Route("/api/v1", func(r chi.Router) {
 		r.Get("/runtime", func(w http.ResponseWriter, _ *http.Request) {
 			payload, _ := json.Marshal(map[string]string{
@@ -162,11 +180,16 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		logger: logger,
 		server: server,
 		pg:     pg,
-		redis:  redisClient,
+		redis:    redisClient,
+		realtime: realtimeHub,
 	}, nil
 }
 
 func (a *App) Run(ctx context.Context) error {
+	runCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go a.realtime.Run(runCtx)
+
 	errCh := make(chan error, 1)
 	go func() {
 		a.logger.Info("api_go_listening",
