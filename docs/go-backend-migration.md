@@ -205,18 +205,45 @@ Acceptance requires FastAPI to read Go-created orders/evidence from the shared
 database with identical projections. Direct PostgreSQL assertions prove that a
 successful create emits exactly one order event and one pending outbox event.
 
-#### M3.2+ - Dispatch / lifecycle
+#### M3.2 - Atomic claim
 
-- order state machine;
-- OrderEvent + Outbox append;
-- atomic claim;
-- start / finish / customer confirm lifecycle transitions.
+Go owns the public-pool provider claim transition:
 
-Acceptance: PostgreSQL concurrency test still runs 100 claims against one order
-and produces exactly one winner. Customer/player/platform resource access must
-also emit or preserve the same structured authorization semantics as the Python
-reference; mutating operations that use authority envelopes must re-admit the
-exact current resource state immediately before the durable write.
+- PostgreSQL compare-and-swap on `MATCHING + expected_version`;
+- provider eligibility and active SKU offering revalidated in the transaction;
+- one ACTIVE assignment;
+- atomic `PLAYER_CLAIMED` OrderEvent + Outbox evidence.
+
+Acceptance runs 100 distinct eligible providers against one order and requires
+exactly one winner and 99 `ORDER_ALREADY_ACCEPTED` conflicts.
+
+#### M3.3 - Provider lifecycle
+
+Go owns:
+
+- `ACCEPTED -> IN_SERVICE` through `SERVICE_STARTED`;
+- `IN_SERVICE -> FINISH_REQUESTED` through `FINISH_REQUESTED`;
+- active-assignment ownership;
+- deterministic order state-machine validation;
+- row-locked lifecycle writes with version increment;
+- atomic OrderEvent + Outbox evidence.
+
+Repeated or out-of-order transitions must return the same 409 contract as the
+Python reference and must not emit duplicate evidence.
+
+#### M3.4 - Customer confirm / settlement
+
+Deferred to a separate money-sensitive slice:
+
+- customer confirmation;
+- `FINISH_REQUESTED -> COMPLETED -> SETTLED`;
+- settlement idempotency;
+- provider/platform wallet locking;
+- ledger entries and settlement evidence.
+
+Customer/player/platform resource access must continue to preserve the same
+structured authorization semantics as the Python reference; money mutations
+must be tested independently from provider lifecycle transitions.
 
 ### M4 - Payment/refund
 
