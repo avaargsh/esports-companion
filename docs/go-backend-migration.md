@@ -436,11 +436,30 @@ dynamic provider deauthorization after assignment release, one Redis publish
 reaching sockets attached to different Go replicas, and duplicate eventId
 suppression on both replicas.
 
-#### M5.3+
+#### M5.3 - Order timeout scanner
 
-Next background slices:
+Go owns the existing durable timeout behaviors:
 
-- order timeout scanner;
+- overdue `FINISH_REQUESTED` orders auto-confirm with `AUTO_CONFIRM_FINISH`;
+- auto-confirm reuses the exact settlement transaction, so one Settlement, two
+  ledger entries and provider/platform wallet credits remain atomic;
+- overdue `ACCEPTED` assignments are released and requeued to `MATCHING`;
+- designated fallback clears `designated_player_id`;
+- timeout transitions append OrderEvent + Outbox evidence;
+- due rows are claimed with `FOR UPDATE SKIP LOCKED`, allowing multiple worker
+  processes without duplicate settlement or duplicate requeue;
+- Redis order-pool restoration happens only after the durable requeue commit and
+  remains reconstructable acceleration, never correctness state.
+
+Acceptance stops the FastAPI timeout reference, starts two Go worker processes,
+ages multiple finish requests and accepted assignments past their thresholds,
+then requires exactly-once settlement/requeue evidence, exact wallet/ledger
+deltas, and Redis pool restoration.
+
+#### M5.4+
+
+Remaining background slices:
+
 - refund reconciliation scheduler;
 - operational metrics worker.
 
