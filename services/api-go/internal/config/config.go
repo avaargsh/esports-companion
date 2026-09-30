@@ -43,6 +43,8 @@ type Config struct {
 	WeChatPayPlatformCertSerial  string
 	WeChatPayPlatformCertificate string
 	WeChatPayTimeout             time.Duration
+	OutboxPollInterval           time.Duration
+	OutboxBatchSize              int
 	ShutdownTimeout              time.Duration
 }
 
@@ -132,6 +134,14 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	outboxPollMilliseconds, err := envInt("OUTBOX_POLL_INTERVAL_MS", 500)
+	if err != nil {
+		return Config{}, err
+	}
+	outboxBatchSize, err := envInt("OUTBOX_BATCH_SIZE", 50)
+	if err != nil {
+		return Config{}, err
+	}
 	shutdownSeconds, err := envInt("SHUTDOWN_TIMEOUT_SECONDS", 15)
 	if err != nil {
 		return Config{}, err
@@ -168,6 +178,8 @@ func Load() (Config, error) {
 		WeChatPayPlatformCertSerial:  env("WECHAT_PAY_PLATFORM_CERT_SERIAL", ""),
 		WeChatPayPlatformCertificate: wechatPlatformCertificate,
 		WeChatPayTimeout:             time.Duration(wechatPayTimeoutSeconds) * time.Second,
+		OutboxPollInterval:           time.Duration(outboxPollMilliseconds) * time.Millisecond,
+		OutboxBatchSize:              outboxBatchSize,
 		ShutdownTimeout:              time.Duration(shutdownSeconds) * time.Second,
 	}
 
@@ -209,6 +221,12 @@ func (c Config) Validate() error {
 	}
 	if c.WeChatPayTimeout <= 0 {
 		return errors.New("WECHAT_PAY_TIMEOUT_MUST_BE_POSITIVE")
+	}
+	if c.OutboxPollInterval <= 0 {
+		return errors.New("OUTBOX_POLL_INTERVAL_MUST_BE_POSITIVE")
+	}
+	if c.OutboxBatchSize <= 0 || c.OutboxBatchSize > 500 {
+		return errors.New("OUTBOX_BATCH_SIZE_INVALID")
 	}
 	if c.ShutdownTimeout <= 0 {
 		return errors.New("SHUTDOWN_TIMEOUT_INVALID")
