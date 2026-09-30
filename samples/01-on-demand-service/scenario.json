@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "id": "sample-product-01-on-demand-service",
+  "name": "Pooled on-demand service marketplace",
+  "referenceDomain": "esports companion",
+  "goal": "Prove one complete customer-to-provider transaction including fulfillment, settlement and reputation feedback.",
+  "actors": [
+    "CUSTOMER",
+    "PLAYER"
+  ],
+  "entryPoints": {
+    "customer": [
+      "pages/home/index",
+      "pages/game/index",
+      "pages/order-detail/index"
+    ],
+    "provider": [
+      "pages-player/order-pool/index",
+      "pages-player/order-detail/index",
+      "pages-player/workbench/index"
+    ]
+  },
+  "statePath": [
+    "WAITING_PAYMENT",
+    "MATCHING",
+    "ACCEPTED",
+    "IN_SERVICE",
+    "FINISH_REQUESTED",
+    "SETTLED"
+  ],
+  "steps": [
+    "customer selects a service SKU",
+    "customer creates an order",
+    "customer pays in demo mode",
+    "provider discovers the paid order in the public pool",
+    "provider atomically claims the order",
+    "provider starts and finishes the service",
+    "customer confirms completion",
+    "provider settlement becomes available balance and ledger history",
+    "customer submits a review",
+    "review becomes visible on the provider public profile"
+  ],
+  "acceptance": {
+    "finalOrderState": "SETTLED",
+    "providerValueFlow": "wallet delta equals order.player_amount and PROVIDER_INCOME ledger exists",
+    "reputationFlow": "submitted review is visible in the provider public profile",
+    "orderEvidence": "append-only OrderEvent.to_status values cover the expected state path in order"
+  }
+}
