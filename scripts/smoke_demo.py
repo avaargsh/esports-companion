@@ -201,9 +201,16 @@ def run():
     if not public_players:
         raise SmokeError("player discovery: no approved available players")
     selected_player = public_players[0]
-    if not selected_player["offerings"]:
-        raise SmokeError("player discovery: selected player has no active offering")
-    selected_offering = selected_player["offerings"][0]
+    selected_offering = next(
+        (
+            item
+            for item in selected_player["offerings"]
+            if item["game_id"] == game["id"]
+        ),
+        None,
+    )
+    if not selected_offering:
+        raise SmokeError("player discovery: selected player has no active offering for game")
 
     status, designated = request(
         "POST",
