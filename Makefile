@@ -31,6 +31,7 @@ go-parity:
 	python3 scripts/go_read_parity.py
 	python3 scripts/go_auth_parity.py
 	python3 scripts/go_offering_parity.py
+	python3 scripts/go_order_read_parity.py
 
 smoke:
 	python3 scripts/smoke_demo.py
