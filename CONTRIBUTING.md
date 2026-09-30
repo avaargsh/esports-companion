@@ -29,6 +29,12 @@ Backend:
 make test
 ```
 
+> `make test` resets the local database first (drop, re-migrate, re-seed) and is
+> therefore repeatable. The suite writes to the same database the demo API uses and
+> does not clean up after itself, so leftover rows otherwise make later runs fail.
+> Any local data in that database is discarded; run `make up` afterwards to get the
+> demo data back.
+
 Mini Program:
 
 ```bash
@@ -39,6 +45,12 @@ Admin:
 
 ```bash
 make admin-build
+```
+
+Run everything CI runs:
+
+```bash
+make verify
 ```
 
 ## Pull requests

@@ -8,6 +8,9 @@ Run:
 make test
 ```
 
+This resets the local database first, so the acceptance suite can be re-run any
+number of times; local data in that database is discarded.
+
 The test `test_golden_slice_e2e.py` verifies the complete marketplace path through HTTP APIs:
 
 ```text

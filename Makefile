@@ -1,4 +1,4 @@
-.PHONY: up down logs migrate seed test smoke verify miniapp-build miniapp-staging-build admin-build prod-build prod-up prod-down prod-logs prod-backup prod-restore-drill staging-preflight staging-build staging-up staging-down staging-logs staging-check staging-wechat-evidence staging-withdrawal-acceptance
+.PHONY: up down logs migrate seed db-reset test smoke verify miniapp-build miniapp-staging-build admin-build prod-build prod-up prod-down prod-logs prod-backup prod-restore-drill staging-preflight staging-build staging-up staging-down staging-logs staging-check staging-wechat-evidence staging-withdrawal-acceptance
 
 up:
 	docker compose up --build -d
@@ -15,7 +15,14 @@ migrate:
 seed:
 	docker compose run --rm api python -m app.seed
 
-test:
+# The suite writes to the same local database the demo API uses and does not clean
+# up after itself, so repeated runs fail on leftover rows. CI always starts from a
+# fresh database service, so only local runs hit this. Reset explicitly to match CI.
+db-reset:
+	@echo "resetting local database (drops all tables, then re-migrates and re-seeds)"
+	docker compose run --rm api sh -c "alembic downgrade base && alembic upgrade head && python -m app.seed"
+
+test: db-reset
 	docker compose run --rm api pytest -q
 
 smoke:

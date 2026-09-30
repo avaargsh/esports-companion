@@ -89,6 +89,10 @@ The test suite includes state-machine invariants, idempotent payment/refund and
 settlement behavior, session rotation, timeout recovery, and 100-way concurrent
 claim correctness.
 
+`make test` resets the local database first so repeated runs give the same result;
+local data in that database is discarded. Run `make up` afterwards to restore the
+demo data.
+
 ## Demo-only boundaries
 
 These mechanisms are deliberately unavailable in production:
