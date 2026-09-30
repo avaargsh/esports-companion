@@ -29,14 +29,14 @@ type httpDoer interface {
 }
 
 type WeChatProviderConfig struct {
-	MchID                       string
-	CertSerial                  string
-	PrivateKey                  string
-	NotifyURL                   string
-	APIBaseURL                  string
-	Timeout                     time.Duration
-	PlatformCertSerial          string
-	PlatformCertificate         string
+	MchID               string
+	CertSerial          string
+	PrivateKey          string
+	NotifyURL           string
+	APIBaseURL          string
+	Timeout             time.Duration
+	PlatformCertSerial  string
+	PlatformCertificate string
 }
 
 type WeChatProvider struct {
