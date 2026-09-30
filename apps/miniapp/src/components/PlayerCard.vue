@@ -93,7 +93,7 @@ const offering = computed(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(145deg, #211f2d, #6757e6);
+  background: linear-gradient(145deg, #211f2d, var(--brand));
   color: #fff;
   font-size: 35rpx;
   font-weight: 850;

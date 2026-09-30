@@ -38,8 +38,8 @@ withDefaults(defineProps<{
 }
 
 .ui-badge--neutral {
-  background: #f3f3f6;
-  color: #686873;
+  background: var(--neutral-soft);
+  color: var(--neutral);
 }
 
 .ui-badge--brand {

@@ -1,9 +1,11 @@
+import { themeColors } from "./theme"
+
 type ConfirmOptions = {
   title: string
   content: string
   confirmText?: string
   cancelText?: string
-  confirmColor?: string
+  tone?: "brand" | "danger"
 }
 
 function messageOf(error: unknown, fallback: string) {
@@ -39,7 +41,7 @@ export function confirmAction(options: ConfirmOptions): Promise<boolean> {
       content: options.content,
       confirmText: options.confirmText ?? "确认",
       cancelText: options.cancelText ?? "取消",
-      confirmColor: options.confirmColor ?? "#6757e6",
+      confirmColor: options.tone === "danger" ? themeColors.danger : themeColors.brand,
       success: result => resolve(result.confirm),
       fail: () => resolve(false)
     })

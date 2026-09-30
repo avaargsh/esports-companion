@@ -252,7 +252,7 @@ function quickOrder() {
   width:62rpx;height:62rpx;display:flex;align-items:center;justify-content:center;
   border-radius:20rpx;font-size:25rpx;font-weight:850;
 }
-.tone-0 { background:#efedff;color:#6757e6; }
+.tone-0 { background:var(--brand-soft);color:var(--brand); }
 .tone-1 { background:#e9f8f1;color:#168d59; }
 .tone-2 { background:#fff2e6;color:#b56c1a; }
 .tone-3 { background:#eef4ff;color:#4271c8; }
