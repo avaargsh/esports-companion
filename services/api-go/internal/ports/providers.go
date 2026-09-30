@@ -18,10 +18,21 @@ type AuthProvider interface {
 	ExchangeCode(ctx context.Context, code string) (Identity, error)
 }
 
+type PaymentRequest struct {
+	OrderID        string
+	OrderNo        string
+	Description    string
+	AmountMinor    int64
+	Currency       string
+	IdempotencyKey string
+	PayerSubject   string
+}
+
 type PaymentIntent struct {
 	Provider      string
 	ProviderTxnID string
 	Status        string
+	RawPayload    map[string]any
 	ClientPayload map[string]string
 }
 
@@ -36,15 +47,8 @@ type PaymentCallback struct {
 }
 
 type PaymentProvider interface {
-	CreatePayment(
-		ctx context.Context,
-		orderID string,
-		amountMinor int64,
-		currency string,
-		idempotencyKey string,
-		payerSubject string,
-	) (PaymentIntent, error)
-
+	Name() string
+	CreatePayment(ctx context.Context, request PaymentRequest) (PaymentIntent, error)
 	VerifyCallback(ctx context.Context, headers map[string]string, body []byte) (PaymentCallback, error)
 	QueryPayment(ctx context.Context, providerTxnID string) (PaymentCallback, error)
 }
