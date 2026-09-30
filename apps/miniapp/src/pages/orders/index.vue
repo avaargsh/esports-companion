@@ -7,7 +7,8 @@ import EmptyState from "../../components/EmptyState.vue"
 import OrderCard from "../../components/OrderCard.vue"
 import type { Order } from "../../types/domain"
 import { isActiveOrder } from "../../utils/order"
-import { showMessage } from "../../ui/feedback"\nimport { navigation } from "../../platform/navigation"
+import { showMessage } from "../../ui/feedback"
+import { navigation } from "../../platform/navigation"
 
 type Filter="all"|"active"|"done"
 const orders=ref<Order[]>([])
