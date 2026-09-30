@@ -95,8 +95,7 @@ async function submit() {
     })
     amountYuan.value = ""
     pendingIdempotencyKey.value = ""
-    uni.showToast({ title: "提现申请已提交", icon: "success" })
-    copyValue(created.id, "申请号")
+    uni.showToast({ title: `提现申请已提交 ${created.id.slice(0,8)}`, icon: "success" })
     await load()
   } catch (error) {
     uni.showToast({
