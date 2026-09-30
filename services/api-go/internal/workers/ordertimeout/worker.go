@@ -83,7 +83,7 @@ func (w *Worker) scan(ctx context.Context) (int, int) {
 		)
 		if err != nil {
 			if ctx.Err() != nil {
-				return
+				return processed, failures
 			}
 			w.logger.Error(
 				"order_timeout_auto_confirm_failed",
@@ -112,7 +112,7 @@ func (w *Worker) scan(ctx context.Context) (int, int) {
 		)
 		if err != nil {
 			if ctx.Err() != nil {
-				return
+				return processed, failures
 			}
 			w.logger.Error(
 				"order_timeout_assignment_requeue_failed",
