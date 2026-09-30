@@ -13,6 +13,7 @@ import PrimaryActionBar from "../../components/PrimaryActionBar.vue"
 import StatusTag from "../../components/StatusTag.vue"
 import type { Order, OrderEvent } from "../../types/domain"
 import { orderStatusMeta } from "../../utils/order"
+import { showSuccess, showMessage } from "../../ui/feedback"
 
 const orderId = ref("")
 const order = ref<Order | null>(null)
@@ -132,10 +133,7 @@ async function reload() {
     order.value = orderResult
     events.value = eventResult
   } catch (error) {
-    uni.showToast({
-      title: error instanceof Error ? error.message : "订单加载失败",
-      icon: "none"
-    })
+    showMessage(error instanceof Error ? error.message : "订单加载失败")
   } finally {
     loading.value = false
   }
@@ -218,14 +216,11 @@ async function runPrimary() {
       const result = await startOrderPayment(current.id, customerUserId.value)
       if (result.mode === "mock") {
         order.value = result.order
-        uni.showToast({ title: "支付成功", icon: "success" })
+        showSuccess("支付成功")
       } else {
         const confirmed = result.alreadyConfirmed || await waitForPaymentConfirmation()
-        uni.showToast({
-          title: confirmed ? "支付已确认" : "支付结果确认中，请稍后刷新",
-          icon: confirmed ? "success" : "none",
-          duration: confirmed ? 1500 : 2600
-        })
+        if (confirmed) showSuccess("支付已确认")
+        else showMessage("支付结果确认中，请稍后刷新", 2600)
       }
     }
 
@@ -234,15 +229,12 @@ async function runPrimary() {
         method: "POST",
         userId: customerUserId.value
       })
-      uni.showToast({ title: "已确认完成", icon: "success" })
+      showSuccess("已确认完成")
     }
     await reload()
   } catch (error) {
     const message = error instanceof Error ? error.message : "操作失败，请刷新后重试"
-    uni.showToast({
-      title: message === "PAYMENT_CANCELLED" ? "已取消支付" : message,
-      icon: "none"
-    })
+    showMessage(message === "PAYMENT_CANCELLED" ? "已取消支付" : message)
     await reload()
   } finally {
     busy.value = false
@@ -258,13 +250,10 @@ async function cancelOrder() {
       method: "POST",
       userId: customerUserId.value
     })
-    uni.showToast({ title: "订单已取消", icon: "success" })
+    showSuccess("订单已取消")
     await reload()
   } catch (error) {
-    uni.showToast({
-      title: error instanceof Error ? error.message : "取消失败",
-      icon: "none"
-    })
+    showMessage(error instanceof Error ? error.message : "取消失败")
     await reload()
   } finally {
     busy.value = false
@@ -286,16 +275,10 @@ async function requestAftercare(action: "refund" | "dispute") {
       }
     })
     aftercareReason.value = ""
-    uni.showToast({
-      title: action === "refund" ? "退款申请已提交" : "已申请平台介入",
-      icon: "none"
-    })
+    showMessage(action === "refund" ? "退款申请已提交" : "已申请平台介入")
     await reload()
   } catch (error) {
-    uni.showToast({
-      title: error instanceof Error ? error.message : "提交失败",
-      icon: "none"
-    })
+    showMessage(error instanceof Error ? error.message : "提交失败")
   } finally {
     busy.value = false
   }
@@ -312,11 +295,11 @@ async function submitReview() {
       data: { rating: rating.value, content: review.value.trim() }
     })
     reviewed.value = true
-    uni.showToast({ title: "评价已提交", icon: "success" })
+    showSuccess("评价已提交")
   } catch (error) {
     const message = error instanceof Error ? error.message : "评价失败"
     if (message.includes("ORDER_ALREADY_REVIEWED")) reviewed.value = true
-    uni.showToast({ title: message, icon: "none" })
+    showMessage(message)
   } finally {
     busy.value = false
   }
