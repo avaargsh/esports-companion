@@ -13,48 +13,48 @@ import (
 const devSigningKey = "dev-only-change-me-use-at-least-32-bytes"
 
 type Config struct {
-	AppEnv                       string
-	ServiceName                  string
-	CommitSHA                    string
-	LogLevel                     string
-	HTTPAddr                     string
-	WorkerMetricsAddr            string
-	DatabaseURL                  string
-	RedisURL                     string
-	DatabaseMaxConns             int32
-	DatabaseMinConns             int32
-	RedisPoolSize                int
-	ReadinessRequireRedis        bool
-	AuthProvider                 string
-	PaymentProvider              string
-	RefundProvider               string
-	SessionSigningKey            string
-	AccessTokenTTLSeconds        int
-	RefreshTokenTTLSeconds       int
-	WeChatAppID                  string
-	WeChatAppSecret              string
-	WeChatAuthTimeout            time.Duration
-	WeChatMchID                  string
-	WeChatMchCertSerial          string
-	WeChatMchPrivateKey          string
-	WeChatNotifyURL              string
-	WeChatRefundNotifyURL        string
-	WeChatPayAPIBaseURL          string
-	WeChatPayAPIV3Key            string
-	WeChatPayPlatformCertSerial  string
-	WeChatPayPlatformCertificate string
-	WeChatPayTimeout             time.Duration
-	OutboxPollInterval           time.Duration
-	OutboxBatchSize              int
-	FinishConfirmTimeout         time.Duration
-	AssignmentStartTimeout       time.Duration
-	OrderTimeoutScanInterval     time.Duration
-	OrderTimeoutBatchSize        int
-	RefundReconcileScanInterval  time.Duration
-	RefundReconcileMinAge        time.Duration
-	RefundReconcileBatchSize     int
+	AppEnv                         string
+	ServiceName                    string
+	CommitSHA                      string
+	LogLevel                       string
+	HTTPAddr                       string
+	WorkerMetricsAddr              string
+	DatabaseURL                    string
+	RedisURL                       string
+	DatabaseMaxConns               int32
+	DatabaseMinConns               int32
+	RedisPoolSize                  int
+	ReadinessRequireRedis          bool
+	AuthProvider                   string
+	PaymentProvider                string
+	RefundProvider                 string
+	SessionSigningKey              string
+	AccessTokenTTLSeconds          int
+	RefreshTokenTTLSeconds         int
+	WeChatAppID                    string
+	WeChatAppSecret                string
+	WeChatAuthTimeout              time.Duration
+	WeChatMchID                    string
+	WeChatMchCertSerial            string
+	WeChatMchPrivateKey            string
+	WeChatNotifyURL                string
+	WeChatRefundNotifyURL          string
+	WeChatPayAPIBaseURL            string
+	WeChatPayAPIV3Key              string
+	WeChatPayPlatformCertSerial    string
+	WeChatPayPlatformCertificate   string
+	WeChatPayTimeout               time.Duration
+	OutboxPollInterval             time.Duration
+	OutboxBatchSize                int
+	FinishConfirmTimeout           time.Duration
+	AssignmentStartTimeout         time.Duration
+	OrderTimeoutScanInterval       time.Duration
+	OrderTimeoutBatchSize          int
+	RefundReconcileScanInterval    time.Duration
+	RefundReconcileMinAge          time.Duration
+	RefundReconcileBatchSize       int
 	OperationalMetricsScanInterval time.Duration
-	ShutdownTimeout              time.Duration
+	ShutdownTimeout                time.Duration
 }
 
 func Load() (Config, error) {
@@ -189,48 +189,48 @@ func Load() (Config, error) {
 	}
 
 	cfg := Config{
-		AppEnv:                       strings.ToLower(strings.TrimSpace(env("APP_ENV", "dev"))),
-		ServiceName:                  env("SERVICE_NAME", "esports-companion-api-go"),
-		CommitSHA:                    env("COMMIT_SHA", "dev"),
-		LogLevel:                     strings.ToUpper(env("LOG_LEVEL", "INFO")),
-		HTTPAddr:                     env("API_GO_HTTP_ADDR", ":8080"),
-		WorkerMetricsAddr:            env("WORKER_METRICS_ADDR", ":9091"),
-		DatabaseURL:                  databaseURL,
-		RedisURL:                     redisURL,
-		DatabaseMaxConns:             int32(maxConns),
-		DatabaseMinConns:             int32(minConns),
-		RedisPoolSize:                redisPoolSize,
-		ReadinessRequireRedis:        requireRedis,
-		AuthProvider:                 strings.ToLower(env("AUTH_PROVIDER", "mock")),
-		PaymentProvider:              strings.ToLower(env("PAYMENT_PROVIDER", "mock")),
-		RefundProvider:               strings.ToLower(env("REFUND_PROVIDER", "manual")),
-		SessionSigningKey:            signingKey,
-		AccessTokenTTLSeconds:        accessTTL,
-		RefreshTokenTTLSeconds:       refreshTTL,
-		WeChatAppID:                  env("WECHAT_APP_ID", ""),
-		WeChatAppSecret:              wechatSecret,
-		WeChatAuthTimeout:            time.Duration(wechatTimeoutSeconds) * time.Second,
-		WeChatMchID:                  env("WECHAT_MCH_ID", ""),
-		WeChatMchCertSerial:          env("WECHAT_MCH_CERT_SERIAL", ""),
-		WeChatMchPrivateKey:          wechatMchPrivateKey,
-		WeChatNotifyURL:              env("WECHAT_NOTIFY_URL", ""),
-		WeChatRefundNotifyURL:        env("WECHAT_REFUND_NOTIFY_URL", ""),
-		WeChatPayAPIBaseURL:          env("WECHAT_PAY_API_BASE_URL", "https://api.mch.weixin.qq.com"),
-		WeChatPayAPIV3Key:            wechatAPIV3Key,
-		WeChatPayPlatformCertSerial:  env("WECHAT_PAY_PLATFORM_CERT_SERIAL", ""),
-		WeChatPayPlatformCertificate: wechatPlatformCertificate,
-		WeChatPayTimeout:             time.Duration(wechatPayTimeoutSeconds) * time.Second,
-		OutboxPollInterval:           time.Duration(outboxPollMilliseconds) * time.Millisecond,
-		OutboxBatchSize:              outboxBatchSize,
-		FinishConfirmTimeout:         time.Duration(finishConfirmSeconds) * time.Second,
-		AssignmentStartTimeout:       time.Duration(assignmentStartSeconds) * time.Second,
-		OrderTimeoutScanInterval:     time.Duration(orderTimeoutScanSeconds) * time.Second,
-		OrderTimeoutBatchSize:        orderTimeoutBatchSize,
-		RefundReconcileScanInterval:  time.Duration(refundReconcileScanSeconds) * time.Second,
-		RefundReconcileMinAge:        time.Duration(refundReconcileMinAgeSeconds) * time.Second,
-		RefundReconcileBatchSize:     refundReconcileBatchSize,
+		AppEnv:                         strings.ToLower(strings.TrimSpace(env("APP_ENV", "dev"))),
+		ServiceName:                    env("SERVICE_NAME", "esports-companion-api-go"),
+		CommitSHA:                      env("COMMIT_SHA", "dev"),
+		LogLevel:                       strings.ToUpper(env("LOG_LEVEL", "INFO")),
+		HTTPAddr:                       env("API_GO_HTTP_ADDR", ":8080"),
+		WorkerMetricsAddr:              env("WORKER_METRICS_ADDR", ":9091"),
+		DatabaseURL:                    databaseURL,
+		RedisURL:                       redisURL,
+		DatabaseMaxConns:               int32(maxConns),
+		DatabaseMinConns:               int32(minConns),
+		RedisPoolSize:                  redisPoolSize,
+		ReadinessRequireRedis:          requireRedis,
+		AuthProvider:                   strings.ToLower(env("AUTH_PROVIDER", "mock")),
+		PaymentProvider:                strings.ToLower(env("PAYMENT_PROVIDER", "mock")),
+		RefundProvider:                 strings.ToLower(env("REFUND_PROVIDER", "manual")),
+		SessionSigningKey:              signingKey,
+		AccessTokenTTLSeconds:          accessTTL,
+		RefreshTokenTTLSeconds:         refreshTTL,
+		WeChatAppID:                    env("WECHAT_APP_ID", ""),
+		WeChatAppSecret:                wechatSecret,
+		WeChatAuthTimeout:              time.Duration(wechatTimeoutSeconds) * time.Second,
+		WeChatMchID:                    env("WECHAT_MCH_ID", ""),
+		WeChatMchCertSerial:            env("WECHAT_MCH_CERT_SERIAL", ""),
+		WeChatMchPrivateKey:            wechatMchPrivateKey,
+		WeChatNotifyURL:                env("WECHAT_NOTIFY_URL", ""),
+		WeChatRefundNotifyURL:          env("WECHAT_REFUND_NOTIFY_URL", ""),
+		WeChatPayAPIBaseURL:            env("WECHAT_PAY_API_BASE_URL", "https://api.mch.weixin.qq.com"),
+		WeChatPayAPIV3Key:              wechatAPIV3Key,
+		WeChatPayPlatformCertSerial:    env("WECHAT_PAY_PLATFORM_CERT_SERIAL", ""),
+		WeChatPayPlatformCertificate:   wechatPlatformCertificate,
+		WeChatPayTimeout:               time.Duration(wechatPayTimeoutSeconds) * time.Second,
+		OutboxPollInterval:             time.Duration(outboxPollMilliseconds) * time.Millisecond,
+		OutboxBatchSize:                outboxBatchSize,
+		FinishConfirmTimeout:           time.Duration(finishConfirmSeconds) * time.Second,
+		AssignmentStartTimeout:         time.Duration(assignmentStartSeconds) * time.Second,
+		OrderTimeoutScanInterval:       time.Duration(orderTimeoutScanSeconds) * time.Second,
+		OrderTimeoutBatchSize:          orderTimeoutBatchSize,
+		RefundReconcileScanInterval:    time.Duration(refundReconcileScanSeconds) * time.Second,
+		RefundReconcileMinAge:          time.Duration(refundReconcileMinAgeSeconds) * time.Second,
+		RefundReconcileBatchSize:       refundReconcileBatchSize,
 		OperationalMetricsScanInterval: time.Duration(operationalMetricsScanSeconds) * time.Second,
-		ShutdownTimeout:              time.Duration(shutdownSeconds) * time.Second,
+		ShutdownTimeout:                time.Duration(shutdownSeconds) * time.Second,
 	}
 
 	if err := cfg.Validate(); err != nil {
