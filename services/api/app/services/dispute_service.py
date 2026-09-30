@@ -32,6 +32,7 @@ class DisputeService:
         *,
         order_id: uuid.UUID,
         actor_user_id: uuid.UUID,
+        actor_roles: tuple[str, ...] | None = None,
         reason_code: str,
         description: str,
         idempotency_key: str,
@@ -67,6 +68,7 @@ class DisputeService:
             db,
             order=order,
             user_id=actor_user_id,
+            roles=actor_roles,
         )
         if order.status not in DisputeService.OPENABLE_STATUSES:
             raise ValueError("ORDER_NOT_DISPUTABLE")
