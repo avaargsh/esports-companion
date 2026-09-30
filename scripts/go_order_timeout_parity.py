@@ -405,8 +405,7 @@ def verify_auto_confirm(
                 SELECT
                     order_id::text,
                     event_type,
-                    count(*),
-                    min(payload_json)
+                    payload_json
                 FROM order_events
                 WHERE order_id = ANY(%s::uuid[])
                   AND event_type IN (
@@ -414,14 +413,15 @@ def verify_auto_confirm(
                     'USER_CONFIRMED_FINISH',
                     'SETTLEMENT_COMPLETED'
                   )
-                GROUP BY order_id, event_type
+                ORDER BY order_id, event_type, created_at, id
                 """,
                 (ids,),
             )
-            events: dict[tuple[str, str], tuple[int, Any]] = {
-                (row[0], row[1]): (int(row[2]), row[3])
-                for row in cursor.fetchall()
-            }
+            events: dict[tuple[str, str], tuple[int, Any]] = {}
+            for order_id, event_type, payload in cursor.fetchall():
+                key = (order_id, event_type)
+                count, first_payload = events.get(key, (0, payload))
+                events[key] = (count + 1, first_payload)
             for order_id in ids:
                 auto = events.get((order_id, "AUTO_CONFIRM_FINISH"))
                 settled = events.get((order_id, "SETTLEMENT_COMPLETED"))
