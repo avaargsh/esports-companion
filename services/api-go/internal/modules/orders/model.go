@@ -12,6 +12,10 @@ var (
 	ErrCannotOrderOwnOffering  = errors.New("CANNOT_ORDER_OWN_OFFERING")
 	ErrSKUNotAvailable         = errors.New("SKU_NOT_AVAILABLE")
 	ErrGameNotAvailable        = errors.New("GAME_NOT_AVAILABLE")
+	ErrOrderAlreadyAccepted    = errors.New("ORDER_ALREADY_ACCEPTED")
+	ErrPlayerNotEligible       = errors.New("PLAYER_NOT_ELIGIBLE")
+	ErrCannotClaimOwnOrder     = errors.New("CANNOT_CLAIM_OWN_ORDER")
+	ErrPlayerNotOfferingSKU    = errors.New("PLAYER_NOT_OFFERING_SKU")
 )
 
 type CreateInput struct {
@@ -19,6 +23,10 @@ type CreateInput struct {
 	OfferingID *string
 	Quantity   int
 	Remark     string
+}
+
+type ClaimInput struct {
+	ExpectedVersion int
 }
 
 type Order struct {
