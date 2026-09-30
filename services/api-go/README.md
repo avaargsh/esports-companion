@@ -33,7 +33,7 @@ go mod download
 go test -race ./...
 go run ./cmd/api
 
-# Background runtime (currently transactional outbox publisher)
+# Background runtime (outbox + timeout scanner)
 go run ./cmd/worker
 ```
 
@@ -68,6 +68,10 @@ API_GO_HTTP_ADDR=:8080
 SHUTDOWN_TIMEOUT_SECONDS=15
 OUTBOX_POLL_INTERVAL_MS=500
 OUTBOX_BATCH_SIZE=50
+FINISH_CONFIRM_TIMEOUT_SECONDS=1800
+ASSIGNMENT_START_TIMEOUT_SECONDS=600
+ORDER_TIMEOUT_SCAN_SECONDS=30
+ORDER_TIMEOUT_BATCH_SIZE=50
 ```
 
 The loader accepts the current Python-style
@@ -155,7 +159,8 @@ internal/modules/        vertical business modules
   realtime/               authenticated Redis -> WebSocket bridge
 internal/ports/          Auth/Payment/Refund external contracts
 internal/platform/       pgx, redis, metrics, HTTP, state machine
-internal/workers/outbox/  transactional outbox -> Redis Pub/Sub
+internal/workers/outbox/       transactional outbox -> Redis Pub/Sub
+internal/workers/ordertimeout/  auto-confirm + assignment timeout scanner
 ```
 
 ## Branch rule
