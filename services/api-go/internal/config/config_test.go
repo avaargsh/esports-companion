@@ -117,6 +117,8 @@ func TestSecureDeploymentRejectsNonPublicNotifyURL(t *testing.T) {
 		RefundReconcileScanInterval:  time.Minute,
 		RefundReconcileMinAge:        30 * time.Second,
 		RefundReconcileBatchSize:     20,
+		OperationalMetricsScanInterval: 15 * time.Second,
+		WorkerMetricsAddr:            ":9091",
 		ShutdownTimeout:              time.Second,
 	}
 	err := cfg.Validate()
@@ -192,5 +194,21 @@ func TestRefundReconcileWorkerConfig(t *testing.T) {
 	_, err = Load()
 	if err == nil || !strings.Contains(err.Error(), "REFUND_RECONCILE_BATCH_SIZE_INVALID") {
 		t.Fatalf("expected refund reconcile batch validation, got %v", err)
+	}
+}
+
+func TestOperationalMetricsConfigMustBePositive(t *testing.T) {
+	t.Setenv("APP_ENV", "dev")
+	t.Setenv("OPERATIONAL_METRICS_SCAN_SECONDS", "0")
+	_, err := Load()
+	if err == nil || !strings.Contains(err.Error(), "OPERATIONAL_METRICS_SCAN_MUST_BE_POSITIVE") {
+		t.Fatalf("expected operational metrics scan validation, got %v", err)
+	}
+
+	t.Setenv("OPERATIONAL_METRICS_SCAN_SECONDS", "15")
+	t.Setenv("WORKER_METRICS_ADDR", "")
+	_, err = Load()
+	if err == nil || !strings.Contains(err.Error(), "WORKER_METRICS_ADDR_REQUIRED") {
+		t.Fatalf("expected worker metrics address validation, got %v", err)
 	}
 }
