@@ -26,8 +26,40 @@ var (
 	ErrWeChatRefundSerialUnknown      = errors.New("WECHAT_REFUND_RESPONSE_CERT_SERIAL_UNKNOWN")
 	ErrWeChatRefundSignatureInvalid   = errors.New("WECHAT_REFUND_RESPONSE_SIGNATURE_INVALID")
 	ErrWeChatRefundPrivateKeyInvalid  = errors.New("WECHAT_REFUND_PRIVATE_KEY_INVALID")
-	ErrWeChatRefundCertificateInvalid = errors.New("WECHAT_REFUND_CERTIFICATE_INVALID")
-	ErrWeChatRefundQueryNotMigrated   = errors.New("WECHAT_REFUND_QUERY_NOT_MIGRATED")
+	ErrWeChatRefundCertificateInvalid      = errors.New("WECHAT_REFUND_CERTIFICATE_INVALID")
+	ErrRefundProviderQueryUnsupported      = errors.New("REFUND_PROVIDER_QUERY_UNSUPPORTED")
+	ErrRefundNotReconcilable               = errors.New("REFUND_NOT_RECONCILABLE")
+	ErrRefundProviderIDMismatch            = errors.New("REFUND_PROVIDER_ID_MISMATCH")
+	ErrRefundQueryOutRefundNoMismatch      = errors.New("REFUND_QUERY_OUT_REFUND_NO_MISMATCH")
+	ErrRefundQueryOrderNoMismatch          = errors.New("REFUND_QUERY_ORDER_NO_MISMATCH")
+	ErrRefundQueryPaymentTxnMismatch       = errors.New("REFUND_QUERY_PAYMENT_TRANSACTION_MISMATCH")
+	ErrRefundQueryAmountMismatch           = errors.New("REFUND_QUERY_AMOUNT_MISMATCH")
+	ErrRefundOrderNotFound                 = errors.New("REFUND_ORDER_NOT_FOUND")
+	ErrRefundOrderNoMismatch               = errors.New("REFUND_ORDER_NO_MISMATCH")
+	ErrRefundTotalAmountMismatch           = errors.New("REFUND_TOTAL_AMOUNT_MISMATCH")
+	ErrRefundAmountMismatch                = errors.New("REFUND_AMOUNT_MISMATCH")
+	ErrRefundPaymentTxnMismatch            = errors.New("REFUND_PAYMENT_TRANSACTION_MISMATCH")
+	ErrWeChatRefundQueryNetwork            = errors.New("WECHAT_REFUND_QUERY_NETWORK_ERROR")
+	ErrWeChatRefundQueryInvalidJSON        = errors.New("WECHAT_REFUND_QUERY_INVALID_JSON")
+	ErrWeChatRefundQueryInvalidResponse    = errors.New("WECHAT_REFUND_QUERY_INVALID_RESPONSE")
+	ErrWeChatRefundQueryHTTP               = errors.New("WECHAT_REFUND_QUERY_HTTP_ERROR")
+	ErrWeChatRefundCallbackConfigMissing   = errors.New("WECHAT_REFUND_CALLBACK_CONFIG_MISSING")
+	ErrWeChatRefundCallbackHeadersMissing  = errors.New("WECHAT_REFUND_CALLBACK_HEADERS_MISSING")
+	ErrWeChatRefundCallbackSerialUnknown   = errors.New("WECHAT_REFUND_CALLBACK_CERT_SERIAL_UNKNOWN")
+	ErrWeChatRefundCallbackTimestampInvalid = errors.New("WECHAT_REFUND_CALLBACK_TIMESTAMP_INVALID")
+	ErrWeChatRefundCallbackTimestampExpired = errors.New("WECHAT_REFUND_CALLBACK_TIMESTAMP_EXPIRED")
+	ErrWeChatRefundCallbackSignatureInvalid = errors.New("WECHAT_REFUND_CALLBACK_SIGNATURE_INVALID")
+	ErrWeChatRefundCallbackInvalidJSON     = errors.New("WECHAT_REFUND_CALLBACK_INVALID_JSON")
+	ErrWeChatRefundCallbackEventUnsupported = errors.New("WECHAT_REFUND_CALLBACK_EVENT_UNSUPPORTED")
+	ErrWeChatRefundCallbackResourceMissing = errors.New("WECHAT_REFUND_CALLBACK_RESOURCE_MISSING")
+	ErrWeChatRefundCallbackAlgorithmUnsupported = errors.New("WECHAT_REFUND_CALLBACK_ALGORITHM_UNSUPPORTED")
+	ErrWeChatRefundCallbackResourceTypeInvalid = errors.New("WECHAT_REFUND_CALLBACK_RESOURCE_TYPE_INVALID")
+	ErrWeChatRefundCallbackResourceInvalid = errors.New("WECHAT_REFUND_CALLBACK_RESOURCE_INVALID")
+	ErrWeChatRefundCallbackDecryptFailed   = errors.New("WECHAT_REFUND_CALLBACK_DECRYPT_FAILED")
+	ErrWeChatRefundCallbackMchIDMismatch   = errors.New("WECHAT_REFUND_CALLBACK_MCHID_MISMATCH")
+	ErrWeChatRefundCallbackStatusMismatch  = errors.New("WECHAT_REFUND_CALLBACK_STATUS_MISMATCH")
+	ErrWeChatRefundCallbackAmountInvalid   = errors.New("WECHAT_REFUND_CALLBACK_AMOUNT_INVALID")
+	ErrWeChatRefundCallbackIdentifiersMissing = errors.New("WECHAT_REFUND_CALLBACK_IDENTIFIERS_MISSING")
 )
 
 type Refund struct {
@@ -40,4 +72,17 @@ type Refund struct {
 	OutRefundNo      *string         `json:"out_refund_no"`
 	ProviderRefundID *string         `json:"provider_refund_id"`
 	CompletedAt      *httpx.JSONTime `json:"completed_at"`
+}
+
+type VerifiedRefundCallback struct {
+	Provider         string
+	ProviderRefundID string
+	OutRefundNo      string
+	ProviderTxnID    string
+	OutTradeNo       string
+	RefundStatus     string
+	TotalAmount      int
+	RefundAmount     int
+	RawEvent         map[string]any
+	Resource         map[string]any
 }
