@@ -73,6 +73,17 @@ It deliberately knows nothing about:
 
 The product adapter in `src/api/client.ts` maps the application identity model onto this generic transport.
 
+### `src/platform/session.ts`
+
+Owns backend-neutral session mechanics:
+
+- validated synchronous storage;
+- access-expiry freshness checks with skew;
+- refresh-expiry checks;
+- single-flight protection so concurrent callers share one refresh/login task.
+
+It does not know WeChat login endpoints, user roles, backend payloads or application-specific storage schemas. Those remain in `src/api/auth.ts`.
+
 ### `src/platform/navigation.ts`
 
 Owns small navigation mechanics:
@@ -107,7 +118,7 @@ These files demonstrate a transactional marketplace and should be replaced or re
 - customer/provider pages;
 - order, settlement, dispute and withdrawal UI.
 
-`src/api/auth.ts` sits at the boundary: session lifecycle mechanics are broadly reusable, but the current implementation intentionally remains a product adapter because it depends on this backend's WeChat login/refresh/logout payloads, user roles and session storage contract.
+`src/api/auth.ts` sits at the boundary: it composes the generic session store/freshness/single-flight primitives, but intentionally retains this backend's WeChat login/refresh/logout payloads, user roles and session schema.
 
 Do not move those endpoint schemas into `platform/` merely to make the directory look more generic.
 
@@ -125,7 +136,8 @@ That keeps existing product imports stable while the reusable ownership lives in
 2. product-domain endpoint/type markers cannot leak into `platform/*`.
 3. direct `uni.request()` calls are forbidden outside `platform/http.ts`.
 4. runtime `VITE_*` access is centralized in `platform/env.ts`.
-5. the product API client must continue composing the generic platform HTTP client.
+5. the product API client must continue composing the generic platform HTTP client;
+6. the product auth adapter must continue composing the generic platform session kernel.
 
 Together with:
 
