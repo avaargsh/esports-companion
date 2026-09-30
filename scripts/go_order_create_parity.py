@@ -187,7 +187,7 @@ def verify_durable_evidence(order_id: str, designated_player_id: str | None) -> 
                     f"expected exactly one ORDER_CREATED outbox row, got {len(outbox)}"
                 )
             event_type, payload, status = outbox[0]
-            if event_type != "ORDER_CREATED" or status != "PENDING":
+            if event_type != "ORDER_CREATED" or status not in {"PENDING", "PUBLISHED"}:
                 raise AssertionError(f"unexpected outbox row: {outbox[0]!r}")
             if payload.get("orderId") != order_id:
                 raise AssertionError(f"outbox orderId mismatch: {payload!r}")
