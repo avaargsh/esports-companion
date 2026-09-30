@@ -18,6 +18,7 @@ on:
       - "scripts/go_payment_prepare_parity.py"
       - "scripts/generate_wechat_callback_fixture.py"
       - "scripts/go_payment_callback_parity.py"
+      - "scripts/go_refund_submit_parity.py"
       - "docs/go-backend-migration.md"
       - ".github/workflows/api-go.yml"
   pull_request:
@@ -35,6 +36,7 @@ on:
       - "scripts/go_payment_prepare_parity.py"
       - "scripts/generate_wechat_callback_fixture.py"
       - "scripts/go_payment_callback_parity.py"
+      - "scripts/go_refund_submit_parity.py"
       - "docs/go-backend-migration.md"
       - ".github/workflows/api-go.yml"
 
