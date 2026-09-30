@@ -172,22 +172,17 @@ func (p *WeChatProvider) CreatePayment(
 		return ports.PaymentIntent{}, err
 	}
 	signature, err := p.sign(
-		[]byte("POST
-" + weChatJSAPIPath + "
-" + timestamp + "
-" + nonce + "
-" + string(body) + "
-"),
+		[]byte("POST\n" + weChatJSAPIPath + "\n" + timestamp + "\n" + nonce + "\n" + string(body) + "\n"),
 	)
 	if err != nil {
 		return ports.PaymentIntent{}, err
 	}
 	authorization := "WECHATPAY2-SHA256-RSA2048 " +
-		"mchid="" + p.cfg.MchID + ""," +
-		"nonce_str="" + nonce + ""," +
-		"signature="" + signature + ""," +
-		"timestamp="" + timestamp + ""," +
-		"serial_no="" + p.cfg.CertSerial + """
+		"mchid=\"" + p.cfg.MchID + "\"," +
+		"nonce_str=\"" + nonce + "\"," +
+		"signature=\"" + signature + "\"," +
+		"timestamp=\"" + timestamp + "\"," +
+		"serial_no=\"" + p.cfg.CertSerial + "\""
 
 	httpRequest, err := http.NewRequestWithContext(
 		ctx,
@@ -250,11 +245,7 @@ func (p *WeChatProvider) CreatePayment(
 	}
 	pkg := "prepay_id=" + prepayID
 	paySign, err := p.sign(
-		[]byte(p.cfg.AppID + "
-" + clientTimestamp + "
-" + clientNonce + "
-" + pkg + "
-"),
+		[]byte(p.cfg.AppID + "\n" + clientTimestamp + "\n" + clientNonce + "\n" + pkg + "\n"),
 	)
 	if err != nil {
 		return ports.PaymentIntent{}, err
