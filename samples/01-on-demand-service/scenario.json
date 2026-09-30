@@ -44,15 +44,6 @@
     "finalOrderState": "SETTLED",
     "providerValueFlow": "wallet delta equals order.player_amount and PROVIDER_INCOME ledger exists",
     "reputationFlow": "submitted review is visible in the provider public profile",
-    "evidenceTrail": [
-      "ORDER_CREATED",
-      "PAYMENT_SUCCESS",
-      "ORDER_ENTERED_MATCHING",
-      "ORDER_CLAIMED",
-      "SERVICE_STARTED",
-      "FINISH_REQUESTED",
-      "USER_CONFIRMED_FINISH",
-      "ORDER_SETTLED"
-    ]
+    "orderEvidence": "append-only OrderEvent.to_status values cover the expected state path in order"
   }
 }
