@@ -79,7 +79,11 @@ def test_session_management_rejects_legacy_principal():
         (require_platform, "PLATFORM"),
     ],
 )
-def test_privileged_role_guards_reject_legacy_identity(guard, role):
+def test_privileged_role_guards_reject_legacy_identity_in_secure_deploy(
+    monkeypatch, guard, role
+):
+    monkeypatch.setattr(settings, "app_env", "staging")
+
     with pytest.raises(HTTPException) as exc:
         guard(_principal("USER", role, legacy=True))
 
@@ -94,13 +98,32 @@ def test_privileged_role_guards_reject_legacy_identity(guard, role):
         (require_platform, "PLATFORM"),
     ],
 )
-def test_privileged_role_guards_accept_bearer_session(guard, role):
+def test_privileged_role_guards_allow_legacy_identity_in_dev(
+    monkeypatch, guard, role
+):
+    monkeypatch.setattr(settings, "app_env", "dev")
+    principal = _principal("USER", role, legacy=True)
+
+    assert guard(principal) is principal
+
+
+@pytest.mark.parametrize(
+    ("guard", "role"),
+    [
+        (require_player, "PLAYER"),
+        (require_platform, "PLATFORM"),
+    ],
+)
+def test_privileged_role_guards_accept_bearer_session(monkeypatch, guard, role):
+    monkeypatch.setattr(settings, "app_env", "staging")
     principal = _principal("USER", role)
 
     assert guard(principal) is principal
 
 
-def test_privileged_guards_preserve_role_denial_before_session_check():
+def test_privileged_guards_preserve_role_denial_before_session_check(monkeypatch):
+    monkeypatch.setattr(settings, "app_env", "staging")
+
     with pytest.raises(HTTPException) as exc:
         require_platform(_principal("USER", legacy=True))
 
