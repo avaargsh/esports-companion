@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/auth"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/authz"
+	"github.com/avaargsh/esports-companion/services/api-go/internal/platform/httpx"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/platform/idgen"
 )
 
@@ -673,13 +675,14 @@ func (r Repository) Events(ctx context.Context, orderID string) ([]Event, error)
 		var item Event
 		var fromStatus pgtype.Text
 		var toStatus pgtype.Text
+		var createdAt time.Time
 		if err := rows.Scan(
 			&item.ID,
 			&item.EventType,
 			&fromStatus,
 			&toStatus,
 			&item.ActorType,
-			&item.CreatedAt,
+			&createdAt,
 		); err != nil {
 			return nil, fmt.Errorf("scan order event: %w", err)
 		}
@@ -691,6 +694,7 @@ func (r Repository) Events(ctx context.Context, orderID string) ([]Event, error)
 			value := toStatus.String
 			item.ToStatus = &value
 		}
+		item.CreatedAt = httpx.NewJSONTime(createdAt)
 		items = append(items, item)
 	}
 	if err := rows.Err(); err != nil {
