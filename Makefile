@@ -83,7 +83,8 @@ staging-wechat-evidence:
 
 staging-withdrawal-acceptance:
 	@test -n "$(WITHDRAWAL_ID)" || (echo "usage: make staging-withdrawal-acceptance WITHDRAWAL_ID=<uuid> PAYOUT_REF=<external-reference>" && exit 64)
+	@test -n "$(PAYOUT_REF)" || (echo "PAYOUT_REF is required and must be the real external payout reference" && exit 64)
 	@docker compose --env-file .env.staging -f deploy/compose/production.yml exec -T api \
 		python -m app.tools.withdrawal_acceptance \
 		--withdrawal-id "$(WITHDRAWAL_ID)" \
-		$(if $(PAYOUT_REF),--expected-payout-ref "$(PAYOUT_REF)",)
+		--expected-payout-ref "$(PAYOUT_REF)"
