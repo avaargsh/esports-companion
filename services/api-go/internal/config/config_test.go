@@ -108,10 +108,29 @@ func TestSecureDeploymentRejectsNonPublicNotifyURL(t *testing.T) {
 		WeChatPayPlatformCertSerial:  "platform-serial",
 		WeChatPayPlatformCertificate: "certificate",
 		WeChatPayTimeout:             time.Second,
+		OutboxPollInterval:           500 * time.Millisecond,
+		OutboxBatchSize:              50,
 		ShutdownTimeout:              time.Second,
 	}
 	err := cfg.Validate()
 	if err == nil || !strings.Contains(err.Error(), "WECHAT_NOTIFY_URL_MUST_BE_PUBLIC_HTTPS") {
 		t.Fatalf("expected public HTTPS notify validation, got %v", err)
+	}
+}
+
+func TestOutboxWorkerConfigMustBePositive(t *testing.T) {
+	t.Setenv("APP_ENV", "dev")
+	t.Setenv("OUTBOX_POLL_INTERVAL_MS", "0")
+
+	_, err := Load()
+	if err == nil || !strings.Contains(err.Error(), "OUTBOX_POLL_INTERVAL_MUST_BE_POSITIVE") {
+		t.Fatalf("expected outbox poll interval validation, got %v", err)
+	}
+
+	t.Setenv("OUTBOX_POLL_INTERVAL_MS", "500")
+	t.Setenv("OUTBOX_BATCH_SIZE", "501")
+	_, err = Load()
+	if err == nil || !strings.Contains(err.Error(), "OUTBOX_BATCH_SIZE_INVALID") {
+		t.Fatalf("expected outbox batch validation, got %v", err)
 	}
 }
