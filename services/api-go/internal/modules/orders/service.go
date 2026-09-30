@@ -60,3 +60,12 @@ func (s Service) Create(
 	}
 	return s.repo.Create(ctx, userID, input)
 }
+
+func (s Service) Claim(
+	ctx context.Context,
+	userID string,
+	orderID string,
+	input ClaimInput,
+) (Order, error) {
+	return s.repo.Claim(ctx, userID, orderID, input.ExpectedVersion)
+}

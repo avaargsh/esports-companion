@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/auth"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/authz"
+	"github.com/avaargsh/esports-companion/services/api-go/internal/platform/httpx"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/platform/idgen"
 )
 
@@ -192,50 +194,18 @@ func (r Repository) Create(
 	if designatedPlayerID != nil {
 		eventPayload["designatedPlayerId"] = *designatedPlayerID
 	}
-	encodedEventPayload, err := json.Marshal(eventPayload)
-	if err != nil {
+	if err := appendOrderEvidence(
+		ctx,
+		tx,
+		orderID,
+		"ORDER_CREATED",
+		nil,
+		"WAITING_PAYMENT",
+		"USER",
+		userID,
+		eventPayload,
+	); err != nil {
 		return Order{}, err
-	}
-
-	eventID, err := idgen.UUIDv4()
-	if err != nil {
-		return Order{}, err
-	}
-	if _, err := tx.Exec(ctx, `
-		INSERT INTO order_events (
-			id, order_id, event_type, from_status, to_status,
-			actor_type, actor_id, payload_json
-		)
-		VALUES (
-			$1::uuid, $2::uuid, 'ORDER_CREATED', NULL, 'WAITING_PAYMENT',
-			'USER', $3, $4::json
-		)
-	`, eventID, orderID, userID, string(encodedEventPayload)); err != nil {
-		return Order{}, fmt.Errorf("insert order created event: %w", err)
-	}
-
-	outboxPayload := map[string]any{
-		"orderId":            orderID,
-		"status":             "WAITING_PAYMENT",
-		"designatedPlayerId": eventPayload["designatedPlayerId"],
-	}
-	encodedOutboxPayload, err := json.Marshal(outboxPayload)
-	if err != nil {
-		return Order{}, err
-	}
-	outboxID, err := idgen.UUIDv4()
-	if err != nil {
-		return Order{}, err
-	}
-	if _, err := tx.Exec(ctx, `
-		INSERT INTO outbox_events (
-			id, aggregate_type, aggregate_id, event_type, payload_json, status
-		)
-		VALUES (
-			$1::uuid, 'ORDER', $2, 'ORDER_CREATED', $3::json, 'PENDING'
-		)
-	`, outboxID, orderID, string(encodedOutboxPayload)); err != nil {
-		return Order{}, fmt.Errorf("insert order outbox event: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -277,6 +247,224 @@ func loadActiveSKU(
 		return 0, "", "", fmt.Errorf("load sku: %w", err)
 	}
 	return price, gameID, platformFeeRate, nil
+}
+
+func (r Repository) Claim(
+	ctx context.Context,
+	userID string,
+	orderID string,
+	expectedVersion int,
+) (Order, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return Order{}, fmt.Errorf("begin order claim: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var (
+		playerID           string
+		verificationStatus string
+		serviceStatus      string
+	)
+	err = tx.QueryRow(ctx, `
+		SELECT id::text, verification_status, service_status
+		FROM player_profiles
+		WHERE user_id = $1::uuid
+	`, userID).Scan(&playerID, &verificationStatus, &serviceStatus)
+	if errors.Is(err, pgx.ErrNoRows) ||
+		(err == nil && (verificationStatus != "APPROVED" || serviceStatus != "AVAILABLE")) {
+		return Order{}, ErrPlayerNotEligible
+	}
+	if err != nil {
+		return Order{}, fmt.Errorf("load claim player: %w", err)
+	}
+
+	order, err := scanOrder(tx.QueryRow(ctx, `
+		SELECT
+			id::text,
+			order_no,
+			user_id::text,
+			game_id::text,
+			sku_id::text,
+			designated_player_id::text,
+			status,
+			quantity,
+			unit_price,
+			total_amount,
+			player_amount,
+			platform_fee,
+			version
+		FROM orders
+		WHERE id = $1::uuid
+	`, orderID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Order{}, ErrOrderNotFound
+	}
+	if err != nil {
+		return Order{}, fmt.Errorf("load claim order: %w", err)
+	}
+	if order.UserID == userID {
+		return Order{}, ErrCannotClaimOwnOrder
+	}
+	if order.Status != "MATCHING" {
+		return Order{}, ErrOrderAlreadyAccepted
+	}
+
+	var offeringExists bool
+	if err := tx.QueryRow(ctx, `
+		SELECT EXISTS(
+			SELECT 1
+			FROM provider_offerings
+			WHERE player_id = $1::uuid
+			  AND sku_id = $2::uuid
+			  AND status = 'ACTIVE'
+		)
+	`, playerID, order.SKUID).Scan(&offeringExists); err != nil {
+		return Order{}, fmt.Errorf("check claim offering: %w", err)
+	}
+	if !offeringExists {
+		return Order{}, ErrPlayerNotOfferingSKU
+	}
+
+	claimed, err := scanOrder(tx.QueryRow(ctx, `
+		UPDATE orders
+		SET status = 'ACCEPTED',
+		    version = version + 1,
+		    accepted_at = now(),
+		    updated_at = now()
+		WHERE id = $1::uuid
+		  AND status = 'MATCHING'
+		  AND version = $2
+		RETURNING
+			id::text,
+			order_no,
+			user_id::text,
+			game_id::text,
+			sku_id::text,
+			designated_player_id::text,
+			status,
+			quantity,
+			unit_price,
+			total_amount,
+			player_amount,
+			platform_fee,
+			version
+	`, orderID, expectedVersion))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Order{}, ErrOrderAlreadyAccepted
+	}
+	if err != nil {
+		return Order{}, fmt.Errorf("claim order compare-and-swap: %w", err)
+	}
+
+	assignmentID, err := idgen.UUIDv4()
+	if err != nil {
+		return Order{}, err
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO order_assignments (
+			id, order_id, player_id, status, assigned_by, accepted_at
+		)
+		VALUES (
+			$1::uuid, $2::uuid, $3::uuid, 'ACTIVE', 'PLAYER', now()
+		)
+	`, assignmentID, orderID, playerID); err != nil {
+		return Order{}, fmt.Errorf("insert active assignment: %w", err)
+	}
+
+	fromStatus := "MATCHING"
+	if err := appendOrderEvidence(
+		ctx,
+		tx,
+		orderID,
+		"PLAYER_CLAIMED",
+		&fromStatus,
+		"ACCEPTED",
+		"PLAYER",
+		playerID,
+		map[string]any{},
+	); err != nil {
+		return Order{}, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return Order{}, fmt.Errorf("commit order claim: %w", err)
+	}
+	return claimed, nil
+}
+
+func appendOrderEvidence(
+	ctx context.Context,
+	tx pgx.Tx,
+	orderID string,
+	eventType string,
+	fromStatus *string,
+	toStatus string,
+	actorType string,
+	actorID string,
+	payload map[string]any,
+) error {
+	eventPayload := make(map[string]any, len(payload))
+	for key, value := range payload {
+		eventPayload[key] = value
+	}
+	encodedEventPayload, err := json.Marshal(eventPayload)
+	if err != nil {
+		return err
+	}
+
+	eventID, err := idgen.UUIDv4()
+	if err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO order_events (
+			id, order_id, event_type, from_status, to_status,
+			actor_type, actor_id, payload_json
+		)
+		VALUES (
+			$1::uuid, $2::uuid, $3, $4, $5,
+			$6, $7, $8::json
+		)
+	`,
+		eventID,
+		orderID,
+		eventType,
+		fromStatus,
+		toStatus,
+		actorType,
+		actorID,
+		string(encodedEventPayload),
+	); err != nil {
+		return fmt.Errorf("insert %s order event: %w", eventType, err)
+	}
+
+	outboxPayload := map[string]any{
+		"orderId": orderID,
+		"status":  toStatus,
+	}
+	for key, value := range payload {
+		outboxPayload[key] = value
+	}
+	encodedOutboxPayload, err := json.Marshal(outboxPayload)
+	if err != nil {
+		return err
+	}
+	outboxID, err := idgen.UUIDv4()
+	if err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO outbox_events (
+			id, aggregate_type, aggregate_id, event_type, payload_json, status
+		)
+		VALUES (
+			$1::uuid, 'ORDER', $2, $3, $4::json, 'PENDING'
+		)
+	`, outboxID, orderID, eventType, string(encodedOutboxPayload)); err != nil {
+		return fmt.Errorf("insert %s outbox event: %w", eventType, err)
+	}
+	return nil
 }
 
 func (r Repository) ListForUser(ctx context.Context, userID string, limit int) ([]Order, error) {
@@ -487,13 +675,14 @@ func (r Repository) Events(ctx context.Context, orderID string) ([]Event, error)
 		var item Event
 		var fromStatus pgtype.Text
 		var toStatus pgtype.Text
+		var createdAt time.Time
 		if err := rows.Scan(
 			&item.ID,
 			&item.EventType,
 			&fromStatus,
 			&toStatus,
 			&item.ActorType,
-			&item.CreatedAt,
+			&createdAt,
 		); err != nil {
 			return nil, fmt.Errorf("scan order event: %w", err)
 		}
@@ -505,6 +694,7 @@ func (r Repository) Events(ctx context.Context, orderID string) ([]Event, error)
 			value := toStatus.String
 			item.ToStatus = &value
 		}
+		item.CreatedAt = httpx.NewJSONTime(createdAt)
 		items = append(items, item)
 	}
 	if err := rows.Err(); err != nil {

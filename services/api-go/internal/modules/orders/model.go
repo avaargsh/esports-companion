@@ -2,7 +2,8 @@ package orders
 
 import (
 	"errors"
-	"time"
+
+	"github.com/avaargsh/esports-companion/services/api-go/internal/platform/httpx"
 )
 
 var (
@@ -12,6 +13,10 @@ var (
 	ErrCannotOrderOwnOffering  = errors.New("CANNOT_ORDER_OWN_OFFERING")
 	ErrSKUNotAvailable         = errors.New("SKU_NOT_AVAILABLE")
 	ErrGameNotAvailable        = errors.New("GAME_NOT_AVAILABLE")
+	ErrOrderAlreadyAccepted    = errors.New("ORDER_ALREADY_ACCEPTED")
+	ErrPlayerNotEligible       = errors.New("PLAYER_NOT_ELIGIBLE")
+	ErrCannotClaimOwnOrder     = errors.New("CANNOT_CLAIM_OWN_ORDER")
+	ErrPlayerNotOfferingSKU    = errors.New("PLAYER_NOT_OFFERING_SKU")
 )
 
 type CreateInput struct {
@@ -19,6 +24,10 @@ type CreateInput struct {
 	OfferingID *string
 	Quantity   int
 	Remark     string
+}
+
+type ClaimInput struct {
+	ExpectedVersion int
 }
 
 type Order struct {
@@ -54,12 +63,12 @@ type Detail struct {
 }
 
 type Event struct {
-	ID         string    `json:"id"`
-	EventType  string    `json:"event_type"`
-	FromStatus *string   `json:"from_status"`
-	ToStatus   *string   `json:"to_status"`
-	ActorType  string    `json:"actor_type"`
-	CreatedAt  time.Time `json:"created_at"`
+	ID         string         `json:"id"`
+	EventType  string         `json:"event_type"`
+	FromStatus *string        `json:"from_status"`
+	ToStatus   *string        `json:"to_status"`
+	ActorType  string         `json:"actor_type"`
+	CreatedAt  httpx.JSONTime `json:"created_at"`
 }
 
 func availableActions(status string) []string {
