@@ -111,9 +111,10 @@ It is packaged as a separate subpackage and is not linked from product navigatio
 Open it directly from WeChat Developer Tools to inspect:
 
 - theme swatches
-- Button variants
+- Button variants, loading and disabled states
 - Badge tones and status dots
 - Cell interaction
+- empty-state treatment
 - native feedback helpers
 - inverse/dark action surfaces
 
@@ -124,3 +125,16 @@ The Showcase must stay backend-independent so theme and primitive validation nev
 Native navigation bars and the native tab bar cannot consume CSS custom properties. The theme generator keeps those static values synchronized from the same `theme.json` source rather than replacing native navigation with a custom implementation.
 
 That tradeoff is deliberate: use native WeChat chrome unless a product requirement genuinely needs custom navigation.
+
+## Visual rebrand smoke test
+
+After changing `theme.json` and running `npm run theme:sync`, inspect the Showcase before reviewing business pages:
+
+1. primary/secondary/danger buttons remain legible in normal, loading and disabled states;
+2. semantic badges remain distinguishable without relying on text alone;
+3. cells preserve readable title/description/value hierarchy;
+4. empty states remain visible against the page background;
+5. inverse provider surfaces retain sufficient contrast;
+6. native navigation/tab chrome matches the generated theme.
+
+This keeps rebrand review focused on reusable contracts before product-specific polish.
