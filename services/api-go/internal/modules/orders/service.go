@@ -97,3 +97,11 @@ func (s Service) Finish(
 		"FINISH_REQUESTED",
 	)
 }
+
+func (s Service) Confirm(
+	ctx context.Context,
+	userID string,
+	orderID string,
+) (Order, error) {
+	return s.repo.ConfirmAndSettle(ctx, userID, orderID)
+}
