@@ -67,7 +67,6 @@ class OrderAuthorizationPolicy:
         *,
         order: Order,
         user_id: uuid.UUID,
-        roles: tuple[str, ...],
     ) -> OrderActor:
         if order.user_id == user_id:
             return OrderActor(role="USER")
@@ -76,7 +75,7 @@ class OrderAuthorizationPolicy:
             db,
             order=order,
             user_id=user_id,
-            roles=roles,
+            roles=None,
             active_only=True,
         )
         if assignment:
@@ -146,10 +145,10 @@ class OrderAuthorizationPolicy:
         *,
         order: Order,
         user_id: uuid.UUID,
-        roles: tuple[str, ...],
+        roles: tuple[str, ...] | None,
         active_only: bool,
     ) -> OrderAssignment | None:
-        if "PLAYER" not in roles:
+        if roles is not None and "PLAYER" not in roles:
             return None
 
         player = db.scalar(
