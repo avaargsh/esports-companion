@@ -216,6 +216,9 @@ jobs:
       - name: Compare M4.2 signed payment callback contracts
         run: python3 scripts/go_payment_callback_parity.py
 
+      - name: Compare M4.3 refund submit contracts
+        run: python3 scripts/go_refund_submit_parity.py
+
       - name: Dump runtime logs on failure
         if: failure()
         run: |
