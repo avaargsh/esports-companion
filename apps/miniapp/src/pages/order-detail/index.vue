@@ -258,7 +258,7 @@ async function cancelOrder() {
     title: "取消订单？",
     content: "取消后订单将不再继续履约，相关资金会按当前订单规则处理。",
     confirmText: "确认取消",
-    confirmColor: "#d84c51"
+    tone: "danger"
   })
   if (!confirmed) return
 
@@ -288,7 +288,7 @@ async function requestAftercare(action: "refund" | "dispute") {
       ? "提交后订单会进入平台处理流程，资金结算可能暂停。"
       : "平台介入后会根据订单记录和双方信息处理争议，资金结算可能暂停。",
     confirmText: action === "refund" ? "提交退款" : "申请介入",
-    confirmColor: action === "refund" ? "#d84c51" : "#6757e6"
+    tone: action === "refund" ? "danger" : "brand"
   })
   if (!confirmed) return
 
@@ -517,7 +517,7 @@ function openServicePlayer() {
 .status-top{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:20rpx}.no{color:#7f7c8c;font-size:15rpx}
 .status{position:relative;z-index:1;margin-top:27rpx;font-size:39rpx;font-weight:850;letter-spacing:-1rpx}.status-desc{position:relative;z-index:1;display:block;margin:8rpx 0 31rpx;color:#aaa7b7;font-size:19rpx;line-height:1.55}
 .section-card{margin-top:16rpx;padding:27rpx;border:1rpx solid rgba(20,20,30,.035);border-radius:29rpx;background:#fff;box-shadow:var(--shadow-card)}
-.section-title{padding-bottom:13rpx;color:var(--ink);font-size:24rpx;font-weight:790}.section-title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:18rpx}.section-action{padding:2rpx 0 13rpx;color:var(--brand);font-size:17rpx;font-weight:700}.provider-card{cursor:pointer}.provider-row{display:flex;align-items:center;gap:17rpx;padding-top:5rpx}.provider-avatar{width:82rpx;height:82rpx;flex:none;border-radius:24rpx}.provider-avatar.fallback{display:flex;align-items:center;justify-content:center;background:linear-gradient(145deg,#23212e,#6757e6);color:#fff;font-size:28rpx;font-weight:850}.provider-copy{flex:1;min-width:0}.provider-name{font-size:25rpx;font-weight:780}.provider-meta{margin-top:6rpx;color:var(--muted);font-size:18rpx}.chevron{color:#bbb9c3;font-size:31rpx}
+.section-title{padding-bottom:13rpx;color:var(--ink);font-size:24rpx;font-weight:790}.section-title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:18rpx}.section-action{padding:2rpx 0 13rpx;color:var(--brand);font-size:17rpx;font-weight:700}.provider-card{cursor:pointer}.provider-row{display:flex;align-items:center;gap:17rpx;padding-top:5rpx}.provider-avatar{width:82rpx;height:82rpx;flex:none;border-radius:24rpx}.provider-avatar.fallback{display:flex;align-items:center;justify-content:center;background:linear-gradient(145deg,#23212e,var(--brand));color:#fff;font-size:28rpx;font-weight:850}.provider-copy{flex:1;min-width:0}.provider-name{font-size:25rpx;font-weight:780}.provider-meta{margin-top:6rpx;color:var(--muted);font-size:18rpx}.chevron{color:#bbb9c3;font-size:31rpx}
 .row{display:flex;align-items:center;justify-content:space-between;gap:20rpx;padding:17rpx 0;border-bottom:1rpx solid #f0eff4;color:#75757f;font-size:20rpx}.row:last-child{border:0}.value{color:var(--ink-2);font-weight:700}
 .timeline{padding-top:3rpx}.event{display:flex;gap:16rpx;min-height:72rpx}.track{width:20rpx;flex:none;display:flex;flex-direction:column;align-items:center}.event-dot{width:12rpx;height:12rpx;border-radius:50%;background:#c7c6cf}.event-dot.latest{background:var(--brand);box-shadow:0 0 0 7rpx var(--brand-soft)}.event-line{width:2rpx;flex:1;margin-top:5rpx;background:#e7e6ec}.event-copy{flex:1;min-width:0;padding-bottom:21rpx}.event-head{display:flex;justify-content:space-between;gap:14rpx}.event-title{color:var(--ink);font-size:20rpx;font-weight:730}.event-time{flex:none;color:#aaa9b2;font-size:16rpx}.event-actor{display:block;margin-top:4rpx;color:#9998a2;font-size:16rpx}
 .notice{margin-top:15rpx;padding:21rpx 23rpx;border-radius:22rpx;background:var(--brand-soft);color:#6254b7;font-size:18rpx;line-height:1.55}.notice.designated{background:var(--warning-soft);color:#976315}.notice-title{display:block;margin-bottom:4rpx;font-weight:780}
