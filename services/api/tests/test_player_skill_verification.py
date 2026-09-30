@@ -1,6 +1,9 @@
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
+from app.db import SessionLocal
 from app.main import app
+from app.models import OutboxEvent
 
 
 def test_player_skill_submission_review_publication_and_resubmission():
@@ -53,6 +56,19 @@ def test_player_skill_submission_review_publication_and_resubmission():
         )
         assert approved.status_code == 200
         assert approved.json()["verificationStatus"] == "APPROVED"
+
+        with SessionLocal() as db:
+            audit = db.scalar(
+                select(OutboxEvent).where(
+                    OutboxEvent.aggregate_type == "AUDIT",
+                    OutboxEvent.aggregate_id == f"PLAYER_SKILL:{skill_id}",
+                    OutboxEvent.event_type == "AUTHORIZATION_DECISION",
+                )
+            )
+            assert audit is not None
+            assert audit.payload_json["actorUserId"] == admin_user_id
+            assert audit.payload_json["action"] == "PLAYER_SKILL_APPROVE"
+            assert audit.payload_json["scope"] == "PLATFORM"
 
         public_after = client.get(f"/api/v1/players/{player_profile_id}")
         assert public_after.status_code == 200
