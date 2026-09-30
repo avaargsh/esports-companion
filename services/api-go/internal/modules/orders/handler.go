@@ -36,6 +36,7 @@ func (h Handler) Register(r chi.Router) {
 	r.Post("/player/orders/{order_id}/claim", h.claim)
 	r.Post("/player/orders/{order_id}/start", h.start)
 	r.Post("/player/orders/{order_id}/finish", h.finish)
+	r.Post("/orders/{order_id}/confirm", h.confirm)
 	r.Get("/orders/{order_id}", h.get)
 	r.Get("/orders/{order_id}/events", h.events)
 }
@@ -225,6 +226,40 @@ func (h Handler) providerLifecycle(w http.ResponseWriter, r *http.Request, actio
 		case errors.Is(err, ErrNotOrderPlayer):
 			httpx.Error(w, http.StatusForbidden, ErrNotOrderPlayer.Error())
 		case errors.Is(err, ErrInvalidOrderTransition):
+			httpx.Error(w, http.StatusConflict, err.Error())
+		default:
+			httpx.Error(w, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+		}
+		return
+	}
+	httpx.JSONValue(w, http.StatusOK, order)
+}
+
+func (h Handler) confirm(w http.ResponseWriter, r *http.Request) {
+	principal, requestErr := auth.ResolvePrincipal(h.authService, h.secure, r)
+	if requestErr != nil {
+		auth.WriteRequestError(w, requestErr)
+		return
+	}
+
+	orderID := chi.URLParam(r, "order_id")
+	if !httpx.IsUUID(orderID) {
+		httpx.ValidationError(w, "path", "order_id", "Input should be a valid UUID")
+		return
+	}
+
+	order, err := h.service.Confirm(r.Context(), principal.User.ID, orderID)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrOrderNotFound):
+			httpx.Error(w, http.StatusNotFound, ErrOrderNotFound.Error())
+		case errors.Is(err, ErrOrderNotOwned):
+			httpx.Error(w, http.StatusForbidden, ErrOrderNotOwned.Error())
+		case errors.Is(err, ErrOrderNotAwaitingConfirm),
+			errors.Is(err, ErrAssignmentNotFound),
+			errors.Is(err, ErrSettlementPlayerMissing),
+			errors.Is(err, ErrPlatformAccountMissing),
+			errors.Is(err, ErrInvalidOrderTransition):
 			httpx.Error(w, http.StatusConflict, err.Error())
 		default:
 			httpx.Error(w, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
