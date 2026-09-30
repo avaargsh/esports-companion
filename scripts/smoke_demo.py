@@ -191,6 +191,206 @@ def run():
     ):
         raise SmokeError("ledger: provider settlement entry missing")
 
+    # Discovery + designated booking: direct booking must bypass the public pool.
+    status, public_players = request(
+        "GET",
+        "/api/v1/players",
+        query={"game_id": game["id"], "limit": 10},
+    )
+    expect_status(status, 200, "player discovery")
+    if not public_players:
+        raise SmokeError("player discovery: no approved available players")
+    selected_player = public_players[0]
+    selected_offering = next(
+        (
+            item
+            for item in selected_player["offerings"]
+            if item["game_id"] == game["id"]
+        ),
+        None,
+    )
+    if not selected_offering:
+        raise SmokeError("player discovery: selected player has no active offering for game")
+
+    status, designated = request(
+        "POST",
+        "/api/v1/orders",
+        headers=customer_headers,
+        payload={
+            "offering_id": selected_offering["id"],
+            "quantity": 1,
+            "remark": "designated-smoke",
+        },
+    )
+    expect_status(status, 201, "designated create")
+    designated_id = designated["id"]
+    status, designated_paid = request(
+        "POST",
+        f"/api/v1/orders/{designated_id}/mock-pay",
+        headers={
+            **customer_headers,
+            "Idempotency-Key": f"designated-pay-{uuid.uuid4().hex}",
+        },
+    )
+    expect_status(status, 200, "designated payment")
+    if designated_paid["status"] != "ACCEPTED":
+        raise SmokeError(
+            f"designated payment: expected ACCEPTED, got {designated_paid['status']}"
+        )
+    status, pool_after_designated = request(
+        "GET",
+        "/api/v1/player/order-pool",
+        headers=player_headers,
+        query={"game_id": game["id"]},
+    )
+    expect_status(status, 200, "designated pool check")
+    if any(item["id"] == designated_id for item in pool_after_designated):
+        raise SmokeError("designated booking leaked into public order pool")
+
+    # Admin login is part of the product release slice.
+    status, admin_login = request(
+        "POST",
+        "/api/v1/auth/wechat/login",
+        payload={"code": "demo-platform"},
+    )
+    expect_status(status, 200, "admin login")
+    if "PLATFORM" not in admin_login["roles"]:
+        raise SmokeError("admin login: PLATFORM role missing")
+    admin_headers = {
+        "Authorization": f"Bearer {admin_login['accessToken']}",
+    }
+
+    # Admin dispute handling: list and resolve a real disputed order.
+    status, dispute_order = request(
+        "POST",
+        "/api/v1/orders",
+        headers=customer_headers,
+        payload={
+            "sku_id": sku["id"],
+            "quantity": 1,
+            "remark": "admin-dispute-smoke",
+        },
+    )
+    expect_status(status, 201, "dispute order create")
+    dispute_order_id = dispute_order["id"]
+    status, dispute_matching = request(
+        "POST",
+        f"/api/v1/orders/{dispute_order_id}/mock-pay",
+        headers={
+            **customer_headers,
+            "Idempotency-Key": f"dispute-pay-{uuid.uuid4().hex}",
+        },
+    )
+    expect_status(status, 200, "dispute order payment")
+    status, _ = request(
+        "POST",
+        f"/api/v1/player/orders/{dispute_order_id}/claim",
+        headers=player_headers,
+        payload={"expected_version": dispute_matching["version"]},
+    )
+    expect_status(status, 200, "dispute order claim")
+    status, _ = request(
+        "POST",
+        f"/api/v1/player/orders/{dispute_order_id}/start",
+        headers=player_headers,
+    )
+    expect_status(status, 200, "dispute order start")
+    status, dispute = request(
+        "POST",
+        f"/api/v1/orders/{dispute_order_id}/disputes",
+        headers={
+            **customer_headers,
+            "Idempotency-Key": f"dispute-open-{uuid.uuid4().hex}",
+        },
+        payload={
+            "reason_code": "SERVICE_QUALITY",
+            "description": "release checklist smoke",
+        },
+    )
+    expect_status(status, 201, "open dispute")
+    status, admin_disputes = request(
+        "GET",
+        "/api/v1/admin/disputes",
+        headers=admin_headers,
+    )
+    expect_status(status, 200, "admin dispute list")
+    if not any(item["id"] == dispute["id"] for item in admin_disputes):
+        raise SmokeError("admin dispute list: opened dispute missing")
+    status, resolved_dispute = request(
+        "POST",
+        f"/api/v1/admin/disputes/{dispute['id']}/release",
+        headers=admin_headers,
+    )
+    expect_status(status, 200, "admin dispute release")
+    if resolved_dispute["status"] != "RESOLVED":
+        raise SmokeError("admin dispute release: dispute not resolved")
+
+    # Withdrawal product slice: request -> Admin list -> reject and approve.
+    status, rejected_withdrawal = request(
+        "POST",
+        "/api/v1/withdrawals",
+        headers={
+            **player_headers,
+            "Idempotency-Key": f"withdraw-reject-{uuid.uuid4().hex}",
+        },
+        payload={"amount": 500},
+    )
+    expect_status(status, 201, "withdrawal request for reject")
+    status, admin_withdrawals = request(
+        "GET",
+        "/api/v1/admin/withdrawals",
+        headers=admin_headers,
+    )
+    expect_status(status, 200, "admin withdrawal list")
+    if not any(item["id"] == rejected_withdrawal["id"] for item in admin_withdrawals):
+        raise SmokeError("admin withdrawal list: requested withdrawal missing")
+    status, rejected = request(
+        "POST",
+        f"/api/v1/admin/withdrawals/{rejected_withdrawal['id']}/reject",
+        headers=admin_headers,
+        query={"reason": "RELEASE_CHECKLIST_REJECT"},
+    )
+    expect_status(status, 200, "admin withdrawal reject")
+    if rejected["status"] != "REJECTED":
+        raise SmokeError("admin withdrawal reject: unexpected state")
+
+    status, approved_withdrawal = request(
+        "POST",
+        "/api/v1/withdrawals",
+        headers={
+            **player_headers,
+            "Idempotency-Key": f"withdraw-approve-{uuid.uuid4().hex}",
+        },
+        payload={"amount": 600},
+    )
+    expect_status(status, 201, "withdrawal request for approve")
+    payout_ref = f"smoke-payout-{uuid.uuid4().hex}"
+    status, approved = request(
+        "POST",
+        f"/api/v1/admin/withdrawals/{approved_withdrawal['id']}/complete",
+        headers=admin_headers,
+        payload={"provider_txn_id": payout_ref},
+    )
+    expect_status(status, 200, "admin withdrawal approve")
+    if approved["status"] != "COMPLETED":
+        raise SmokeError("admin withdrawal approve: unexpected state")
+    status, admin_withdrawals = request(
+        "GET",
+        "/api/v1/admin/withdrawals",
+        headers=admin_headers,
+    )
+    expect_status(status, 200, "admin withdrawal list after review")
+    approved_row = next(
+        (
+            item
+            for item in admin_withdrawals
+            if item["id"] == approved_withdrawal["id"]
+        ),
+        None,
+    )
+    if not approved_row or approved_row["providerTxnId"] != payout_ref:
+        raise SmokeError("admin withdrawal approve: payout reference missing")
+
     print(
         json.dumps(
             {
@@ -198,6 +398,11 @@ def run():
                 "orderId": order_id,
                 "finalState": settled["status"],
                 "providerIncome": player_amount,
+                "discovery": "PASS",
+                "designatedBooking": "PASS",
+                "adminDispute": "PASS",
+                "withdrawalReject": "PASS",
+                "withdrawalApprove": "PASS",
             },
             ensure_ascii=False,
         )

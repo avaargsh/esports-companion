@@ -2,6 +2,15 @@
 
 Use this before exposing a production deployment to real users or money.
 
+## Product gate and change freeze
+
+- [ ] The automated **Release Checklist Gate** is green. It requires API, Mini Program, Admin, API image, HTTP product slice, backup/restore, ingress, metrics and staging configuration jobs to pass.
+- [ ] The HTTP product slice proves: login -> order -> payment -> public claim -> start -> finish -> customer confirm -> review.
+- [ ] Admin acceptance proves the dispute queue can resolve a real order path and the withdrawal queue can list, approve and reject requests.
+- [ ] Discovery acceptance proves only approved/available players with active Offerings are returned, and designated booking bypasses the public order pool.
+- [ ] **Change freeze:** do not add a new auth evidence, authority envelope or authority admission variant until a low-value real withdrawal has been completed from the Mini Program request through Admin review and external payout reconciliation.
+
+
 ## Configuration and secrets
 
 - [ ] `APP_ENV=production`.

@@ -138,11 +138,18 @@ GitHub Actions verifies independently:
 
 ```text
 API          migrations + seed + lint + pytest
-HTTP Smoke   real Uvicorn + Golden Slice over HTTP
+HTTP Smoke   product slice: login -> order -> pay -> claim -> fulfill -> confirm -> review
+             + discovery/designated booking + Admin dispute + withdrawal approve/reject
 MiniApp      type-check + mp-weixin build
 Admin        Vite build
 API Image    production build + non-root runtime + import
 ```
+
+The final **Release Checklist Gate** depends on these automated checks plus backup/restore,
+ingress, metrics and staging configuration. Manual launch checks remain in
+[Release Checklist](docs/release-checklist.md). Until the checklist's low-value real
+withdrawal is completed end to end, new auth-evidence / authority-envelope variants are
+frozen; the existing envelope remains an internal invariant rather than a product surface.
 
 ## Production deployment reference
 
