@@ -55,20 +55,28 @@ type PaymentProvider interface {
 	QueryPayment(ctx context.Context, providerTxnID string) (PaymentCallback, error)
 }
 
+type RefundRequest struct {
+	RefundID       string
+	OutRefundNo    string
+	OrderID        string
+	OrderNo        string
+	PaymentTxnID   string
+	RefundAmount   int64
+	TotalAmount    int64
+	Currency       string
+	IdempotencyKey string
+	Reason         string
+}
+
 type RefundIntent struct {
 	Provider         string
 	ProviderRefundID string
 	Status           string
+	RawPayload       map[string]any
 }
 
 type RefundProvider interface {
-	CreateRefund(
-		ctx context.Context,
-		paymentTxnID string,
-		amountMinor int64,
-		currency string,
-		idempotencyKey string,
-	) (RefundIntent, error)
-
-	QueryRefund(ctx context.Context, providerRefundID string) (RefundIntent, error)
+	Name() string
+	CreateRefund(ctx context.Context, request RefundRequest) (RefundIntent, error)
+	QueryRefund(ctx context.Context, outRefundNo string) (RefundIntent, error)
 }
