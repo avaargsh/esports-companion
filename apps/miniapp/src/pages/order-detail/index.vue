@@ -13,7 +13,7 @@ import PrimaryActionBar from "../../components/PrimaryActionBar.vue"
 import StatusTag from "../../components/StatusTag.vue"
 import type { Order, OrderEvent } from "../../types/domain"
 import { orderStatusMeta } from "../../utils/order"
-import { showSuccess, showMessage } from "../../ui/feedback"
+import { confirmAction, showSuccess, showMessage } from "../../ui/feedback"
 
 const orderId = ref("")
 const order = ref<Order | null>(null)
@@ -210,6 +210,15 @@ async function runPrimary() {
     return
   }
 
+  if (action.kind === "confirm") {
+    const confirmed = await confirmAction({
+      title: "确认服务已完成？",
+      content: "确认后订单将进入结算流程；如果服务存在问题，请先申请退款或平台介入。",
+      confirmText: "确认完成"
+    })
+    if (!confirmed) return
+  }
+
   busy.value = true
   try {
     if (action.kind === "pay") {
@@ -244,6 +253,15 @@ async function runPrimary() {
 async function cancelOrder() {
   const current = order.value
   if (!current || busy.value) return
+
+  const confirmed = await confirmAction({
+    title: "取消订单？",
+    content: "取消后订单将不再继续履约，相关资金会按当前订单规则处理。",
+    confirmText: "确认取消",
+    confirmColor: "#d84c51"
+  })
+  if (!confirmed) return
+
   busy.value = true
   try {
     order.value = await request<Order>(`/orders/${current.id}/cancel`, {
@@ -263,6 +281,17 @@ async function cancelOrder() {
 async function requestAftercare(action: "refund" | "dispute") {
   const current = order.value
   if (!current || busy.value) return
+
+  const confirmed = await confirmAction({
+    title: action === "refund" ? "提交退款申请？" : "申请平台介入？",
+    content: action === "refund"
+      ? "提交后订单会进入平台处理流程，资金结算可能暂停。"
+      : "平台介入后会根据订单记录和双方信息处理争议，资金结算可能暂停。",
+    confirmText: action === "refund" ? "提交退款" : "申请介入",
+    confirmColor: action === "refund" ? "#d84c51" : "#6757e6"
+  })
+  if (!confirmed) return
+
   busy.value = true
   try {
     await request(`/orders/${current.id}/disputes`, {
@@ -275,7 +304,7 @@ async function requestAftercare(action: "refund" | "dispute") {
       }
     })
     aftercareReason.value = ""
-    showMessage(action === "refund" ? "退款申请已提交" : "已申请平台介入")
+    showSuccess(action === "refund" ? "退款申请已提交" : "已申请平台介入")
     await reload()
   } catch (error) {
     showMessage(error instanceof Error ? error.message : "提交失败")
