@@ -300,8 +300,7 @@ func (p *WeChatProvider) sign(message []byte) (string, error) {
 }
 
 func parseRSAPrivateKey(value string) (*rsa.PrivateKey, error) {
-	material := strings.ReplaceAll(strings.TrimSpace(value), "\n", "
-")
+	material := strings.ReplaceAll(strings.TrimSpace(value), "\\n", "\n")
 	block, _ := pem.Decode([]byte(material))
 	if block == nil {
 		return nil, ErrWeChatPaymentPrivateKeyInvalid
