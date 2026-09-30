@@ -60,6 +60,7 @@ jobs:
         with:
           node-version: "22"
       - run: npm install
+      - run: npm run ui-check
       - run: npm run type-check
       - run: npm run build:mp-weixin
       - name: Build secure WeChat client mode

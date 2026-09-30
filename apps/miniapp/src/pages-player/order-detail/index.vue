@@ -11,6 +11,7 @@ import PriceText from "../../components/PriceText.vue"
 import PrimaryActionBar from "../../components/PrimaryActionBar.vue"
 import StatusTag from "../../components/StatusTag.vue"
 import type { Order, OrderEvent } from "../../types/domain"
+import { showMessage, showSuccess } from "../../ui/feedback"
 import {
   orderStatusMeta,
   playerActionErrorMessage
@@ -119,10 +120,7 @@ async function load() {
     order.value = orderResult
     events.value = eventResult
   } catch (error) {
-    uni.showToast({
-      title: playerActionErrorMessage(error instanceof Error ? error.message : ""),
-      icon: "none"
-    })
+    showMessage(playerActionErrorMessage(error instanceof Error ? error.message : ""))
   } finally {
     loading.value = false
   }
@@ -168,16 +166,10 @@ async function act() {
       `/player/orders/${current.id}/${action.endpoint}`,
       { method: "POST", userId: playerUserId.value }
     )
-    uni.showToast({
-      title: action.endpoint === "start" ? "服务已开始" : "已申请完成",
-      icon: "success"
-    })
+    showSuccess(action.endpoint === "start" ? "服务已开始" : "已申请完成")
     await load()
   } catch (error) {
-    uni.showToast({
-      title: playerActionErrorMessage(error instanceof Error ? error.message : ""),
-      icon: "none"
-    })
+    showMessage(playerActionErrorMessage(error instanceof Error ? error.message : ""))
     await load()
   } finally {
     busy.value = false

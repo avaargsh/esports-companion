@@ -13,6 +13,7 @@ import PrimaryActionBar from "../../components/PrimaryActionBar.vue"
 import StatusTag from "../../components/StatusTag.vue"
 import type { Order, OrderEvent } from "../../types/domain"
 import { orderStatusMeta } from "../../utils/order"
+import { confirmAction, showSuccess, showMessage } from "../../ui/feedback"
 
 const orderId = ref("")
 const order = ref<Order | null>(null)
@@ -132,10 +133,7 @@ async function reload() {
     order.value = orderResult
     events.value = eventResult
   } catch (error) {
-    uni.showToast({
-      title: error instanceof Error ? error.message : "订单加载失败",
-      icon: "none"
-    })
+    showMessage(error instanceof Error ? error.message : "订单加载失败")
   } finally {
     loading.value = false
   }
@@ -212,20 +210,26 @@ async function runPrimary() {
     return
   }
 
+  if (action.kind === "confirm") {
+    const confirmed = await confirmAction({
+      title: "确认服务已完成？",
+      content: "确认后订单将进入结算流程；如果服务存在问题，请先申请退款或平台介入。",
+      confirmText: "确认完成"
+    })
+    if (!confirmed) return
+  }
+
   busy.value = true
   try {
     if (action.kind === "pay") {
       const result = await startOrderPayment(current.id, customerUserId.value)
       if (result.mode === "mock") {
         order.value = result.order
-        uni.showToast({ title: "支付成功", icon: "success" })
+        showSuccess("支付成功")
       } else {
         const confirmed = result.alreadyConfirmed || await waitForPaymentConfirmation()
-        uni.showToast({
-          title: confirmed ? "支付已确认" : "支付结果确认中，请稍后刷新",
-          icon: confirmed ? "success" : "none",
-          duration: confirmed ? 1500 : 2600
-        })
+        if (confirmed) showSuccess("支付已确认")
+        else showMessage("支付结果确认中，请稍后刷新", 2600)
       }
     }
 
@@ -234,15 +238,12 @@ async function runPrimary() {
         method: "POST",
         userId: customerUserId.value
       })
-      uni.showToast({ title: "已确认完成", icon: "success" })
+      showSuccess("已确认完成")
     }
     await reload()
   } catch (error) {
     const message = error instanceof Error ? error.message : "操作失败，请刷新后重试"
-    uni.showToast({
-      title: message === "PAYMENT_CANCELLED" ? "已取消支付" : message,
-      icon: "none"
-    })
+    showMessage(message === "PAYMENT_CANCELLED" ? "已取消支付" : message)
     await reload()
   } finally {
     busy.value = false
@@ -252,19 +253,25 @@ async function runPrimary() {
 async function cancelOrder() {
   const current = order.value
   if (!current || busy.value) return
+
+  const confirmed = await confirmAction({
+    title: "取消订单？",
+    content: "取消后订单将不再继续履约，相关资金会按当前订单规则处理。",
+    confirmText: "确认取消",
+    confirmColor: "#d84c51"
+  })
+  if (!confirmed) return
+
   busy.value = true
   try {
     order.value = await request<Order>(`/orders/${current.id}/cancel`, {
       method: "POST",
       userId: customerUserId.value
     })
-    uni.showToast({ title: "订单已取消", icon: "success" })
+    showSuccess("订单已取消")
     await reload()
   } catch (error) {
-    uni.showToast({
-      title: error instanceof Error ? error.message : "取消失败",
-      icon: "none"
-    })
+    showMessage(error instanceof Error ? error.message : "取消失败")
     await reload()
   } finally {
     busy.value = false
@@ -274,6 +281,17 @@ async function cancelOrder() {
 async function requestAftercare(action: "refund" | "dispute") {
   const current = order.value
   if (!current || busy.value) return
+
+  const confirmed = await confirmAction({
+    title: action === "refund" ? "提交退款申请？" : "申请平台介入？",
+    content: action === "refund"
+      ? "提交后订单会进入平台处理流程，资金结算可能暂停。"
+      : "平台介入后会根据订单记录和双方信息处理争议，资金结算可能暂停。",
+    confirmText: action === "refund" ? "提交退款" : "申请介入",
+    confirmColor: action === "refund" ? "#d84c51" : "#6757e6"
+  })
+  if (!confirmed) return
+
   busy.value = true
   try {
     await request(`/orders/${current.id}/disputes`, {
@@ -286,16 +304,10 @@ async function requestAftercare(action: "refund" | "dispute") {
       }
     })
     aftercareReason.value = ""
-    uni.showToast({
-      title: action === "refund" ? "退款申请已提交" : "已申请平台介入",
-      icon: "none"
-    })
+    showSuccess(action === "refund" ? "退款申请已提交" : "已申请平台介入")
     await reload()
   } catch (error) {
-    uni.showToast({
-      title: error instanceof Error ? error.message : "提交失败",
-      icon: "none"
-    })
+    showMessage(error instanceof Error ? error.message : "提交失败")
   } finally {
     busy.value = false
   }
@@ -312,11 +324,11 @@ async function submitReview() {
       data: { rating: rating.value, content: review.value.trim() }
     })
     reviewed.value = true
-    uni.showToast({ title: "评价已提交", icon: "success" })
+    showSuccess("评价已提交")
   } catch (error) {
     const message = error instanceof Error ? error.message : "评价失败"
     if (message.includes("ORDER_ALREADY_REVIEWED")) reviewed.value = true
-    uni.showToast({ title: message, icon: "none" })
+    showMessage(message)
   } finally {
     busy.value = false
   }

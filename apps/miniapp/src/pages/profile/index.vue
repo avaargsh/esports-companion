@@ -4,6 +4,7 @@ import { onShow } from "@dcloudio/uni-app"
 import { request } from "../../api/client"
 import { getDemoIdentities } from "../../api/demo"
 import { isWeChatAuthMode } from "../../api/config"
+import { showSuccess, showMessage } from "../../ui/feedback"
 
 type PlayerProfile={
   id:string
@@ -44,7 +45,7 @@ async function loadIdentity(){
       playerName.value=""
     }finally{playerChecked.value=true}
   }catch(error){
-    uni.showToast({title:error instanceof Error?error.message:"账户加载失败",icon:"none"})
+    showMessage(error instanceof Error?error.message:"账户加载失败")
   }
 }
 onShow(()=>{void loadIdentity()})
@@ -56,7 +57,7 @@ function openOrders(){uni.switchTab({url:"/pages/orders/index"})}
 async function applyPlayer(){
   if(!wechatMode||!userId.value||applying.value)return
   const displayName=applyName.value.trim()
-  if(!displayName){uni.showToast({title:"请填写陪玩昵称",icon:"none"});return}
+  if(!displayName){showMessage("请填写陪玩昵称");return}
   applying.value=true
   try{
     playerProfile.value=await request<PlayerProfile>("/player/apply",{
@@ -64,9 +65,9 @@ async function applyPlayer(){
     })
     playerName.value=playerProfile.value.display_name
     applyOpen.value=false
-    uni.showToast({title:"申请已提交",icon:"success"})
+    showSuccess("申请已提交")
   }catch(error){
-    uni.showToast({title:error instanceof Error?error.message:"申请提交失败",icon:"none"})
+    showMessage(error instanceof Error?error.message:"申请提交失败")
   }finally{applying.value=false}
 }
 </script>

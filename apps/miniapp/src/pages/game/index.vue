@@ -6,6 +6,7 @@ import { getDemoIdentities } from "../../api/demo"
 import CheckoutBar from "../../components/CheckoutBar.vue"
 import EmptyState from "../../components/EmptyState.vue"
 import type { Order, ServiceSku } from "../../types/domain"
+import { showMessage } from "../../ui/feedback"
 
 const gameId=ref("")
 const gameName=ref("选择服务")
@@ -30,7 +31,7 @@ async function loadSkus(){
     selectedId.value=skus.value[0]?.id??""
   }catch(error){
     failed.value=true
-    uni.showToast({title:error instanceof Error?error.message:"服务加载失败",icon:"none"})
+    showMessage(error instanceof Error?error.message:"服务加载失败")
   }finally{
     loading.value=false
   }
@@ -55,7 +56,7 @@ async function createOrder(){
     })
     uni.redirectTo({url:`/pages/order-detail/index?id=${order.id}`})
   }catch(error){
-    uni.showToast({title:error instanceof Error?error.message:"下单失败",icon:"none"})
+    showMessage(error instanceof Error?error.message:"下单失败")
   }finally{creating.value=false}
 }
 </script>

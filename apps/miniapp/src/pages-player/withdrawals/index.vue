@@ -5,6 +5,7 @@ import { onShow } from "@dcloudio/uni-app"
 import { request } from "../../api/client"
 import { getDemoIdentities } from "../../api/demo"
 import type { Wallet, Withdrawal } from "../../types/domain"
+import { confirmAction, showMessage, showSuccess } from "../../ui/feedback"
 
 const userId = ref("")
 const wallet = ref<Wallet>({ availableBalance: 0, frozenBalance: 0 })
@@ -45,7 +46,7 @@ function copyValue(value: string, label: string) {
   uni.setClipboardData({
     data: value,
     success() {
-      uni.showToast({ title: `${label}已复制`, icon: "none" })
+      showMessage(`${label}已复制`)
     }
   })
 }
@@ -70,10 +71,7 @@ async function load() {
     wallet.value = nextWallet
     items.value = nextItems
   } catch (error) {
-    uni.showToast({
-      title: error instanceof Error ? error.message : "提现信息加载失败",
-      icon: "none"
-    })
+    showMessage(error instanceof Error ? error.message : "提现信息加载失败")
   } finally {
     loading.value = false
   }
@@ -81,6 +79,15 @@ async function load() {
 
 async function submit() {
   if (!canSubmit.value || !userId.value) return
+
+  const amountText = (amountCents.value / 100).toFixed(2)
+  const confirmed = await confirmAction({
+    title: `确认提现 ¥${amountText}？`,
+    content: "提交后该金额会从可用余额转入冻结，等待平台审核和打款。",
+    confirmText: "确认提现"
+  })
+  if (!confirmed) return
+
   if (!pendingIdempotencyKey.value) {
     pendingIdempotencyKey.value = `miniapp-withdraw-${Date.now()}-${amountCents.value}`
   }
@@ -95,13 +102,10 @@ async function submit() {
     })
     amountYuan.value = ""
     pendingIdempotencyKey.value = ""
-    uni.showToast({ title: `提现申请已提交 ${created.id.slice(0,8)}`, icon: "success" })
+    showSuccess(`提现申请已提交 ${created.id.slice(0,8)}`)
     await load()
   } catch (error) {
-    uni.showToast({
-      title: error instanceof Error ? error.message : "提交失败，可直接重试",
-      icon: "none"
-    })
+    showMessage(error instanceof Error ? error.message : "提交失败，可直接重试")
   } finally {
     busy.value = false
   }

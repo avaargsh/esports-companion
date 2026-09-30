@@ -5,6 +5,7 @@ import { request } from "../../api/client"
 import { getDemoIdentities } from "../../api/demo"
 import type { Game, Order } from "../../types/domain"
 import { claimErrorMessage } from "../../utils/order"
+import { showSuccess, showMessage } from "../../ui/feedback"
 
 type Player={id:string;user_id:string;display_name:string;verification_status:string;service_status:string}
 const games=ref<Game[]>([])
@@ -29,7 +30,7 @@ async function loadPool(){
     orders.value=await request<Order[]>(`/player/order-pool?game_id=${gameId.value}`,{userId:playerUserId.value})
   }catch(error){
     orders.value=[]
-    uni.showToast({title:claimErrorMessage(error instanceof Error?error.message:""),icon:"none"})
+    showMessage(claimErrorMessage(error instanceof Error?error.message:""))
   }finally{loading.value=false}
 }
 async function bootstrap(){
@@ -44,22 +45,22 @@ async function bootstrap(){
     profile.value=p;games.value=g
     if(!gameId.value&&games.value.length)gameId.value=games.value[0].id
     await loadPool()
-  }catch(error){uni.showToast({title:claimErrorMessage(error instanceof Error?error.message:""),icon:"none"})}
+  }catch(error){showMessage(claimErrorMessage(error instanceof Error?error.message:""))}
 }
 async function selectGame(id:string){if(gameId.value===id)return;gameId.value=id;await loadPool()}
 function backToWorkbench(){uni.navigateBack()}
 async function claim(order:Order){
   if(!playerUserId.value||claimingId.value)return
-  if(!canClaim.value){uni.showToast({title:claimBlockReason.value,icon:"none"});return}
+  if(!canClaim.value){showMessage(claimBlockReason.value);return}
   claimingId.value=order.id
   try{
     const claimed=await request<Order>(`/player/orders/${order.id}/claim`,{
       method:"POST",userId:playerUserId.value,data:{expected_version:order.version}
     })
-    uni.showToast({title:"接单成功",icon:"success"})
+    showSuccess("接单成功")
     uni.navigateTo({url:`/pages-player/order-detail/index?id=${claimed.id}`})
   }catch(error){
-    uni.showToast({title:claimErrorMessage(error instanceof Error?error.message:""),icon:"none"})
+    showMessage(claimErrorMessage(error instanceof Error?error.message:""))
     await loadPool()
   }finally{claimingId.value=""}
 }

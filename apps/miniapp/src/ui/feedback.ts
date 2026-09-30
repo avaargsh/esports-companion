@@ -12,6 +12,14 @@ function messageOf(error: unknown, fallback: string) {
   return fallback
 }
 
+export function showMessage(title: string, duration = 2000) {
+  uni.showToast({
+    title,
+    icon: "none",
+    duration
+  })
+}
+
 export function showSuccess(title: string) {
   uni.showToast({
     title,
@@ -21,11 +29,7 @@ export function showSuccess(title: string) {
 }
 
 export function showError(error: unknown, fallback = "操作失败，请稍后重试") {
-  uni.showToast({
-    title: messageOf(error, fallback),
-    icon: "none",
-    duration: 2400
-  })
+  showMessage(messageOf(error, fallback), 2400)
 }
 
 export function confirmAction(options: ConfirmOptions): Promise<boolean> {

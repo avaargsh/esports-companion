@@ -7,6 +7,7 @@ import EmptyState from "../../components/EmptyState.vue"
 import OrderCard from "../../components/OrderCard.vue"
 import type { Order } from "../../types/domain"
 import { isActiveOrder } from "../../utils/order"
+import { showMessage } from "../../ui/feedback"
 
 type Filter="all"|"active"|"done"
 const orders=ref<Order[]>([])
@@ -25,7 +26,7 @@ async function load(){
     const identities=await getDemoIdentities()
     orders.value=await request<Order[]>("/orders?limit=50",{userId:identities.customer.userId})
   }catch(error){
-    uni.showToast({title:error instanceof Error?error.message:"订单加载失败",icon:"none"})
+    showMessage(error instanceof Error?error.message:"订单加载失败")
   }finally{loading.value=false}
 }
 onShow(()=>{void load()})

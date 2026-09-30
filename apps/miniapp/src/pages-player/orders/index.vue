@@ -5,6 +5,7 @@ import { request } from "../../api/client"
 import { getDemoIdentities } from "../../api/demo"
 import type { Order } from "../../types/domain"
 import { isActiveOrder, orderStatusMeta } from "../../utils/order"
+import { showMessage } from "../../ui/feedback"
 
 const orders=ref<Order[]>([])
 const loading=ref(false)
@@ -20,7 +21,7 @@ async function load(){
     if(!userId)return
     orders.value=await request<Order[]>("/player/orders",{userId})
   }catch(error){
-    uni.showToast({title:error instanceof Error?error.message:"服务订单加载失败",icon:"none"})
+    showMessage(error instanceof Error?error.message:"服务订单加载失败")
   }finally{
     loading.value=false
   }

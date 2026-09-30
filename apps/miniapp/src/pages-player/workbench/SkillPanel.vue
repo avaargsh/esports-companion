@@ -3,6 +3,7 @@ import { computed, ref, watch } from "vue"
 
 import { request } from "../../api/client"
 import type { Game, PlayerSkill } from "../../types/domain"
+import { showSuccess } from "../../ui/feedback"
 
 const props = defineProps<{ userId: string }>()
 
@@ -55,7 +56,7 @@ async function submit() {
     evidenceUrl.value = ""
     description.value = ""
     await load()
-    uni.showToast({ title: "已提交审核", icon: "success" })
+    showSuccess("已提交审核")
   } catch (reason) {
     error.value = reason instanceof Error ? reason.message : "SKILL_SUBMIT_FAILED"
   } finally {
