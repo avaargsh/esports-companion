@@ -36,36 +36,43 @@ func TestWeChatProviderCreatePaymentSignsProviderAndClientRequests(t *testing.T)
 	}))
 
 	fixedTime := time.Unix(1_790_000_000, 0)
-	var requestBody []byte
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			t.Fatalf("method = %s", r.Method)
+			t.Errorf("method = %s", r.Method)
+			http.Error(w, "bad method", http.StatusBadRequest)
+			return
 		}
 		if r.URL.Path != weChatJSAPIPath {
-			t.Fatalf("path = %s", r.URL.Path)
+			t.Errorf("path = %s", r.URL.Path)
+			http.Error(w, "bad path", http.StatusBadRequest)
+			return
 		}
-		requestBody, err = io.ReadAll(r.Body)
-		if err != nil {
-			t.Fatal(err)
+		requestBody, readErr := io.ReadAll(r.Body)
+		if readErr != nil {
+			t.Errorf("read request body: %v", readErr)
+			http.Error(w, "read body", http.StatusBadRequest)
+			return
 		}
 
 		var payload map[string]any
-		if err := json.Unmarshal(requestBody, &payload); err != nil {
-			t.Fatal(err)
+		if decodeErr := json.Unmarshal(requestBody, &payload); decodeErr != nil {
+			t.Errorf("decode request body: %v", decodeErr)
+			http.Error(w, "decode body", http.StatusBadRequest)
+			return
 		}
 		if payload["appid"] != "wx-app" || payload["mchid"] != "mch-1" {
-			t.Fatalf("merchant identity payload = %#v", payload)
+			t.Errorf("merchant identity payload = %#v", payload)
 		}
 		if payload["out_trade_no"] != "ORD_TEST_1" {
-			t.Fatalf("out_trade_no = %#v", payload["out_trade_no"])
+			t.Errorf("out_trade_no = %#v", payload["out_trade_no"])
 		}
 		amount, ok := payload["amount"].(map[string]any)
 		if !ok || amount["total"] != float64(3000) || amount["currency"] != "CNY" {
-			t.Fatalf("amount = %#v", payload["amount"])
+			t.Errorf("amount = %#v", payload["amount"])
 		}
 		payer, ok := payload["payer"].(map[string]any)
 		if !ok || payer["openid"] != "openid-1" {
-			t.Fatalf("payer = %#v", payload["payer"])
+			t.Errorf("payer = %#v", payload["payer"])
 		}
 
 		auth := r.Header.Get("Authorization")
@@ -74,7 +81,7 @@ func TestWeChatProviderCreatePaymentSignsProviderAndClientRequests(t *testing.T)
 			authField(auth, "serial_no") != "serial-1" ||
 			authField(auth, "nonce_str") != "provider-nonce" ||
 			authField(auth, "timestamp") != fmt.Sprintf("%d", fixedTime.Unix()) {
-			t.Fatalf("authorization = %s", auth)
+			t.Errorf("authorization = %s", auth)
 		}
 		message := []byte(
 			"POST\n" + weChatJSAPIPath + "\n" +
