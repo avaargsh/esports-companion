@@ -42,13 +42,16 @@ The goal is not to clone every WeUI component. The starter keeps a small semanti
    - Components render state and emit intent.
    - Order/payment/withdrawal state machines remain in domain/API layers.
 
-## Design tokens
+## Theme vs foundation
 
-Global tokens live in:
+The starter deliberately separates **brand/theme choices** from **structural UI contracts**:
 
-`apps/miniapp/src/styles/foundation.css`
+- `apps/miniapp/src/styles/theme.css` — replaceable product palette, semantic colors, light/dark product surfaces and elevation.
+- `apps/miniapp/src/styles/foundation.css` — spacing, radii, control heights, safe-area/layout helpers, motion and shared structural behavior.
 
-The existing product variables remain stable:
+For a fork/rebrand, start with `theme.css`. Do not edit business pages merely to replace the primary color.
+
+Theme variables include:
 
 - `--brand`, `--brand-soft`
 - `--ink`, `--muted`
@@ -57,14 +60,30 @@ The existing product variables remain stable:
 - `--radius-*`
 - `--shadow-card`, `--shadow-float`
 
-Additional layout contracts:
+Foundation/layout contracts:
 
 - `--tap-min: 88rpx`
 - `--control-height: 88rpx`
 - `--control-height-sm: 72rpx`
 - `--space-1 ... --space-6`
 
-Pages should prefer semantic tokens over introducing new one-off colors.
+Pages should prefer semantic tokens over introducing new one-off colors. Product-specific surfaces such as the home hero or provider workspace should also consume named theme variables rather than repeating palette literals.
+
+## UI Showcase
+
+A real Mini Program showcase page lives at:
+
+`/pages/ui-showcase/index`
+
+It renders the current theme tokens and shared primitives directly:
+
+- buttons and interaction states;
+- semantic badges;
+- static vs clickable cells;
+- empty-state treatment;
+- provider/dark surface behavior.
+
+Use it as the first visual smoke test after changing `theme.css`. It is intentionally not a tab-bar destination or production workflow; it exists as a starter/development reference surface.
 
 ## Built-in primitives
 
@@ -229,11 +248,11 @@ Examples:
 
 The backend remains authoritative and idempotent; the Mini Program should surface the backend result clearly.
 
-## Dark mode
+## Dark surfaces and future dark mode
 
-The current product theme is light-only. Do not add partial dark-mode overrides page by page.
+The customer product remains light-first, while provider/workbench surfaces intentionally use dark product tokens from `theme.css`. This is **not** a global dark-mode implementation.
 
-If dark mode becomes a product requirement, add it at the token layer first and validate all primitives before enabling it globally. Official WeUI Mini Program supports a root dark-mode theme and is the visual reference for that future work.
+If global dark mode becomes a product requirement, add a complete token override at the theme layer and validate the Showcase/primitives before enabling it. Do not add unrelated page-by-page dark overrides.
 
 ## Performance / package size
 
