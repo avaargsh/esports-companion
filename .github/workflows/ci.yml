@@ -159,6 +159,87 @@ jobs:
         run: docker run --rm -e APP_ENV=test esports-companion-api:ci python -c "import app.main"
 
 
+  sample-product-01:
+    name: Sample Product 01
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: esports
+          POSTGRES_PASSWORD: esports
+          POSTGRES_DB: esports_sample_product_01
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U esports -d esports_sample_product_01"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+    env:
+      DATABASE_URL: postgresql+psycopg://esports:esports@localhost:5432/esports_sample_product_01
+      REDIS_URL: redis://localhost:6379/0
+      APP_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install API
+        working-directory: services/api
+        run: pip install -e .
+      - name: Migrate and seed sample product
+        working-directory: services/api
+        run: |
+          alembic upgrade head
+          python -m app.seed
+      - name: Start API
+        working-directory: services/api
+        run: |
+          uvicorn app.main:app --host 127.0.0.1 --port 8000 > /tmp/sample-product-01-api.log 2>&1 &
+          echo $! > /tmp/sample-product-01-api.pid
+      - name: Run marketplace closed loop
+        run: |
+          mkdir -p /tmp/sample-product-01
+          python3 scripts/sample_product_01.py \
+            --evidence /tmp/sample-product-01/evidence.json
+      - name: Verify evidence contract
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          evidence = json.loads(Path("/tmp/sample-product-01/evidence.json").read_text())
+          assert evidence["schemaVersion"] == 1
+          assert evidence["scenarioId"] == "sample-product-01-on-demand-service"
+          assert evidence["status"] == "PASS"
+          assert evidence["order"]["statePath"] == [
+              "WAITING_PAYMENT",
+              "MATCHING",
+              "ACCEPTED",
+              "IN_SERVICE",
+              "FINISH_REQUESTED",
+              "SETTLED",
+          ]
+          assert evidence["valueFlow"]["providerIncomeDelta"] == evidence["order"]["providerAmount"]
+          assert evidence["reputationFlow"]["publicVisible"] is True
+          assert all(step["status"] == "PASS" for step in evidence["steps"])
+          PY
+      - name: Upload sample product evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: sample-product-01-${{ github.sha }}
+          path: /tmp/sample-product-01/evidence.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Show API logs on failure
+        if: failure()
+        run: cat /tmp/sample-product-01-api.log || true
+
   smoke:
     runs-on: ubuntu-latest
     services:
@@ -355,6 +436,7 @@ jobs:
       - miniapp-starter
       - admin
       - api-image
+      - sample-product-01
       - smoke
       - backup-restore
       - ingress
@@ -370,6 +452,7 @@ jobs:
           STARTER_RESULT: ${{ needs['miniapp-starter'].result }}
           ADMIN_RESULT: ${{ needs.admin.result }}
           API_IMAGE_RESULT: ${{ needs['api-image'].result }}
+          SAMPLE_PRODUCT_01_RESULT: ${{ needs['sample-product-01'].result }}
           SMOKE_RESULT: ${{ needs.smoke.result }}
           BACKUP_RESTORE_RESULT: ${{ needs['backup-restore'].result }}
           INGRESS_RESULT: ${{ needs.ingress.result }}
@@ -382,6 +465,7 @@ jobs:
             "$STARTER_RESULT" \
             "$ADMIN_RESULT" \
             "$API_IMAGE_RESULT" \
+            "$SAMPLE_PRODUCT_01_RESULT" \
             "$SMOKE_RESULT" \
             "$BACKUP_RESTORE_RESULT" \
             "$INGRESS_RESULT" \
