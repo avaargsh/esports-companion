@@ -456,11 +456,33 @@ ages multiple finish requests and accepted assignments past their thresholds,
 then requires exactly-once settlement/requeue evidence, exact wallet/ledger
 deltas, and Redis pool restoration.
 
-#### M5.4+
+#### M5.4 - Refund reconciliation scheduler
 
-Remaining background slices:
+Go owns periodic recovery for provider refunds whose callback may be delayed or
+lost:
 
-- refund reconciliation scheduler;
+- scan only WECHAT refunds in `SUBMITTING` / `PROCESSING` with a stable
+  `out_refund_no`;
+- preserve the reference min-age gate before provider queries;
+- use a PostgreSQL advisory lock keyed by refund id so multiple worker processes
+  do not query the provider concurrently for the same refund;
+- keep provider network I/O outside business row locks by reusing the existing
+  two-phase M4.4 `Service.Reconcile` path;
+- re-lock and revalidate refund/order/payment state before applying provider
+  truth;
+- completed refunds remain idempotent and append exactly one
+  `REFUND_COMPLETED` OrderEvent + OutboxEvent;
+- per-refund provider/query errors are isolated and retried on later scans;
+- manual refunds do not run the scheduler.
+
+Acceptance starts two Go worker processes against a delayed signed local WeChat
+query fixture, ages a mixed SUBMITTING/PROCESSING batch, and requires each due
+refund to reach provider query exactly once while fresh refunds remain untouched.
+
+#### M5.5+
+
+Remaining background slice:
+
 - operational metrics worker.
 
 Workers must use the same durable tables and idempotency rules; do not introduce

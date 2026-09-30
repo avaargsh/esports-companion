@@ -33,7 +33,7 @@ go mod download
 go test -race ./...
 go run ./cmd/api
 
-# Background runtime (outbox + timeout scanner)
+# Background runtime (outbox + timeout + refund recovery)
 go run ./cmd/worker
 ```
 
@@ -72,6 +72,9 @@ FINISH_CONFIRM_TIMEOUT_SECONDS=1800
 ASSIGNMENT_START_TIMEOUT_SECONDS=600
 ORDER_TIMEOUT_SCAN_SECONDS=30
 ORDER_TIMEOUT_BATCH_SIZE=50
+REFUND_RECONCILE_SCAN_SECONDS=60
+REFUND_RECONCILE_MIN_AGE_SECONDS=30
+REFUND_RECONCILE_BATCH_SIZE=20
 ```
 
 The loader accepts the current Python-style
@@ -160,7 +163,8 @@ internal/modules/        vertical business modules
 internal/ports/          Auth/Payment/Refund external contracts
 internal/platform/       pgx, redis, metrics, HTTP, state machine
 internal/workers/outbox/       transactional outbox -> Redis Pub/Sub
-internal/workers/ordertimeout/  auto-confirm + assignment timeout scanner
+internal/workers/ordertimeout/    auto-confirm + assignment timeout scanner
+internal/workers/refundreconcile/ refund provider recovery scheduler
 ```
 
 ## Branch rule

@@ -49,6 +49,9 @@ type Config struct {
 	AssignmentStartTimeout       time.Duration
 	OrderTimeoutScanInterval     time.Duration
 	OrderTimeoutBatchSize        int
+	RefundReconcileScanInterval  time.Duration
+	RefundReconcileMinAge        time.Duration
+	RefundReconcileBatchSize     int
 	ShutdownTimeout              time.Duration
 }
 
@@ -162,6 +165,18 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	refundReconcileScanSeconds, err := envInt("REFUND_RECONCILE_SCAN_SECONDS", 60)
+	if err != nil {
+		return Config{}, err
+	}
+	refundReconcileMinAgeSeconds, err := envInt("REFUND_RECONCILE_MIN_AGE_SECONDS", 30)
+	if err != nil {
+		return Config{}, err
+	}
+	refundReconcileBatchSize, err := envInt("REFUND_RECONCILE_BATCH_SIZE", 20)
+	if err != nil {
+		return Config{}, err
+	}
 	shutdownSeconds, err := envInt("SHUTDOWN_TIMEOUT_SECONDS", 15)
 	if err != nil {
 		return Config{}, err
@@ -204,6 +219,9 @@ func Load() (Config, error) {
 		AssignmentStartTimeout:       time.Duration(assignmentStartSeconds) * time.Second,
 		OrderTimeoutScanInterval:     time.Duration(orderTimeoutScanSeconds) * time.Second,
 		OrderTimeoutBatchSize:        orderTimeoutBatchSize,
+		RefundReconcileScanInterval:  time.Duration(refundReconcileScanSeconds) * time.Second,
+		RefundReconcileMinAge:        time.Duration(refundReconcileMinAgeSeconds) * time.Second,
+		RefundReconcileBatchSize:     refundReconcileBatchSize,
 		ShutdownTimeout:              time.Duration(shutdownSeconds) * time.Second,
 	}
 
@@ -263,6 +281,15 @@ func (c Config) Validate() error {
 	}
 	if c.OrderTimeoutBatchSize <= 0 || c.OrderTimeoutBatchSize > 500 {
 		return errors.New("ORDER_TIMEOUT_BATCH_SIZE_INVALID")
+	}
+	if c.RefundReconcileScanInterval <= 0 {
+		return errors.New("REFUND_RECONCILE_SCAN_MUST_BE_POSITIVE")
+	}
+	if c.RefundReconcileMinAge < 0 {
+		return errors.New("REFUND_RECONCILE_MIN_AGE_MUST_NOT_BE_NEGATIVE")
+	}
+	if c.RefundReconcileBatchSize <= 0 || c.RefundReconcileBatchSize > 500 {
+		return errors.New("REFUND_RECONCILE_BATCH_SIZE_INVALID")
 	}
 	if c.ShutdownTimeout <= 0 {
 		return errors.New("SHUTDOWN_TIMEOUT_INVALID")

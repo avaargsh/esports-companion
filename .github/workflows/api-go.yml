@@ -23,6 +23,7 @@ on:
       - "scripts/go_outbox_parity.py"
       - "scripts/go_realtime_parity.py"
       - "scripts/go_order_timeout_parity.py"
+      - "scripts/go_refund_reconcile_worker_parity.py"
       - "docs/go-backend-migration.md"
       - ".github/workflows/api-go.yml"
   pull_request:
@@ -45,6 +46,7 @@ on:
       - "scripts/go_outbox_parity.py"
       - "scripts/go_realtime_parity.py"
       - "scripts/go_order_timeout_parity.py"
+      - "scripts/go_refund_reconcile_worker_parity.py"
       - "docs/go-backend-migration.md"
       - ".github/workflows/api-go.yml"
 
@@ -243,6 +245,9 @@ jobs:
       - name: Compare M5.3 order timeout worker contracts
         run: python3 scripts/go_order_timeout_parity.py
 
+      - name: Compare M5.4 refund reconciliation worker contracts
+        run: python3 scripts/go_refund_reconcile_worker_parity.py
+
       - name: Dump runtime logs on failure
         if: failure()
         run: |
@@ -260,6 +265,10 @@ jobs:
           cat /tmp/api-go-timeout-worker-1.log || true
           echo "=== Go timeout worker 2 ==="
           cat /tmp/api-go-timeout-worker-2.log || true
+          echo "=== Go refund worker 1 ==="
+          cat /tmp/api-go-refund-worker-1.log || true
+          echo "=== Go refund worker 2 ==="
+          cat /tmp/api-go-refund-worker-2.log || true
 
       - name: Stop runtimes
         if: always()
