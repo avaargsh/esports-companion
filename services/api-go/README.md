@@ -83,6 +83,7 @@ The loader accepts the current Python-style
 - `GET /api/v1/players`
 - `GET /api/v1/players/{player_id}`
 - `GET /api/v1/orders`
+- `POST /api/v1/orders`
 - `GET /api/v1/orders/{order_id}`
 - `GET /api/v1/orders/{order_id}/events`
 
@@ -100,13 +101,16 @@ make go-parity
 ```
 
 The parity target checks M1 read responses, M2 cross-runtime authentication,
-M2.1 offering management, and the first M3 order read slice:
+M2.1 offering management, the M3 order read slice, and M3.1 order creation:
 FastAPI-issued access/refresh tokens must work through Go, Go-issued tokens must
 work through FastAPI, and refresh-token reuse/logout revocations must be visible
 from both runtimes. M3 parity creates/pays/claims an order through FastAPI, then
 requires Go to read the exact same customer list, order detail, assigned provider,
 OrderEvent evidence, and customer/player/platform access outcomes from shared
-PostgreSQL truth.
+PostgreSQL truth. M3.1 then gives Go ownership of one bounded write: order
+creation. The parity gate verifies pooled and designated order economics,
+self-order rejection, input/error compatibility, and the atomic
+`orders + ORDER_CREATED + outbox_events` durable evidence set.
 
 Marketplace list reads use a bounded batch strategy rather than copying the
 reference implementation's per-player N+1 query pattern. The observable filter
