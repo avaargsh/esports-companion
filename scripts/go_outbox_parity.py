@@ -44,6 +44,7 @@ def start_worker(index: int) -> tuple[subprocess.Popen[bytes], Any]:
     env = os.environ.copy()
     env["OUTBOX_POLL_INTERVAL_MS"] = "25"
     env["OUTBOX_BATCH_SIZE"] = "10"
+    env["WORKER_METRICS_ADDR"] = f"127.0.0.1:{19100 + index}"
     log = open(f"/tmp/api-go-outbox-worker-{index}.log", "wb")
     process = subprocess.Popen(
         ["/tmp/esports-worker-go"],
