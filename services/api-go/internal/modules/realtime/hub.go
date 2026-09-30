@@ -37,8 +37,8 @@ type Hub struct {
 	redis  *redis.Client
 	logger *slog.Logger
 
-	mu            sync.RWMutex
-	subscriptions map[string]map[*client]struct{}
+	mu             sync.RWMutex
+	subscriptions  map[string]map[*client]struct{}
 	clientChannels map[*client]map[string]struct{}
 }
 
