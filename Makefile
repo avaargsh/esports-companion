@@ -35,6 +35,7 @@ go-parity:
 	python3 scripts/go_order_create_parity.py
 	python3 scripts/go_claim_parity.py
 	python3 scripts/go_lifecycle_parity.py
+	python3 scripts/go_settlement_parity.py
 
 smoke:
 	python3 scripts/smoke_demo.py
