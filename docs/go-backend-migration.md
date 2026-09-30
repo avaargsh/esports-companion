@@ -416,11 +416,30 @@ starts two Go worker processes against the same PostgreSQL/Redis, inserts 40
 PENDING events, and requires each event to be observed once on both expected
 Redis channels and end as PUBLISHED with `published_at` set.
 
-#### M5.2+
+#### M5.2 - Authenticated realtime bridge
+
+Go owns the realtime delivery edge:
+
+- `GET /ws` preserves the existing FastAPI subscription protocol;
+- dev query identity and secure Bearer authentication reuse the shared auth/session module;
+- subscription authorization supports only `user:<uuid>` and `order:<uuid>` channels;
+- order subscriptions are limited to customer owner, current ACTIVE provider assignment, or PLATFORM;
+- every order-channel delivery revalidates the current PostgreSQL audience before fanout;
+- every API instance pattern-subscribes to namespaced Redis `realtime:*` channels, so horizontal API replicas receive the same transport event and fan out only to their local sockets;
+- M5.1 at-least-once duplicates are suppressed per connection by durable `eventId` with a bounded dedupe window;
+- each client has a bounded send queue; slow consumers are disconnected rather than allowing unbounded memory growth;
+- Redis reconnects are retried without turning Redis into durable event truth.
+
+Acceptance runs FastAPI plus two Go API replicas against one PostgreSQL/Redis pair.
+It verifies subscription/error parity, customer/player/platform authorization,
+dynamic provider deauthorization after assignment release, one Redis publish
+reaching sockets attached to different Go replicas, and duplicate eventId
+suppression on both replicas.
+
+#### M5.3+
 
 Next background slices:
 
-- Redis -> authenticated WebSocket realtime bridge;
 - order timeout scanner;
 - refund reconciliation scheduler;
 - operational metrics worker.
