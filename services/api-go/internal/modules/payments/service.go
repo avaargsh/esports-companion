@@ -8,14 +8,16 @@ import (
 )
 
 type Service struct {
-	repo         Repository
-	mockProvider ports.PaymentProvider
+	repo               Repository
+	configuredProvider ports.PaymentProvider
+	mockProvider       ports.PaymentProvider
 }
 
-func NewService(repo Repository) Service {
+func NewService(repo Repository, configuredProvider ports.PaymentProvider) Service {
 	return Service{
-		repo:         repo,
-		mockProvider: MockProvider{},
+		repo:               repo,
+		configuredProvider: configuredProvider,
+		mockProvider:       MockProvider{},
 	}
 }
 
@@ -31,5 +33,20 @@ func (s Service) PayMock(
 		orderID,
 		idempotencyKey,
 		s.mockProvider,
+	)
+}
+
+func (s Service) Prepare(
+	ctx context.Context,
+	userID string,
+	orderID string,
+	idempotencyKey string,
+) (Preparation, error) {
+	return s.repo.Prepare(
+		ctx,
+		userID,
+		orderID,
+		idempotencyKey,
+		s.configuredProvider,
 	)
 }
