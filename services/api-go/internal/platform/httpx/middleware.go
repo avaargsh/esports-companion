@@ -47,6 +47,19 @@ func Error(w http.ResponseWriter, status int, detail string) {
 	JSONValue(w, status, map[string]string{"detail": detail})
 }
 
+func MissingValidationError(w http.ResponseWriter, location, field string) {
+	JSONValue(w, http.StatusUnprocessableEntity, map[string]any{
+		"detail": []map[string]any{
+			{
+				"type":  "missing",
+				"loc":   []string{location, field},
+				"msg":   "Field required",
+				"input": nil,
+			},
+		},
+	})
+}
+
 func ValidationError(w http.ResponseWriter, location, field, message string) {
 	JSONValue(w, http.StatusUnprocessableEntity, map[string]any{
 		"detail": []map[string]any{
