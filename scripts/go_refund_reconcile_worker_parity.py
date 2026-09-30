@@ -106,6 +106,7 @@ def start_worker(
             "ASSIGNMENT_START_TIMEOUT_SECONDS": "315360000",
             "ORDER_TIMEOUT_SCAN_SECONDS": "3600",
             "OUTBOX_POLL_INTERVAL_MS": "60000",
+            "WORKER_METRICS_ADDR": f"127.0.0.1:{19300 + int(name)}",
         }
     )
     log = open(f"/tmp/api-go-refund-worker-{name}.log", "wb")

@@ -479,11 +479,30 @@ Acceptance starts two Go worker processes against a delayed signed local WeChat
 query fixture, ages a mixed SUBMITTING/PROCESSING batch, and requires each due
 refund to reach provider query exactly once while fresh refunds remain untouched.
 
-#### M5.5+
+#### M5.5 - Worker operational metrics
 
-Remaining background slice:
+Go owns the background operational-metrics scan and an internal-only worker
+metrics endpoint:
 
-- operational metrics worker.
+- `GET /livez` and `GET /metrics` on `WORKER_METRICS_ADDR`;
+- PostgreSQL-derived gauge names remain compatible with the FastAPI reference,
+  preserving existing dashboards and alert rules through cutover;
+- outbox pending count + oldest age;
+- refund in-flight count + oldest age + reconcile-due count;
+- withdrawal pending count + oldest age;
+- dispute open/resolving count + oldest age;
+- finish-request pending/overdue count + oldest age;
+- accepted-assignment start-overdue count;
+- worker cycle result, duration, item outcome and last-success metrics.
+
+Business workers depend only on a small cycle-observer interface; Prometheus
+types stay in the platform layer. Metrics remain read-only observations and
+never become a queue, lease or source of truth.
+
+Acceptance starts the real Go worker, waits for its first empty business cycles,
+then injects PostgreSQL backlog/overdue fixtures while mutation workers are held
+on long poll intervals. The one-second operational scanner must expose the
+corresponding gauge deltas and healthy worker-cycle metrics.
 
 Workers must use the same durable tables and idempotency rules; do not introduce
 a parallel queue truth during migration.

@@ -33,8 +33,12 @@ go mod download
 go test -race ./...
 go run ./cmd/api
 
-# Background runtime (outbox + timeout + refund recovery)
+# Background runtime (outbox + timeout + refund recovery + operational metrics)
 go run ./cmd/worker
+
+# Internal-only worker surface
+# http://127.0.0.1:9091/livez
+# http://127.0.0.1:9091/metrics
 ```
 
 It accepts the existing environment variables:
@@ -75,6 +79,8 @@ ORDER_TIMEOUT_BATCH_SIZE=50
 REFUND_RECONCILE_SCAN_SECONDS=60
 REFUND_RECONCILE_MIN_AGE_SECONDS=30
 REFUND_RECONCILE_BATCH_SIZE=20
+WORKER_METRICS_ADDR=:9091
+OPERATIONAL_METRICS_SCAN_SECONDS=15
 ```
 
 The loader accepts the current Python-style
@@ -165,6 +171,7 @@ internal/platform/       pgx, redis, metrics, HTTP, state machine
 internal/workers/outbox/       transactional outbox -> Redis Pub/Sub
 internal/workers/ordertimeout/    auto-confirm + assignment timeout scanner
 internal/workers/refundreconcile/ refund provider recovery scheduler
+internal/workers/workerobs/        transport-neutral cycle observer contract
 ```
 
 ## Branch rule

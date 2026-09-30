@@ -10,6 +10,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
+
+	"github.com/avaargsh/esports-companion/services/api-go/internal/workers/workerobs"
 )
 
 type Worker struct {
@@ -18,6 +20,7 @@ type Worker struct {
 	logger       *slog.Logger
 	pollInterval time.Duration
 	batchSize    int
+	observer     workerobs.CycleObserver
 }
 
 type event struct {
@@ -35,6 +38,7 @@ func New(
 	logger *slog.Logger,
 	pollInterval time.Duration,
 	batchSize int,
+	observer workerobs.CycleObserver,
 ) *Worker {
 	return &Worker{
 		db:           db,
@@ -42,6 +46,7 @@ func New(
 		logger:       logger,
 		pollInterval: pollInterval,
 		batchSize:    batchSize,
+		observer:     workerobs.OrNop(observer),
 	}
 }
 
@@ -50,7 +55,20 @@ func (w *Worker) Run(ctx context.Context) error {
 	defer ticker.Stop()
 
 	for {
-		if err := w.drain(ctx); err != nil {
+		started := time.Now()
+		processed, err := w.drain(ctx)
+		failures := 0
+		if err != nil {
+			failures = 1
+		}
+		w.observer.ObserveCycle(
+			"outbox",
+			time.Since(started),
+			processed,
+			failures,
+			err,
+		)
+		if err != nil {
 			if ctx.Err() != nil {
 				return nil
 			}
@@ -65,17 +83,19 @@ func (w *Worker) Run(ctx context.Context) error {
 	}
 }
 
-func (w *Worker) drain(ctx context.Context) error {
+func (w *Worker) drain(ctx context.Context) (int, error) {
+	processed := 0
 	for i := 0; i < w.batchSize; i++ {
 		found, err := w.publishOne(ctx)
 		if err != nil {
-			return err
+			return processed, err
 		}
 		if !found {
-			return nil
+			return processed, nil
 		}
+		processed++
 	}
-	return nil
+	return processed, nil
 }
 
 func (w *Worker) publishOne(ctx context.Context) (bool, error) {

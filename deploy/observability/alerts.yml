@@ -51,6 +51,35 @@ groups:
           summary: PostgreSQL operational metrics scan is failing
           runbook: docs/alert-runbook.md#operational-metrics-scan-failed
 
+      - alert: EsportsCompanionWorkerMetricsStale
+        expr: |
+          time() - esports_worker_last_success_unixtime{worker="operational-metrics"} > 60
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Go worker operational metrics scan has not completed successfully
+          runbook: docs/alert-runbook.md#background-worker-stalled
+
+      - alert: EsportsCompanionOutboxWorkerStale
+        expr: |
+          time() - esports_worker_last_success_unixtime{worker="outbox"} > 120
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Go transactional outbox worker has not completed a successful cycle
+          runbook: docs/alert-runbook.md#background-worker-stalled
+
+      - alert: EsportsCompanionAssignmentStartOverdue
+        expr: esports_assignments_start_overdue > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: accepted orders exceeded the configured provider start timeout
+          runbook: docs/alert-runbook.md#background-worker-stalled
+
       - alert: EsportsCompanionOutboxStuck
         expr: |
           esports_outbox_pending > 0

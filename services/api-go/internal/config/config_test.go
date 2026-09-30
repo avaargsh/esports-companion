@@ -84,40 +84,42 @@ func TestSecureDeploymentRequiresPaymentCredentials(t *testing.T) {
 
 func TestSecureDeploymentRejectsNonPublicNotifyURL(t *testing.T) {
 	cfg := Config{
-		AppEnv:                       "staging",
-		DatabaseURL:                  "postgresql://u:p@db:5432/app",
-		RedisURL:                     "redis://redis:6379/0",
-		DatabaseMaxConns:             4,
-		DatabaseMinConns:             1,
-		RedisPoolSize:                4,
-		ReadinessRequireRedis:        true,
-		AuthProvider:                 "wechat",
-		PaymentProvider:              "wechat",
-		RefundProvider:               "manual",
-		SessionSigningKey:            "01234567890123456789012345678901",
-		AccessTokenTTLSeconds:        900,
-		RefreshTokenTTLSeconds:       3600,
-		WeChatAppID:                  "wx-test",
-		WeChatAppSecret:              "secret",
-		WeChatAuthTimeout:            time.Second,
-		WeChatMchID:                  "mch",
-		WeChatMchCertSerial:          "serial",
-		WeChatMchPrivateKey:          "key",
-		WeChatNotifyURL:              "http://127.0.0.1/callback",
-		WeChatPayAPIV3Key:            "01234567890123456789012345678901",
-		WeChatPayPlatformCertSerial:  "platform-serial",
-		WeChatPayPlatformCertificate: "certificate",
-		WeChatPayTimeout:             time.Second,
-		OutboxPollInterval:           500 * time.Millisecond,
-		OutboxBatchSize:              50,
-		FinishConfirmTimeout:         30 * time.Minute,
-		AssignmentStartTimeout:       10 * time.Minute,
-		OrderTimeoutScanInterval:     30 * time.Second,
-		OrderTimeoutBatchSize:        50,
-		RefundReconcileScanInterval:  time.Minute,
-		RefundReconcileMinAge:        30 * time.Second,
-		RefundReconcileBatchSize:     20,
-		ShutdownTimeout:              time.Second,
+		AppEnv:                         "staging",
+		DatabaseURL:                    "postgresql://u:p@db:5432/app",
+		RedisURL:                       "redis://redis:6379/0",
+		DatabaseMaxConns:               4,
+		DatabaseMinConns:               1,
+		RedisPoolSize:                  4,
+		ReadinessRequireRedis:          true,
+		AuthProvider:                   "wechat",
+		PaymentProvider:                "wechat",
+		RefundProvider:                 "manual",
+		SessionSigningKey:              "01234567890123456789012345678901",
+		AccessTokenTTLSeconds:          900,
+		RefreshTokenTTLSeconds:         3600,
+		WeChatAppID:                    "wx-test",
+		WeChatAppSecret:                "secret",
+		WeChatAuthTimeout:              time.Second,
+		WeChatMchID:                    "mch",
+		WeChatMchCertSerial:            "serial",
+		WeChatMchPrivateKey:            "key",
+		WeChatNotifyURL:                "http://127.0.0.1/callback",
+		WeChatPayAPIV3Key:              "01234567890123456789012345678901",
+		WeChatPayPlatformCertSerial:    "platform-serial",
+		WeChatPayPlatformCertificate:   "certificate",
+		WeChatPayTimeout:               time.Second,
+		OutboxPollInterval:             500 * time.Millisecond,
+		OutboxBatchSize:                50,
+		FinishConfirmTimeout:           30 * time.Minute,
+		AssignmentStartTimeout:         10 * time.Minute,
+		OrderTimeoutScanInterval:       30 * time.Second,
+		OrderTimeoutBatchSize:          50,
+		RefundReconcileScanInterval:    time.Minute,
+		RefundReconcileMinAge:          30 * time.Second,
+		RefundReconcileBatchSize:       20,
+		OperationalMetricsScanInterval: 15 * time.Second,
+		WorkerMetricsAddr:              ":9091",
+		ShutdownTimeout:                time.Second,
 	}
 	err := cfg.Validate()
 	if err == nil || !strings.Contains(err.Error(), "WECHAT_NOTIFY_URL_MUST_BE_PUBLIC_HTTPS") {
@@ -192,5 +194,21 @@ func TestRefundReconcileWorkerConfig(t *testing.T) {
 	_, err = Load()
 	if err == nil || !strings.Contains(err.Error(), "REFUND_RECONCILE_BATCH_SIZE_INVALID") {
 		t.Fatalf("expected refund reconcile batch validation, got %v", err)
+	}
+}
+
+func TestOperationalMetricsConfigMustBePositive(t *testing.T) {
+	t.Setenv("APP_ENV", "dev")
+	t.Setenv("OPERATIONAL_METRICS_SCAN_SECONDS", "0")
+	_, err := Load()
+	if err == nil || !strings.Contains(err.Error(), "OPERATIONAL_METRICS_SCAN_MUST_BE_POSITIVE") {
+		t.Fatalf("expected operational metrics scan validation, got %v", err)
+	}
+
+	t.Setenv("OPERATIONAL_METRICS_SCAN_SECONDS", "15")
+	t.Setenv("WORKER_METRICS_ADDR", "")
+	_, err = Load()
+	if err == nil || !strings.Contains(err.Error(), "WORKER_METRICS_ADDR_REQUIRED") {
+		t.Fatalf("expected worker metrics address validation, got %v", err)
 	}
 }

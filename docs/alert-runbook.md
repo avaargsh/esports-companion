@@ -90,3 +90,19 @@ may be stale; do not assume a zero gauge is healthy until scanning recovers.
 3. Check the timeout worker logs and whether the scheduler loop is running.
 4. Confirm there is no open dispute before any completion action.
 5. Do not mutate the order row manually; restore the existing auto-confirm path or use the supported domain action.
+
+## Background worker stalled
+
+**Alerts:** `EsportsCompanionWorkerMetricsStale`,
+`EsportsCompanionOutboxWorkerStale`,
+`EsportsCompanionAssignmentStartOverdue`
+
+1. Check the private Go worker `/livez` and `/metrics` surface.
+2. Inspect `esports_worker_cycles_total` by worker/result and the latest
+   `esports_worker_last_success_unixtime`.
+3. Check PostgreSQL connectivity before treating zero backlog gauges as healthy;
+   `esports_operational_metrics_scan_success=0` means those gauges may be stale.
+4. For outbox stalls, restore Redis publish connectivity and let the at-least-once
+   publisher drain durable PENDING rows; do not delete the backlog.
+5. For assignment timeout backlog, inspect order locks and timeout worker errors.
+   Do not mutate order/assignment rows manually; restore the existing timeout path.

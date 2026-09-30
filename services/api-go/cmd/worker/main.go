@@ -7,8 +7,11 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/avaargsh/esports-companion/services/api-go/internal/config"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/refunds"
+	metricsx "github.com/avaargsh/esports-companion/services/api-go/internal/platform/metrics"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/platform/postgresx"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/platform/redisx"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/workers/ordertimeout"
@@ -66,12 +69,27 @@ func main() {
 		os.Exit(1)
 	}
 
+	registry := prometheus.NewRegistry()
+	workerMetrics := metricsx.NewWorker(registry)
+	metricsScanner := metricsx.NewOperationalScanner(
+		pg,
+		workerMetrics,
+		logger,
+		cfg.OperationalMetricsScanInterval,
+		cfg.FinishConfirmTimeout,
+		cfg.OrderTimeoutScanInterval,
+		cfg.AssignmentStartTimeout,
+		cfg.RefundReconcileMinAge,
+	)
+	metricsServer := metricsx.NewServer(cfg.WorkerMetricsAddr, registry)
+
 	publisher := outbox.New(
 		pg,
 		redisClient,
 		logger,
 		cfg.OutboxPollInterval,
 		cfg.OutboxBatchSize,
+		workerMetrics,
 	)
 	timeoutWorker := ordertimeout.New(
 		pg,
@@ -81,6 +99,7 @@ func main() {
 		cfg.FinishConfirmTimeout,
 		cfg.AssignmentStartTimeout,
 		cfg.OrderTimeoutBatchSize,
+		workerMetrics,
 	)
 
 	refundProvider, err := refunds.ProviderFromConfig(cfg)
@@ -96,6 +115,7 @@ func main() {
 		cfg.RefundReconcileScanInterval,
 		cfg.RefundReconcileMinAge,
 		cfg.RefundReconcileBatchSize,
+		workerMetrics,
 	)
 
 	logger.Info(
@@ -107,6 +127,8 @@ func main() {
 		"refund_reconcile_enabled", refundreconcile.Enabled(cfg.RefundProvider),
 		"refund_reconcile_scan_interval", cfg.RefundReconcileScanInterval.String(),
 		"refund_reconcile_batch_size", cfg.RefundReconcileBatchSize,
+		"worker_metrics_addr", cfg.WorkerMetricsAddr,
+		"operational_metrics_scan_interval", cfg.OperationalMetricsScanInterval.String(),
 	)
 
 	type workerResult struct {
@@ -115,7 +137,7 @@ func main() {
 	}
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	results := make(chan workerResult, 3)
+	results := make(chan workerResult, 5)
 	go func() {
 		results <- workerResult{name: "outbox", err: publisher.Run(runCtx)}
 	}()
@@ -125,18 +147,24 @@ func main() {
 	go func() {
 		results <- workerResult{name: "refund-reconcile", err: refundWorker.Run(runCtx)}
 	}()
+	go func() {
+		results <- workerResult{name: "operational-metrics", err: metricsScanner.Run(runCtx)}
+	}()
+	go func() {
+		results <- workerResult{name: "metrics-server", err: metricsServer.Run(runCtx)}
+	}()
 
 	select {
 	case <-ctx.Done():
 		cancel()
-		for range 3 {
+		for range 5 {
 			<-results
 		}
 		logger.Info("background_workers_stopped")
 	case result := <-results:
 		cancel()
 		remaining := []workerResult{result}
-		for range 2 {
+		for range 4 {
 			remaining = append(remaining, <-results)
 		}
 		for _, item := range remaining {
