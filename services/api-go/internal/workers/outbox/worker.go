@@ -27,7 +27,6 @@ type event struct {
 	EventType     string
 	Payload       map[string]any
 	CustomerID    string
-	PlayerID      string
 }
 
 func New(
@@ -176,18 +175,6 @@ func loadOne(ctx context.Context, tx pgx.Tx) (event, bool, error) {
 			WHERE id::text = $1
 		`, item.AggregateID).Scan(&item.CustomerID); err != nil && err != pgx.ErrNoRows {
 			return event{}, false, fmt.Errorf("load outbox order customer: %w", err)
-		}
-
-		if err := tx.QueryRow(ctx, `
-			SELECT p.user_id::text
-			FROM order_assignments a
-			JOIN player_profiles p ON p.id = a.player_id
-			WHERE a.order_id::text = $1
-			  AND a.status = 'ACTIVE'
-			ORDER BY a.created_at DESC
-			LIMIT 1
-		`, item.AggregateID).Scan(&item.PlayerID); err != nil && err != pgx.ErrNoRows {
-			return event{}, false, fmt.Errorf("load outbox active player: %w", err)
 		}
 	}
 	return item, true, nil
