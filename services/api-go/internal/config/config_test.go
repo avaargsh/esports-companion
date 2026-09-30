@@ -110,6 +110,10 @@ func TestSecureDeploymentRejectsNonPublicNotifyURL(t *testing.T) {
 		WeChatPayTimeout:             time.Second,
 		OutboxPollInterval:           500 * time.Millisecond,
 		OutboxBatchSize:              50,
+		FinishConfirmTimeout:         30 * time.Minute,
+		AssignmentStartTimeout:       10 * time.Minute,
+		OrderTimeoutScanInterval:     30 * time.Second,
+		OrderTimeoutBatchSize:        50,
 		ShutdownTimeout:              time.Second,
 	}
 	err := cfg.Validate()
