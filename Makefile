@@ -22,7 +22,7 @@ go-test:
 	cd services/api-go && go test -race ./...
 
 go-build:
-	cd services/api-go && go build ./cmd/api
+	cd services/api-go && go build ./cmd/api ./cmd/worker
 
 go-run:
 	cd services/api-go && go run ./cmd/api
