@@ -44,6 +44,7 @@
     "finalOrderState": "SETTLED",
     "providerValueFlow": "wallet delta equals order.player_amount and PROVIDER_INCOME ledger exists",
     "reputationFlow": "submitted review is visible in the provider public profile",
-    "orderEvidence": "append-only OrderEvent.to_status values cover the expected state path in order"
+    "orderEvidence": "append-only OrderEvent.to_status values cover the expected state path in order",
+    "supplyStorefront": "provider has non-placeholder profile, verified skills and multiple active offerings"
   }
 }
