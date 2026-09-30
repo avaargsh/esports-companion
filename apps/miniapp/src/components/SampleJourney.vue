@@ -47,7 +47,7 @@ withDefaults(defineProps<{
 .journey-track{display:flex;gap:7rpx;margin-top:17rpx}
 .journey-track-item{height:5rpx;flex:1;border-radius:999rpx;background:var(--line)}
 .journey-track-item.active{background:var(--brand)}
-.journey.dark{border-color:var(--inverse-line);background:var(--inverse-surface);box-shadow:none}
+.journey.dark{border-color:rgba(255,255,255,.05);background:var(--inverse-surface);box-shadow:none}
 .journey.dark .journey-title{color:#fff}
 .journey.dark .journey-desc{color:var(--inverse-muted)}
 .journey.dark .journey-step{color:#777582}
