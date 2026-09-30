@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/refunds"
+	"github.com/avaargsh/esports-companion/services/api-go/internal/workers/workerobs"
 )
 
 type Worker struct {
@@ -19,6 +20,7 @@ type Worker struct {
 	scanInterval time.Duration
 	minAge       time.Duration
 	batchSize    int
+	observer     workerobs.CycleObserver
 }
 
 func New(
@@ -29,6 +31,7 @@ func New(
 	scanInterval time.Duration,
 	minAge time.Duration,
 	batchSize int,
+	observer workerobs.CycleObserver,
 ) *Worker {
 	return &Worker{
 		db:           db,
@@ -38,6 +41,7 @@ func New(
 		scanInterval: scanInterval,
 		minAge:       minAge,
 		batchSize:    batchSize,
+		observer:     workerobs.OrNop(observer),
 	}
 }
 
@@ -48,9 +52,7 @@ func (w *Worker) Run(ctx context.Context) error {
 		return nil
 	}
 
-	if err := w.scan(ctx); err != nil && ctx.Err() == nil {
-		w.logger.Error("refund_reconcile_scan_failed", "error", err)
-	}
+	w.runScan(ctx)
 	ticker := time.NewTicker(w.scanInterval)
 	defer ticker.Stop()
 
@@ -59,21 +61,36 @@ func (w *Worker) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
-			if err := w.scan(ctx); err != nil && ctx.Err() == nil {
-				w.logger.Error("refund_reconcile_scan_failed", "error", err)
-			}
+			w.runScan(ctx)
 		}
 	}
 }
 
-func (w *Worker) scan(ctx context.Context) error {
+func (w *Worker) runScan(ctx context.Context) {
+	started := time.Now()
+	processed, failures, err := w.scan(ctx)
+	w.observer.ObserveCycle(
+		"refund-reconcile",
+		time.Since(started),
+		processed,
+		failures,
+		err,
+	)
+	if err != nil && ctx.Err() == nil {
+		w.logger.Error("refund_reconcile_scan_failed", "error", err)
+	}
+}
+
+func (w *Worker) scan(ctx context.Context) (int, int, error) {
 	ids, err := w.candidateIDs(ctx, time.Now().UTC())
 	if err != nil {
-		return err
+		return 0, 0, err
 	}
+	processed := 0
+	failures := 0
 	for _, refundID := range ids {
 		if ctx.Err() != nil {
-			return nil
+			return processed, failures, nil
 		}
 		claimed, err := w.reconcileOne(ctx, refundID)
 		if err != nil {
@@ -82,13 +99,17 @@ func (w *Worker) scan(ctx context.Context) error {
 				"refund_id", refundID,
 				"error", err,
 			)
+			if claimed {
+				failures++
+			}
 			continue
 		}
 		if claimed {
+			processed++
 			w.logger.Info("refund_reconciled", "refund_id", refundID)
 		}
 	}
-	return nil
+	return processed, failures, nil
 }
 
 func (w *Worker) candidateIDs(ctx context.Context, now time.Time) ([]string, error) {
