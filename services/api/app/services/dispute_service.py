@@ -32,10 +32,10 @@ class DisputeService:
         *,
         order_id: uuid.UUID,
         actor_user_id: uuid.UUID,
-        actor_roles: tuple[str, ...] | None = None,
         reason_code: str,
         description: str,
         idempotency_key: str,
+        actor_roles: tuple[str, ...] | None = None,
     ) -> Dispute:
         existing = db.scalar(
             select(Dispute).where(Dispute.idempotency_key == idempotency_key)
