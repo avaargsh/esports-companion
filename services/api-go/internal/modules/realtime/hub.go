@@ -2,6 +2,7 @@ package realtime
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"strings"
@@ -17,6 +18,7 @@ const (
 	redisRealtimePattern = "realtime:*"
 	reconnectDelay       = time.Second
 	clientBufferSize     = 64
+	clientDedupeSize     = 512
 )
 
 type client struct {
@@ -24,6 +26,10 @@ type client struct {
 	roles  []string
 	send   chan []byte
 	cancel context.CancelFunc
+
+	seenMu    sync.Mutex
+	seen      map[string]struct{}
+	seenOrder []string
 }
 
 type Hub struct {
@@ -97,6 +103,7 @@ func (h *Hub) newClient(
 		roles:  append([]string(nil), principal.Roles...),
 		send:   make(chan []byte, clientBufferSize),
 		cancel: cancel,
+		seen:   make(map[string]struct{}, clientDedupeSize),
 	}
 }
 
@@ -135,6 +142,7 @@ func (h *Hub) dispatchRedis(
 	redisChannel string,
 	payload []byte,
 ) {
+	eventID := realtimeEventID(payload)
 	logicalChannel := strings.TrimPrefix(redisChannel, "realtime:")
 	if logicalChannel == redisChannel {
 		return
@@ -166,6 +174,9 @@ func (h *Hub) dispatchRedis(
 		if allowed != nil && !clientAllowedForOrder(current, allowed) {
 			continue
 		}
+		if eventID != "" && !current.acceptEvent(eventID) {
+			continue
+		}
 		copyPayload := append([]byte(nil), payload...)
 		select {
 		case current.send <- copyPayload:
@@ -189,4 +200,31 @@ func clientAllowedForOrder(
 	}
 	_, ok := allowed[current.userID]
 	return ok
+}
+
+func realtimeEventID(payload []byte) string {
+	var envelope struct {
+		EventID string `json:"eventId"`
+	}
+	if err := json.Unmarshal(payload, &envelope); err != nil {
+		return ""
+	}
+	return envelope.EventID
+}
+
+func (c *client) acceptEvent(eventID string) bool {
+	c.seenMu.Lock()
+	defer c.seenMu.Unlock()
+
+	if _, exists := c.seen[eventID]; exists {
+		return false
+	}
+	c.seen[eventID] = struct{}{}
+	c.seenOrder = append(c.seenOrder, eventID)
+	if len(c.seenOrder) > clientDedupeSize {
+		evicted := c.seenOrder[0]
+		c.seenOrder = c.seenOrder[1:]
+		delete(c.seen, evicted)
+	}
+	return true
 }
