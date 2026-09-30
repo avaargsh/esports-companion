@@ -19,6 +19,10 @@ var (
 	ErrPlayerNotOfferingSKU    = errors.New("PLAYER_NOT_OFFERING_SKU")
 	ErrAssignmentNotFound      = errors.New("ACTIVE_ASSIGNMENT_NOT_FOUND")
 	ErrNotOrderPlayer          = errors.New("NOT_ORDER_PLAYER")
+	ErrOrderNotOwned           = errors.New("ORDER_NOT_OWNED")
+	ErrOrderNotAwaitingConfirm = errors.New("ORDER_NOT_AWAITING_CONFIRMATION")
+	ErrSettlementPlayerMissing = errors.New("PLAYER_NOT_FOUND")
+	ErrPlatformAccountMissing  = errors.New("PLATFORM_ACCOUNT_NOT_FOUND")
 )
 
 type CreateInput struct {
