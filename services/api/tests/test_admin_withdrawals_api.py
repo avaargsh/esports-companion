@@ -13,7 +13,21 @@ def test_admin_withdrawal_completion_requires_real_payout_reference():
         demo = client.get("/api/v1/dev/bootstrap").json()
         identities = client.get("/api/v1/dev/demo-identities").json()
         player_user_id = demo["playerUserId"]
-        admin_user_id = identities["admin"]["userId"]
+        platform_login = client.post(
+            "/api/v1/auth/wechat/login",
+            json={"code": "demo-platform"},
+        )
+        assert platform_login.status_code == 200
+        admin_user_id = platform_login.json()["userId"]
+        access_token = platform_login.json()["accessToken"]
+        sessions = client.get(
+            "/api/v1/auth/sessions",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert sessions.status_code == 200
+        session_id = next(
+            item["sessionId"] for item in sessions.json() if item["current"]
+        )
 
         with SessionLocal() as db:
             wallet = db.scalar(
@@ -56,9 +70,13 @@ def test_admin_withdrawal_completion_requires_real_payout_reference():
         )
         assert blank_reference.status_code == 422
 
+        complete_request_id = f"withdrawal-complete-{uuid.uuid4().hex}"
         completed = client.post(
             f"/api/v1/admin/withdrawals/{withdrawal_id}/complete",
-            headers={"X-Admin-Id": admin_user_id},
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "X-Request-Id": complete_request_id,
+            },
             json={"provider_txn_id": "wechat-transfer-20260929-001"},
         )
         assert completed.status_code == 200
@@ -66,15 +84,19 @@ def test_admin_withdrawal_completion_requires_real_payout_reference():
 
         rows = client.get(
             "/api/v1/admin/withdrawals",
-            headers={"X-Admin-Id": admin_user_id},
+            headers={"Authorization": f"Bearer {access_token}"},
         )
         assert rows.status_code == 200
         item = next(row for row in rows.json() if row["id"] == withdrawal_id)
         assert item["providerTxnId"] == "wechat-transfer-20260929-001"
 
+        evidence_request_id = f"withdrawal-evidence-{uuid.uuid4().hex}"
         evidence = client.get(
             f"/api/v1/admin/withdrawals/{withdrawal_id}/evidence",
-            headers={"X-Admin-Id": admin_user_id},
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "X-Request-Id": evidence_request_id,
+            },
         )
         assert evidence.status_code == 200
         payload = evidence.json()
@@ -87,18 +109,42 @@ def test_admin_withdrawal_completion_requires_real_payout_reference():
         ]
 
         with SessionLocal() as db:
-            audit = db.scalar(
-                select(OutboxEvent).where(
-                    OutboxEvent.aggregate_type == "AUDIT",
-                    OutboxEvent.aggregate_id == f"WITHDRAWAL:{withdrawal_id}",
-                    OutboxEvent.event_type == "AUTHORIZATION_DECISION",
+            audits = list(
+                db.scalars(
+                    select(OutboxEvent)
+                    .where(
+                        OutboxEvent.aggregate_type == "AUDIT",
+                        OutboxEvent.aggregate_id == f"WITHDRAWAL:{withdrawal_id}",
+                        OutboxEvent.event_type == "AUTHORIZATION_DECISION",
+                    )
+                    .order_by(OutboxEvent.created_at, OutboxEvent.id)
                 )
             )
-            assert audit is not None
-            assert audit.payload_json["actorUserId"] == admin_user_id
-            assert audit.payload_json["action"] == "WITHDRAWAL_COMPLETE"
-            assert audit.payload_json["scope"] == "PLATFORM"
-            assert audit.payload_json["decision"] == "ALLOW"
+            payloads = [item.payload_json for item in audits]
+            complete_audit = next(
+                item for item in payloads if item["action"] == "WITHDRAWAL_COMPLETE"
+            )
+            assert complete_audit["actorUserId"] == admin_user_id
+            assert complete_audit["scope"] == "PLATFORM"
+            assert complete_audit["decision"] == "ALLOW"
+            assert complete_audit["reasonCode"] == "PLATFORM_ROLE"
+            assert complete_audit["policyVersion"] == "resource-authz.v2"
+            assert complete_audit["sessionId"] == session_id
+            assert complete_audit["requestId"] == complete_request_id
+            assert (
+                complete_audit["businessEvidenceRef"]
+                == f"WITHDRAWAL:{withdrawal_id}"
+            )
+
+            read_audit = next(
+                item
+                for item in payloads
+                if item["action"] == "WITHDRAWAL_EVIDENCE_READ"
+            )
+            assert read_audit["decision"] == "ALLOW"
+            assert read_audit["sessionId"] == session_id
+            assert read_audit["requestId"] == evidence_request_id
+            assert read_audit["policyVersion"] == "resource-authz.v2"
 
 
 def test_admin_withdrawal_evidence_returns_404_for_unknown_id():
