@@ -2,6 +2,7 @@ package realtime
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/auth"
@@ -61,5 +62,33 @@ func TestClientAllowedForOrder(t *testing.T) {
 			}
 			_ = ctx
 		})
+	}
+}
+
+func TestClientDeduplicatesEventIDsWithinWindow(t *testing.T) {
+	current := &client{
+		seen: make(map[string]struct{}, clientDedupeSize),
+	}
+	if !current.acceptEvent("event-1") {
+		t.Fatal("first delivery should be accepted")
+	}
+	if current.acceptEvent("event-1") {
+		t.Fatal("duplicate delivery should be rejected")
+	}
+
+	for i := 0; i < clientDedupeSize; i++ {
+		current.acceptEvent(fmt.Sprintf("event-%d", i+2))
+	}
+	if !current.acceptEvent("event-1") {
+		t.Fatal("evicted event should be accepted again")
+	}
+}
+
+func TestRealtimeEventID(t *testing.T) {
+	if got := realtimeEventID([]byte(`{"eventId":"event-1","type":"order.status_changed"}`)); got != "event-1" {
+		t.Fatalf("event id = %q", got)
+	}
+	if got := realtimeEventID([]byte("not-json")); got != "" {
+		t.Fatalf("invalid payload event id = %q", got)
 	}
 }
