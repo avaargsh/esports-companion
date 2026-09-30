@@ -36,6 +36,7 @@ def main() -> int:
 
     key_path = Path("/tmp/wechat-parity-platform-key.pem")
     cert_path = Path("/tmp/wechat-parity-platform-cert.pem")
+    merchant_key_path = Path("/tmp/wechat-parity-merchant-key.pem")
     key_path.write_bytes(
         key.private_bytes(
             serialization.Encoding.PEM,
@@ -44,6 +45,15 @@ def main() -> int:
         )
     )
     cert_path.write_bytes(certificate.public_bytes(serialization.Encoding.PEM))
+
+    merchant_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    merchant_key_path.write_bytes(
+        merchant_key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        )
+    )
 
     serial = format(certificate.serial_number, "X")
     github_env = Path(args.github_env)
@@ -58,6 +68,11 @@ def main() -> int:
             f"WECHAT_PAY_PLATFORM_CERTIFICATE_FILE={cert_path}\n"
         )
         handle.write(f"WECHAT_TEST_PLATFORM_PRIVATE_KEY_FILE={key_path}\n")
+        handle.write(f"WECHAT_MCH_PRIVATE_KEY_FILE={merchant_key_path}\n")
+        handle.write("WECHAT_MCH_CERT_SERIAL=MERCHANT_PARITY_SERIAL\n")
+        handle.write(
+            "WECHAT_REFUND_NOTIFY_URL=https://example.com/api/v1/refunds/wechat/callback\n"
+        )
 
     print(f"generated parity platform certificate serial={serial}")
     return 0
