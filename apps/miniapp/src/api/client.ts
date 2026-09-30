@@ -7,12 +7,25 @@ import {
 
 export { API_BASE_URL, API_ORIGIN } from "./config"
 
+type DemoIdentity = {
+  userId?: string
+  adminId?: string
+}
+
 type RequestOptions = {
   method?: HttpMethod
   data?: string | Record<string, unknown> | ArrayBuffer
   userId?: string
   adminId?: string
   headers?: Record<string, string>
+}
+
+function demoIdentityHeaders(identity: DemoIdentity): Record<string, string> {
+  if (isWeChatAuthMode()) return {}
+  return {
+    ...(identity.userId ? { "X-User-Id": identity.userId } : {}),
+    ...(identity.adminId ? { "X-Admin-Id": identity.adminId } : {})
+  }
 }
 
 const http = createHttpClient({
@@ -40,10 +53,7 @@ export async function request<T>(
     ...(options.headers ?? {})
   }
 
-  if (!isWeChatAuthMode()) {
-    if (options.userId) headers["X-User-Id"] = options.userId
-    if (options.adminId) headers["X-Admin-Id"] = options.adminId
-  }
+  Object.assign(headers, demoIdentityHeaders(options))
 
   return http.request<T>(path, {
     method: options.method,
