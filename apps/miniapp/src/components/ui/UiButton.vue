@@ -89,8 +89,8 @@ function handleClick() {
 
 .ui-button--secondary.ui-button--inverse {
   border-color: rgba(255, 255, 255, 0.06);
-  background: #24242d;
-  color: #bdbbc7;
+  background: var(--inverse-control-strong);
+  color: var(--inverse-text-soft);
 }
 
 .ui-button--danger {
