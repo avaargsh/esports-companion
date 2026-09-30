@@ -39,11 +39,13 @@ type PaymentIntent struct {
 type PaymentCallback struct {
 	Provider      string
 	ProviderTxnID string
-	OrderID       string
+	OrderNo       string
 	PayerSubject  string
 	Currency      string
 	AmountMinor   int64
 	PaidAt        time.Time
+	RawEvent      map[string]any
+	Resource      map[string]any
 }
 
 type PaymentProvider interface {
