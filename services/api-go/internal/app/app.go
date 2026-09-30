@@ -22,6 +22,7 @@ import (
 	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/marketplace"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/offerings"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/orders"
+	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/payments"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/platform/httpx"
 	metricsx "github.com/avaargsh/esports-companion/services/api-go/internal/platform/metrics"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/platform/postgresx"
@@ -85,6 +86,11 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		authService,
 		cfg.IsSecureDeployment(),
 	)
+	paymentsHandler := payments.NewHandler(
+		payments.NewService(payments.NewRepository(pg)),
+		authService,
+		cfg.IsSecureDeployment(),
+	)
 
 	router.Route("/api/v1", func(r chi.Router) {
 		r.Get("/runtime", func(w http.ResponseWriter, _ *http.Request) {
@@ -100,6 +106,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		marketplaceHandler.Register(r)
 		offeringsHandler.Register(r)
 		ordersHandler.Register(r)
+		paymentsHandler.Register(r)
 	})
 
 	server := &http.Server{
