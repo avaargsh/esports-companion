@@ -386,7 +386,7 @@ func (r Repository) prepareReconcile(
 		&orderStatus,
 		&totalAmount,
 	); errors.Is(err, pgx.ErrNoRows) {
-		return submitSnapshot{}, false, ErrRefundOrderNotFound
+		return submitSnapshot{}, false, ErrOrderNotRefunding
 	} else if err != nil {
 		return submitSnapshot{}, false, fmt.Errorf("lock reconcile order: %w", err)
 	}
