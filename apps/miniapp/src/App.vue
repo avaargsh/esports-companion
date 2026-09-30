@@ -7,5 +7,6 @@ export default {
 </script>
 
 <style>
+@import "./styles/theme.css";
 @import "./styles/foundation.css";
 </style>
