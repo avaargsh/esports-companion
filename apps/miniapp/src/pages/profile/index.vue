@@ -4,7 +4,8 @@ import { onShow } from "@dcloudio/uni-app"
 import { request } from "../../api/client"
 import { getDemoIdentities } from "../../api/demo"
 import { isWeChatAuthMode } from "../../api/config"
-import { showSuccess, showMessage } from "../../ui/feedback"\nimport { navigation } from "../../platform/navigation"
+import { showSuccess, showMessage } from "../../ui/feedback"
+import { navigation } from "../../platform/navigation"
 
 type PlayerProfile={
   id:string
