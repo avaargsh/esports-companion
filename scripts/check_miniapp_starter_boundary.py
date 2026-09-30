@@ -85,6 +85,7 @@ def check_environment_ownership(violations: list[str]) -> None:
 def check_required_adapters(violations: list[str]) -> None:
     client = (SRC / "api" / "client.ts").read_text(encoding="utf-8")
     config = (SRC / "api" / "config.ts").read_text(encoding="utf-8")
+    auth = (SRC / "api" / "auth.ts").read_text(encoding="utf-8")
 
     if 'from "../platform/http"' not in client or "createHttpClient" not in client:
         violations.append(
@@ -94,6 +95,11 @@ def check_required_adapters(violations: list[str]) -> None:
     if 'from "../platform/env"' not in config:
         violations.append(
             "apps/miniapp/src/api/config.ts must remain a platform/env.ts facade"
+        )
+
+    if 'from "../platform/session"' not in auth:
+        violations.append(
+            "apps/miniapp/src/api/auth.ts must compose platform/session.ts"
         )
 
 
