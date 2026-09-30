@@ -393,6 +393,158 @@ func (r Repository) Claim(
 	return claimed, nil
 }
 
+func (r Repository) TransitionAssignedPlayer(
+	ctx context.Context,
+	userID string,
+	orderID string,
+	target Status,
+	eventType string,
+) (Order, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return Order{}, fmt.Errorf("begin order lifecycle transition: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	order, err := scanOrder(tx.QueryRow(ctx, `
+		SELECT
+			id::text,
+			order_no,
+			user_id::text,
+			game_id::text,
+			sku_id::text,
+			designated_player_id::text,
+			status,
+			quantity,
+			unit_price,
+			total_amount,
+			player_amount,
+			platform_fee,
+			version
+		FROM orders
+		WHERE id = $1::uuid
+		FOR UPDATE
+	`, orderID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Order{}, ErrOrderNotFound
+	}
+	if err != nil {
+		return Order{}, fmt.Errorf("lock lifecycle order: %w", err)
+	}
+
+	var playerID string
+	if err := tx.QueryRow(ctx, `
+		SELECT id::text
+		FROM player_profiles
+		WHERE user_id = $1::uuid
+	`, userID).Scan(&playerID); errors.Is(err, pgx.ErrNoRows) {
+		return Order{}, ErrPlayerNotEligible
+	} else if err != nil {
+		return Order{}, fmt.Errorf("load lifecycle player: %w", err)
+	}
+
+	var assignedPlayerID string
+	if err := tx.QueryRow(ctx, `
+		SELECT player_id::text
+		FROM order_assignments
+		WHERE order_id = $1::uuid
+		  AND status = 'ACTIVE'
+		ORDER BY created_at DESC
+		LIMIT 1
+	`, orderID).Scan(&assignedPlayerID); errors.Is(err, pgx.ErrNoRows) {
+		return Order{}, ErrAssignmentNotFound
+	} else if err != nil {
+		return Order{}, fmt.Errorf("load active assignment: %w", err)
+	}
+	if assignedPlayerID != playerID {
+		return Order{}, ErrNotOrderPlayer
+	}
+
+	if err := requireTransition(Status(order.Status), target); err != nil {
+		return Order{}, err
+	}
+
+	var transitionSQL string
+	switch target {
+	case StatusInService:
+		transitionSQL = `
+			UPDATE orders
+			SET status = 'IN_SERVICE',
+			    version = version + 1,
+			    service_started_at = now(),
+			    updated_at = now()
+			WHERE id = $1::uuid
+			RETURNING
+				id::text,
+				order_no,
+				user_id::text,
+				game_id::text,
+				sku_id::text,
+				designated_player_id::text,
+				status,
+				quantity,
+				unit_price,
+				total_amount,
+				player_amount,
+				platform_fee,
+				version
+		`
+	case StatusFinishRequested:
+		transitionSQL = `
+			UPDATE orders
+			SET status = 'FINISH_REQUESTED',
+			    version = version + 1,
+			    finish_requested_at = now(),
+			    updated_at = now()
+			WHERE id = $1::uuid
+			RETURNING
+				id::text,
+				order_no,
+				user_id::text,
+				game_id::text,
+				sku_id::text,
+				designated_player_id::text,
+				status,
+				quantity,
+				unit_price,
+				total_amount,
+				player_amount,
+				platform_fee,
+				version
+		`
+	default:
+		return Order{}, &InvalidTransitionError{
+			From: Status(order.Status),
+			To:   target,
+		}
+	}
+
+	updated, err := scanOrder(tx.QueryRow(ctx, transitionSQL, orderID))
+	if err != nil {
+		return Order{}, fmt.Errorf("update order lifecycle: %w", err)
+	}
+
+	fromStatus := order.Status
+	if err := appendOrderEvidence(
+		ctx,
+		tx,
+		orderID,
+		eventType,
+		&fromStatus,
+		string(target),
+		"PLAYER",
+		playerID,
+		map[string]any{},
+	); err != nil {
+		return Order{}, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return Order{}, fmt.Errorf("commit order lifecycle transition: %w", err)
+	}
+	return updated, nil
+}
+
 func appendOrderEvidence(
 	ctx context.Context,
 	tx pgx.Tx,
