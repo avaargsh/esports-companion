@@ -647,7 +647,7 @@ func appendOrderEvidence(
 			created_at
 		)
 		VALUES (
-			$1::uuid, 'ORDER', $2, $3, $4::json, 'PENDING',
+			$1::uuid, 'ORDER', $2::varchar, $3, $4::json, 'PENDING',
 			GREATEST(
 				clock_timestamp(),
 				COALESCE(
@@ -655,7 +655,7 @@ func appendOrderEvidence(
 						SELECT max(created_at) + interval '1 microsecond'
 						FROM outbox_events
 						WHERE aggregate_type = 'ORDER'
-						  AND aggregate_id = $2
+						  AND aggregate_id = $2::varchar
 					),
 					'-infinity'::timestamptz
 				)
