@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/auth"
-	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/authz"
 )
 
 type Service struct {
@@ -62,7 +61,3 @@ func (s Service) Create(
 	return s.repo.Create(ctx, userID, input)
 }
 
-func authorizationDenial(err error) (*authz.ResourceAuthorizationDenied, bool) {
-	denied, ok := err.(*authz.ResourceAuthorizationDenied)
-	return denied, ok
-}
