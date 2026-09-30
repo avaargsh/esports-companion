@@ -136,15 +136,51 @@ def main() -> int:
     parser.add_argument("--go-base", default="http://127.0.0.1:8080")
     args = parser.parse_args()
 
-    bootstrap = expect(
-        call(args.python_base, "/api/v1/dev/bootstrap"),
-        200,
-        "bootstrap",
-    ).body
-    customer_id = bootstrap["customerUserId"]
-    admin_id = bootstrap["adminUserId"]
+    # M5.3 intentionally stops the FastAPI reference before this step.
+    # This background-worker acceptance therefore discovers stable seed
+    # identities directly from the shared PostgreSQL truth.
+    with psycopg.connect(dsn()) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT u.id::text
+                FROM users u
+                LEFT JOIN player_profiles p ON p.user_id = u.id
+                WHERE u.role = 'USER'
+                  AND u.status = 'ACTIVE'
+                  AND p.id IS NULL
+                ORDER BY u.created_at, u.id
+                LIMIT 1
+                """
+            )
+            customer = cursor.fetchone()
+            cursor.execute(
+                """
+                SELECT id::text
+                FROM users
+                WHERE role = 'PLATFORM'
+                  AND status = 'ACTIVE'
+                ORDER BY created_at, id
+                LIMIT 1
+                """
+            )
+            admin = cursor.fetchone()
+            cursor.execute(
+                """
+                SELECT id::text
+                FROM service_skus
+                WHERE status = 'ACTIVE'
+                ORDER BY created_at, id
+                LIMIT 1
+                """
+            )
+            sku = cursor.fetchone()
+    if customer is None or admin is None or sku is None:
+        raise AssertionError("required seed identities/catalog are missing")
+    customer_id = customer[0]
+    admin_id = admin[0]
     customer_headers = {"X-User-Id": customer_id}
-    sku_id = bootstrap["games"][0]["skus"][0]["id"]
+    sku_id = sku[0]
 
     due: list[tuple[dict[str, Any], str, str]] = []
     for index in range(12):
