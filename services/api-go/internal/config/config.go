@@ -13,37 +13,37 @@ import (
 const devSigningKey = "dev-only-change-me-use-at-least-32-bytes"
 
 type Config struct {
-	AppEnv                 string
-	ServiceName            string
-	CommitSHA              string
-	LogLevel               string
-	HTTPAddr               string
-	DatabaseURL            string
-	RedisURL               string
-	DatabaseMaxConns       int32
-	DatabaseMinConns       int32
-	RedisPoolSize          int
-	ReadinessRequireRedis  bool
-	AuthProvider           string
-	PaymentProvider        string
-	RefundProvider         string
-	SessionSigningKey      string
-	AccessTokenTTLSeconds  int
-	RefreshTokenTTLSeconds int
-	WeChatAppID                   string
-	WeChatAppSecret               string
-	WeChatAuthTimeout             time.Duration
-	WeChatMchID                   string
-	WeChatMchCertSerial           string
-	WeChatMchPrivateKey           string
-	WeChatNotifyURL               string
-	WeChatRefundNotifyURL         string
-	WeChatPayAPIBaseURL           string
-	WeChatPayAPIV3Key             string
-	WeChatPayPlatformCertSerial   string
-	WeChatPayPlatformCertificate  string
-	WeChatPayTimeout              time.Duration
-	ShutdownTimeout               time.Duration
+	AppEnv                       string
+	ServiceName                  string
+	CommitSHA                    string
+	LogLevel                     string
+	HTTPAddr                     string
+	DatabaseURL                  string
+	RedisURL                     string
+	DatabaseMaxConns             int32
+	DatabaseMinConns             int32
+	RedisPoolSize                int
+	ReadinessRequireRedis        bool
+	AuthProvider                 string
+	PaymentProvider              string
+	RefundProvider               string
+	SessionSigningKey            string
+	AccessTokenTTLSeconds        int
+	RefreshTokenTTLSeconds       int
+	WeChatAppID                  string
+	WeChatAppSecret              string
+	WeChatAuthTimeout            time.Duration
+	WeChatMchID                  string
+	WeChatMchCertSerial          string
+	WeChatMchPrivateKey          string
+	WeChatNotifyURL              string
+	WeChatRefundNotifyURL        string
+	WeChatPayAPIBaseURL          string
+	WeChatPayAPIV3Key            string
+	WeChatPayPlatformCertSerial  string
+	WeChatPayPlatformCertificate string
+	WeChatPayTimeout             time.Duration
+	ShutdownTimeout              time.Duration
 }
 
 func Load() (Config, error) {
@@ -138,23 +138,23 @@ func Load() (Config, error) {
 	}
 
 	cfg := Config{
-		AppEnv:                 strings.ToLower(strings.TrimSpace(env("APP_ENV", "dev"))),
-		ServiceName:            env("SERVICE_NAME", "esports-companion-api-go"),
-		CommitSHA:              env("COMMIT_SHA", "dev"),
-		LogLevel:               strings.ToUpper(env("LOG_LEVEL", "INFO")),
-		HTTPAddr:               env("API_GO_HTTP_ADDR", ":8080"),
-		DatabaseURL:            databaseURL,
-		RedisURL:               redisURL,
-		DatabaseMaxConns:       int32(maxConns),
-		DatabaseMinConns:       int32(minConns),
-		RedisPoolSize:          redisPoolSize,
-		ReadinessRequireRedis:  requireRedis,
-		AuthProvider:           strings.ToLower(env("AUTH_PROVIDER", "mock")),
-		PaymentProvider:        strings.ToLower(env("PAYMENT_PROVIDER", "mock")),
-		RefundProvider:         strings.ToLower(env("REFUND_PROVIDER", "manual")),
-		SessionSigningKey:      signingKey,
-		AccessTokenTTLSeconds:  accessTTL,
-		RefreshTokenTTLSeconds: refreshTTL,
+		AppEnv:                       strings.ToLower(strings.TrimSpace(env("APP_ENV", "dev"))),
+		ServiceName:                  env("SERVICE_NAME", "esports-companion-api-go"),
+		CommitSHA:                    env("COMMIT_SHA", "dev"),
+		LogLevel:                     strings.ToUpper(env("LOG_LEVEL", "INFO")),
+		HTTPAddr:                     env("API_GO_HTTP_ADDR", ":8080"),
+		DatabaseURL:                  databaseURL,
+		RedisURL:                     redisURL,
+		DatabaseMaxConns:             int32(maxConns),
+		DatabaseMinConns:             int32(minConns),
+		RedisPoolSize:                redisPoolSize,
+		ReadinessRequireRedis:        requireRedis,
+		AuthProvider:                 strings.ToLower(env("AUTH_PROVIDER", "mock")),
+		PaymentProvider:              strings.ToLower(env("PAYMENT_PROVIDER", "mock")),
+		RefundProvider:               strings.ToLower(env("REFUND_PROVIDER", "manual")),
+		SessionSigningKey:            signingKey,
+		AccessTokenTTLSeconds:        accessTTL,
+		RefreshTokenTTLSeconds:       refreshTTL,
 		WeChatAppID:                  env("WECHAT_APP_ID", ""),
 		WeChatAppSecret:              wechatSecret,
 		WeChatAuthTimeout:            time.Duration(wechatTimeoutSeconds) * time.Second,
@@ -235,13 +235,13 @@ func (c Config) Validate() error {
 			violations = append(violations, "WECHAT_APP_SECRET_REQUIRED")
 		}
 		required := map[string]string{
-			"WECHAT_MCH_ID":                    c.WeChatMchID,
-			"WECHAT_MCH_CERT_SERIAL":           c.WeChatMchCertSerial,
-			"WECHAT_MCH_PRIVATE_KEY":           c.WeChatMchPrivateKey,
-			"WECHAT_NOTIFY_URL":                c.WeChatNotifyURL,
-			"WECHAT_PAY_API_V3_KEY":            c.WeChatPayAPIV3Key,
-			"WECHAT_PAY_PLATFORM_CERT_SERIAL":  c.WeChatPayPlatformCertSerial,
-			"WECHAT_PAY_PLATFORM_CERTIFICATE":  c.WeChatPayPlatformCertificate,
+			"WECHAT_MCH_ID":                   c.WeChatMchID,
+			"WECHAT_MCH_CERT_SERIAL":          c.WeChatMchCertSerial,
+			"WECHAT_MCH_PRIVATE_KEY":          c.WeChatMchPrivateKey,
+			"WECHAT_NOTIFY_URL":               c.WeChatNotifyURL,
+			"WECHAT_PAY_API_V3_KEY":           c.WeChatPayAPIV3Key,
+			"WECHAT_PAY_PLATFORM_CERT_SERIAL": c.WeChatPayPlatformCertSerial,
+			"WECHAT_PAY_PLATFORM_CERTIFICATE": c.WeChatPayPlatformCertificate,
 		}
 		if c.RefundProvider == "wechat" {
 			required["WECHAT_REFUND_NOTIFY_URL"] = c.WeChatRefundNotifyURL
