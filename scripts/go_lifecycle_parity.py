@@ -406,6 +406,15 @@ def main() -> int:
     }:
         raise AssertionError(f"unexpected FastAPI start projection: {py_started!r}")
 
+    assert_same_error(
+        args.python_base,
+        args.go_base,
+        f"/api/v1/player/orders/{py_paid['id']}/start",
+        headers=player_headers,
+        expected_status=409,
+        label="repeated start",
+    )
+
     py_finished = expect(
         call(
             args.python_base,
@@ -416,7 +425,10 @@ def main() -> int:
         200,
         "FastAPI finish",
     ).body
-    if py_finished["status"] != "FINISH_REQUESTED":
+    if (
+        py_finished["status"] != "FINISH_REQUESTED"
+        or py_finished["version"] != py_claimed["version"] + 2
+    ):
         raise AssertionError(f"unexpected FastAPI finish projection: {py_finished!r}")
 
     # Assigned player boundary: an unrelated provider cannot start the order.
