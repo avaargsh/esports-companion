@@ -16,6 +16,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/avaargsh/esports-companion/services/api-go/internal/config"
+	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/auth"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/catalog"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/health"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/marketplace"
@@ -66,6 +67,9 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	router.Get("/readyz", checker.Ready)
 	router.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
 
+	authProvider := auth.NewProvider(cfg)
+	authService := auth.NewService(auth.NewRepository(pg), authProvider, cfg)
+	authHandler := auth.NewHandler(authService, cfg.IsSecureDeployment())
 	catalogHandler := catalog.NewHandler(catalog.NewRepository(pg))
 	marketplaceHandler := marketplace.NewHandler(marketplace.NewRepository(pg))
 
@@ -78,6 +82,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			})
 			httpx.JSON(w, http.StatusOK, string(payload))
 		})
+		authHandler.Register(r)
 		catalogHandler.Register(r)
 		marketplaceHandler.Register(r)
 	})
