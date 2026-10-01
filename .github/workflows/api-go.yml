@@ -8,12 +8,14 @@ on:
     paths:
       - "services/api-go/**"
       - "scripts/go_read_parity.py"
+      - "scripts/go_auth_parity.py"
       - "docs/go-backend-migration.md"
       - ".github/workflows/api-go.yml"
   pull_request:
     paths:
       - "services/api-go/**"
       - "scripts/go_read_parity.py"
+      - "scripts/go_auth_parity.py"
       - "docs/go-backend-migration.md"
       - ".github/workflows/api-go.yml"
 
@@ -162,6 +164,9 @@ jobs:
 
       - name: Compare M1 read contracts
         run: python3 scripts/go_read_parity.py
+
+      - name: Compare M2 auth session contracts
+        run: python3 scripts/go_auth_parity.py
 
       - name: Dump runtime logs on failure
         if: failure()
