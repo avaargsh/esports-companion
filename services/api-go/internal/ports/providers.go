@@ -6,12 +6,15 @@ import (
 )
 
 type Identity struct {
-	Provider string
-	Subject  string
-	UnionID  string
+	Provider   string
+	Subject    string
+	UnionID    string
+	Nickname   string
+	SessionKey string
 }
 
 type AuthProvider interface {
+	Name() string
 	ExchangeCode(ctx context.Context, code string) (Identity, error)
 }
 
