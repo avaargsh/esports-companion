@@ -9,6 +9,7 @@ on:
       - "services/api-go/**"
       - "scripts/go_read_parity.py"
       - "scripts/go_auth_parity.py"
+      - "scripts/go_offering_parity.py"
       - "docs/go-backend-migration.md"
       - ".github/workflows/api-go.yml"
   pull_request:
@@ -16,6 +17,7 @@ on:
       - "services/api-go/**"
       - "scripts/go_read_parity.py"
       - "scripts/go_auth_parity.py"
+      - "scripts/go_offering_parity.py"
       - "docs/go-backend-migration.md"
       - ".github/workflows/api-go.yml"
 
@@ -167,6 +169,9 @@ jobs:
 
       - name: Compare M2 auth session contracts
         run: python3 scripts/go_auth_parity.py
+
+      - name: Compare M2 provider offering contracts
+        run: python3 scripts/go_offering_parity.py
 
       - name: Dump runtime logs on failure
         if: failure()
