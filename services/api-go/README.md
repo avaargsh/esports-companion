@@ -29,8 +29,8 @@ The Go service defaults to `:8080` so it can run beside the Python API on `:8000
 
 ```bash
 cd services/api-go
-go mod tidy
-go test ./...
+go mod download
+go test -race ./...
 go run ./cmd/api
 ```
 
@@ -63,14 +63,31 @@ SHUTDOWN_TIMEOUT_SECONDS=15
 The loader accepts the current Python-style
 `postgresql+psycopg://...` URL and normalizes it for pgx.
 
-## Endpoints in foundation phase
+## Endpoints
 
 - `GET /livez`
 - `GET /readyz`
 - `GET /metrics`
 - `GET /api/v1/runtime`
+- `GET /api/v1/games`
+- `GET /api/v1/games/{game_id}/skus`
+- `GET /api/v1/players`
+- `GET /api/v1/players/{player_id}`
 
-Business routes remain on FastAPI until their compatibility tests are ported.
+The M1 catalog/marketplace routes are compatibility targets. FastAPI remains the
+reference implementation until the migration cutover.
+
+Run the dual-runtime response check after starting both APIs against the same
+database:
+
+```bash
+make go-parity
+```
+
+Marketplace list reads use a bounded batch strategy rather than copying the
+reference implementation's per-player N+1 query pattern. The observable filter
+order remains unchanged: candidate ordering/limit happens before game/rank
+filtering.
 
 ## Package layout
 
@@ -82,6 +99,11 @@ internal/modules/        vertical business modules
 internal/ports/          Auth/Payment/Refund external contracts
 internal/platform/       pgx, redis, metrics, HTTP, state machine
 ```
+
+## Branch rule
+
+All Go child branches target `refactor/go-backend-foundation`. Do not merge
+`feat/go-*` or `fix/go-*` directly into `main`.
 
 ## Migration rule
 
