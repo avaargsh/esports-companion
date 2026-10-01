@@ -20,6 +20,7 @@ import (
 	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/catalog"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/health"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/marketplace"
+	"github.com/avaargsh/esports-companion/services/api-go/internal/modules/offerings"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/platform/httpx"
 	metricsx "github.com/avaargsh/esports-companion/services/api-go/internal/platform/metrics"
 	"github.com/avaargsh/esports-companion/services/api-go/internal/platform/postgresx"
@@ -72,6 +73,11 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	authHandler := auth.NewHandler(authService, cfg.IsSecureDeployment())
 	catalogHandler := catalog.NewHandler(catalog.NewRepository(pg))
 	marketplaceHandler := marketplace.NewHandler(marketplace.NewRepository(pg))
+	offeringsHandler := offerings.NewHandler(
+		offerings.NewRepository(pg),
+		authService,
+		cfg.IsSecureDeployment(),
+	)
 
 	router.Route("/api/v1", func(r chi.Router) {
 		r.Get("/runtime", func(w http.ResponseWriter, _ *http.Request) {
@@ -85,6 +91,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		authHandler.Register(r)
 		catalogHandler.Register(r)
 		marketplaceHandler.Register(r)
+		offeringsHandler.Register(r)
 	})
 
 	server := &http.Server{
