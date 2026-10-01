@@ -3,6 +3,7 @@ name: API Go
 on:
   push:
     branches:
+      - main
       - "refactor/**"
     paths:
       - "services/api-go/**"
@@ -36,8 +37,8 @@ jobs:
         env:
           BASE_REF: ${{ github.base_ref }}
         run: |
-          if [ "$BASE_REF" != "refactor/go-backend-foundation" ]; then
-            echo "Go child branches must target refactor/go-backend-foundation"
+          if [ "$BASE_REF" != "main" ]; then
+            echo "Go migration PRs must target main; the long-lived refactor integration branch is retired"
             exit 1
           fi
 
