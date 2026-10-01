@@ -25,13 +25,21 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version: "1.27.1"
-          cache-dependency-path: services/api-go/go.mod
+          cache-dependency-path: services/api-go/go.sum
 
-      - name: Download modules
-        run: go mod download
+      - name: Verify module metadata
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
+          go mod verify
 
       - name: Format check
-        run: test -z "$(gofmt -l .)"
+        run: |
+          diff="$(gofmt -d .)"
+          if [ -n "$diff" ]; then
+            echo "$diff"
+            exit 1
+          fi
 
       - name: Vet
         run: go vet ./...
