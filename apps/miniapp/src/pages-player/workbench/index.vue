@@ -74,9 +74,9 @@ async function load() {
     }
 
     const [nextProfile, nextWallet, nextOrders] = await Promise.all([
-      getPlayerProfile(nextPrincipal),
-      getWallet(nextPrincipal),
-      listPlayerOrders(nextPrincipal)
+      getPlayerProfile(nextPrincipal.userId),
+      getWallet(nextPrincipal.userId),
+      listPlayerOrders(nextPrincipal.userId)
     ])
 
     principal.value = nextPrincipal
