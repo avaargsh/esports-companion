@@ -2,6 +2,8 @@ export type OrderAction =
   | "PAY"
   | "CANCEL"
   | "CONFIRM_FINISH"
+  | "START_SERVICE"
+  | "REQUEST_FINISH"
   | "REQUEST_REFUND"
   | "OPEN_DISPUTE"
 
