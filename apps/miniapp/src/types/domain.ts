@@ -31,6 +31,7 @@ export type Game = {
   code?: string
   name: string
   icon_url?: string | null
+  iconUrl?: string | null
 }
 
 export type ServiceSku = {

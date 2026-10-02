@@ -1,8 +1,9 @@
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
@@ -11,10 +12,13 @@ from app.models import (
     Game,
     LedgerEntry,
     Order,
+    OutboxEvent,
     PlayerProfile,
     PlayerSkill,
     PlayerSkillAuditLog,
     Settlement,
+    SystemAnnouncement,
+    User,
     Wallet,
     Withdrawal,
 )
@@ -38,6 +42,70 @@ router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 class PlayerSkillDecisionBody(BaseModel):
     reason: str | None = Field(default=None, max_length=500)
 
+
+class UserStatusBody(BaseModel):
+    status: str = Field(max_length=32)
+    reason: str | None = Field(default=None, max_length=500)
+
+
+class AnnouncementCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=120)
+    content: str = Field(default="", max_length=5000)
+    audience: str = Field(default="ALL", max_length=32)
+    notice_type: str = Field(default="NORMAL", max_length=32)
+
+
+USER_STATUS_TEXT = {
+    "ACTIVE": "启用",
+    "BLOCKED": "已拉黑",
+    "INACTIVE": "停用",
+}
+
+ANNOUNCEMENT_STATUS_TEXT = {
+    "DRAFT": "草稿",
+    "PUBLISHED": "已发布",
+    "OFFLINE": "已下线",
+}
+
+ANNOUNCEMENT_TYPE_TEXT = {
+    "NORMAL": "普通通知",
+    "SYSTEM": "系统通知",
+}
+
+
+def _player_review_actions(status: str) -> list[str]:
+    return {
+        "PENDING": ["APPROVE", "REJECT"],
+        "APPROVED": ["CANCEL"],
+        "CANCELLED": ["RESTORE"],
+    }.get(status, [])
+
+
+def _skill_review_actions(status: str) -> list[str]:
+    return {
+        "PENDING": ["APPROVE", "REJECT"],
+        "APPROVED": ["REVOKE"],
+    }.get(status, [])
+
+
+def _player_payload(player: PlayerProfile, *, reason: str | None = None) -> dict:
+    payload = {
+        "id": str(player.id),
+        "userId": str(player.user_id),
+        "displayName": player.display_name,
+        "verificationStatus": status_text(
+            player.verification_status, PLAYER_VERIFICATION_STATUS_TEXT
+        ),
+        "verificationStatusCode": player.verification_status,
+        "serviceStatus": status_text(player.service_status, SERVICE_STATUS_TEXT),
+        "serviceStatusCode": player.service_status,
+        "rating": float(player.rating),
+        "orderCount": player.order_count,
+        "availableActions": _player_review_actions(player.verification_status),
+    }
+    if reason is not None:
+        payload["reason"] = reason
+    return payload
 
 
 @router.get("/menu-icons")
@@ -91,6 +159,299 @@ def operations_queue(
     return build_operations_queue(db)
 
 
+def _user_payload(db: Session, user: User) -> dict:
+    totals = db.execute(
+        select(
+            func.count(Order.id),
+            func.coalesce(func.sum(Order.total_amount), 0),
+        ).where(Order.user_id == user.id)
+    ).one()
+    wallet = db.scalar(select(Wallet).where(Wallet.user_id == user.id))
+    return {
+        "id": str(user.id),
+        "openid": user.openid,
+        "unionid": user.unionid,
+        "nickname": user.nickname,
+        "avatarUrl": user.avatar_url,
+        "phone": user.phone,
+        "role": user.role,
+        "status": status_text(user.status, USER_STATUS_TEXT),
+        "statusCode": user.status,
+        "orderCount": int(totals[0] or 0),
+        "totalSpent": int(totals[1] or 0),
+        "availableBalance": wallet.available_balance if wallet else 0,
+        "frozenBalance": wallet.frozen_balance if wallet else 0,
+        "createdAt": user.created_at,
+        "updatedAt": user.updated_at,
+    }
+
+
+def _announcement_payload(item: SystemAnnouncement) -> dict:
+    return {
+        "id": str(item.id),
+        "title": item.title,
+        "content": item.content,
+        "audience": item.audience,
+        "noticeType": item.notice_type,
+        "noticeTypeText": status_text(item.notice_type, ANNOUNCEMENT_TYPE_TEXT),
+        "status": status_text(item.status, ANNOUNCEMENT_STATUS_TEXT),
+        "statusCode": item.status,
+        "operatorUserId": str(item.operator_user_id),
+        "publishedAt": item.published_at,
+        "createdAt": item.created_at,
+        "updatedAt": item.updated_at,
+    }
+
+
+@router.get("/users")
+def list_users(
+    q: str | None = Query(default=None, max_length=80),
+    status: str | None = Query(default=None, max_length=32),
+    limit: int = Query(default=100, ge=1, le=300),
+    principal: Principal = Depends(require_platform),
+    db: Session = Depends(get_db),
+):
+    stmt = select(User).order_by(User.created_at.desc()).limit(limit)
+    if status:
+        stmt = stmt.where(User.status == status.upper())
+    if q:
+        pattern = f"%{q.strip()}%"
+        stmt = stmt.where(
+            (User.nickname.ilike(pattern))
+            | (User.phone.ilike(pattern))
+            | (User.openid.ilike(pattern))
+        )
+    return [_user_payload(db, user) for user in db.scalars(stmt)]
+
+
+@router.patch("/users/{user_id}/status")
+def update_user_status(
+    user_id: uuid.UUID,
+    body: UserStatusBody,
+    request: Request,
+    principal: Principal = Depends(require_platform),
+    db: Session = Depends(get_db),
+):
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(404, "USER_NOT_FOUND")
+    next_status = body.status.upper()
+    if next_status not in USER_STATUS_TEXT:
+        raise HTTPException(409, "INVALID_USER_STATUS")
+    previous = user.status
+    decision = _platform_decision(
+        principal,
+        request,
+        action="USER_STATUS_UPDATE",
+        resource_type="USER",
+        resource_id=str(user.id),
+    )
+    user.status = next_status
+    AuthorizationAudit.record(db, decision=decision)
+    audit = OutboxEvent(
+        aggregate_type="AUDIT",
+        aggregate_id=f"USER:{user.id}",
+        event_type="USER_STATUS_UPDATE",
+        payload_json={
+            "actorUserId": str(principal.user_id),
+            "action": "USER_STATUS_UPDATE",
+            "resourceType": "USER",
+            "resourceId": str(user.id),
+            "fromStatus": previous,
+            "toStatus": next_status,
+            "reason": (body.reason or "").strip(),
+            "decision": "ALLOW",
+        },
+    )
+    db.add(audit)
+    db.commit()
+    db.refresh(user)
+    return _user_payload(db, user)
+
+
+@router.get("/users/{user_id}/consumption-records")
+def user_consumption_records(
+    user_id: uuid.UUID,
+    principal: Principal = Depends(require_platform),
+    db: Session = Depends(get_db),
+):
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(404, "USER_NOT_FOUND")
+    orders = list(
+        db.scalars(
+            select(Order)
+            .where(Order.user_id == user.id)
+            .order_by(Order.created_at.desc(), Order.id.desc())
+            .limit(200)
+        )
+    )
+    return [
+        {
+            "id": str(order.id),
+            "orderNo": order.order_no,
+            "status": order.status_text,
+            "statusCode": order.status,
+            "amount": order.total_amount,
+            "platformFee": order.platform_fee,
+            "playerAmount": order.player_amount,
+            "createdAt": order.created_at,
+            "paidAt": order.paid_at,
+            "settledAt": order.settled_at,
+        }
+        for order in orders
+    ]
+
+
+@router.get("/operation-logs")
+def operation_logs(
+    limit: int = Query(default=200, ge=1, le=500),
+    principal: Principal = Depends(require_platform),
+    db: Session = Depends(get_db),
+):
+    logs: list[dict] = []
+    outbox = list(
+        db.scalars(
+            select(OutboxEvent)
+            .where(OutboxEvent.aggregate_type == "AUDIT")
+            .order_by(OutboxEvent.created_at.desc(), OutboxEvent.id.desc())
+            .limit(limit)
+        )
+    )
+    for item in outbox:
+        payload = item.payload_json or {}
+        logs.append({
+            "id": str(item.id),
+            "source": "AUDIT",
+            "actorUserId": str(payload.get("actorUserId") or ""),
+            "action": str(payload.get("action") or item.event_type),
+            "resourceType": str(payload.get("resourceType") or item.aggregate_type),
+            "resourceId": str(payload.get("resourceId") or item.aggregate_id),
+            "decision": str(payload.get("decision") or item.status),
+            "reason": str(payload.get("reason") or ""),
+            "createdAt": item.created_at,
+        })
+
+    skill_logs = list(
+        db.scalars(
+            select(PlayerSkillAuditLog)
+            .order_by(PlayerSkillAuditLog.created_at.desc(), PlayerSkillAuditLog.id.desc())
+            .limit(limit)
+        )
+    )
+    for item in skill_logs:
+        logs.append({
+            "id": str(item.id),
+            "source": "PLAYER_SKILL",
+            "actorUserId": str(item.operator_user_id),
+            "action": f"PLAYER_SKILL_{item.action}",
+            "resourceType": "PLAYER_SKILL",
+            "resourceId": str(item.skill_id),
+            "decision": "ALLOW",
+            "reason": item.reason,
+            "createdAt": item.created_at,
+        })
+
+    return sorted(logs, key=lambda item: item["createdAt"], reverse=True)[:limit]
+
+
+@router.get("/announcements")
+def list_announcements(
+    principal: Principal = Depends(require_platform),
+    db: Session = Depends(get_db),
+):
+    rows = list(
+        db.scalars(
+            select(SystemAnnouncement)
+            .order_by(SystemAnnouncement.created_at.desc(), SystemAnnouncement.id.desc())
+            .limit(100)
+        )
+    )
+    return [_announcement_payload(item) for item in rows]
+
+
+@router.post("/announcements", status_code=201)
+def create_announcement(
+    body: AnnouncementCreate,
+    request: Request,
+    principal: Principal = Depends(require_platform),
+    db: Session = Depends(get_db),
+):
+    notice_type = body.notice_type.upper()
+    if notice_type not in ANNOUNCEMENT_TYPE_TEXT:
+        raise HTTPException(409, "INVALID_ANNOUNCEMENT_TYPE")
+    item = SystemAnnouncement(
+        title=body.title.strip(),
+        content=body.content.strip(),
+        audience=body.audience.upper(),
+        notice_type=notice_type,
+        status="DRAFT",
+        operator_user_id=principal.user_id,
+    )
+    db.add(item)
+    db.flush()
+    decision = _platform_decision(
+        principal,
+        request,
+        action="ANNOUNCEMENT_CREATE",
+        resource_type="ANNOUNCEMENT",
+        resource_id=str(item.id),
+    )
+    AuthorizationAudit.record(db, decision=decision)
+    db.commit()
+    db.refresh(item)
+    return _announcement_payload(item)
+
+
+@router.post("/announcements/{announcement_id}/publish")
+def publish_announcement(
+    announcement_id: uuid.UUID,
+    request: Request,
+    principal: Principal = Depends(require_platform),
+    db: Session = Depends(get_db),
+):
+    item = db.get(SystemAnnouncement, announcement_id)
+    if not item:
+        raise HTTPException(404, "ANNOUNCEMENT_NOT_FOUND")
+    item.status = "PUBLISHED"
+    item.published_at = datetime.now(timezone.utc)
+    decision = _platform_decision(
+        principal,
+        request,
+        action="ANNOUNCEMENT_PUBLISH",
+        resource_type="ANNOUNCEMENT",
+        resource_id=str(item.id),
+    )
+    AuthorizationAudit.record(db, decision=decision)
+    db.commit()
+    db.refresh(item)
+    return _announcement_payload(item)
+
+
+@router.post("/announcements/{announcement_id}/offline")
+def offline_announcement(
+    announcement_id: uuid.UUID,
+    request: Request,
+    principal: Principal = Depends(require_platform),
+    db: Session = Depends(get_db),
+):
+    item = db.get(SystemAnnouncement, announcement_id)
+    if not item:
+        raise HTTPException(404, "ANNOUNCEMENT_NOT_FOUND")
+    item.status = "OFFLINE"
+    decision = _platform_decision(
+        principal,
+        request,
+        action="ANNOUNCEMENT_OFFLINE",
+        resource_type="ANNOUNCEMENT",
+        resource_id=str(item.id),
+    )
+    AuthorizationAudit.record(db, decision=decision)
+    db.commit()
+    db.refresh(item)
+    return _announcement_payload(item)
+
+
 @router.get("/players")
 def list_players(
     status: str | None = Query(default=None),
@@ -101,22 +462,7 @@ def list_players(
     if status:
         stmt = stmt.where(PlayerProfile.verification_status == status)
     players = list(db.scalars(stmt))
-    return [
-        {
-            "id": str(player.id),
-            "userId": str(player.user_id),
-            "displayName": player.display_name,
-            "verificationStatus": status_text(
-                player.verification_status, PLAYER_VERIFICATION_STATUS_TEXT
-            ),
-            "verificationStatusCode": player.verification_status,
-            "serviceStatus": status_text(player.service_status, SERVICE_STATUS_TEXT),
-            "serviceStatusCode": player.service_status,
-            "rating": float(player.rating),
-            "orderCount": player.order_count,
-        }
-        for player in players
-    ]
+    return [_player_payload(player) for player in players]
 
 
 @router.post("/players/{player_id}/approve")
@@ -140,15 +486,7 @@ def approve_player(
     player.service_status = "OFFLINE"
     AuthorizationAudit.record(db, decision=decision)
     db.commit()
-    return {
-        "id": str(player.id),
-        "verificationStatus": status_text(
-                player.verification_status, PLAYER_VERIFICATION_STATUS_TEXT
-            ),
-            "verificationStatusCode": player.verification_status,
-        "serviceStatus": status_text(player.service_status, SERVICE_STATUS_TEXT),
-            "serviceStatusCode": player.service_status,
-    }
+    return _player_payload(player)
 
 
 @router.post("/players/{player_id}/reject")
@@ -172,15 +510,7 @@ def reject_player(
     player.service_status = "SUSPENDED"
     AuthorizationAudit.record(db, decision=decision)
     db.commit()
-    return {
-        "id": str(player.id),
-        "verificationStatus": status_text(
-                player.verification_status, PLAYER_VERIFICATION_STATUS_TEXT
-            ),
-            "verificationStatusCode": player.verification_status,
-        "serviceStatus": status_text(player.service_status, SERVICE_STATUS_TEXT),
-            "serviceStatusCode": player.service_status,
-    }
+    return _player_payload(player)
 
 
 @router.post("/players/{player_id}/cancel")
@@ -208,16 +538,33 @@ def cancel_player_qualification(
     player.service_status = "OFFLINE"
     AuthorizationAudit.record(db, decision=decision)
     db.commit()
-    return {
-        "id": str(player.id),
-        "verificationStatus": status_text(
-                player.verification_status, PLAYER_VERIFICATION_STATUS_TEXT
-            ),
-            "verificationStatusCode": player.verification_status,
-        "serviceStatus": status_text(player.service_status, SERVICE_STATUS_TEXT),
-            "serviceStatusCode": player.service_status,
-        "reason": reason,
-    }
+    return _player_payload(player, reason=reason)
+
+
+@router.post("/players/{player_id}/restore")
+def restore_player_qualification(
+    player_id: uuid.UUID,
+    request: Request,
+    principal: Principal = Depends(require_platform),
+    db: Session = Depends(get_db),
+):
+    player = db.get(PlayerProfile, player_id)
+    if not player:
+        raise HTTPException(404, "PLAYER_NOT_FOUND")
+    if player.verification_status != "CANCELLED":
+        raise HTTPException(409, "PLAYER_NOT_CANCELLED")
+    decision = _platform_decision(
+        principal,
+        request,
+        action="PLAYER_RESTORE",
+        resource_type="PLAYER_PROFILE",
+        resource_id=str(player.id),
+    )
+    player.verification_status = "APPROVED"
+    player.service_status = "OFFLINE"
+    AuthorizationAudit.record(db, decision=decision)
+    db.commit()
+    return _player_payload(player)
 
 
 @router.get("/player-skills")
@@ -402,6 +749,7 @@ def _player_skill_payload(
         ),
         "verificationStatusCode": skill.verification_status,
         "reviewNote": skill.review_note,
+        "availableActions": _skill_review_actions(skill.verification_status),
         "createdAt": skill.created_at,
         "updatedAt": skill.updated_at,
     }

@@ -1,4 +1,6 @@
+import { getCurrentUserProfile } from "../api/user"
 import { getDemoIdentities } from "../api/demo"
+import { isWeChatAuthMode } from "../api/config"
 
 export type ProductPrincipal = {
   userId: string
@@ -14,6 +16,14 @@ export type PlayerPrincipal = ProductPrincipal & {
 }
 
 export async function getCustomerPrincipal(): Promise<CustomerPrincipal> {
+  if (isWeChatAuthMode()) {
+    const profile = await getCurrentUserProfile()
+    return {
+      userId: profile.userId,
+      nickname: profile.nickname || "微信用户"
+    }
+  }
+
   const identities = await getDemoIdentities()
   return {
     userId: identities.customer.userId,

@@ -369,6 +369,25 @@ class Review(Base, TimestampMixin):
     content: Mapped[str] = mapped_column(Text, default="")
 
 
+class SystemAnnouncement(Base, TimestampMixin):
+    __tablename__ = "system_announcements"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    title: Mapped[str] = mapped_column(String(120))
+    content: Mapped[str] = mapped_column(Text, default="")
+    audience: Mapped[str] = mapped_column(String(32), default="ALL")
+    notice_type: Mapped[str] = mapped_column(String(32), default="NORMAL", index=True)
+    status: Mapped[str] = mapped_column(String(32), default="DRAFT", index=True)
+    operator_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    @property
+    def status_text(self) -> str:
+        return status_text(
+            self.status,
+            {"DRAFT": "草稿", "PUBLISHED": "已发布", "OFFLINE": "已下线"},
+        )
+
+
 class OutboxEvent(Base):
     __tablename__ = "outbox_events"
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)

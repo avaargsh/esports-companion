@@ -114,6 +114,7 @@ services:
       APP_ENV: ${APP_ENV:-production}
       SESSION_SIGNING_KEY_FILE: /run/secrets/session_signing_key
       WECHAT_APP_SECRET_FILE: /run/secrets/wechat_app_secret
+      WECHAT_WEB_APP_SECRET_FILE: /run/secrets/wechat_web_app_secret
       WECHAT_MCH_PRIVATE_KEY_FILE: /run/secrets/wechat_mch_private_key
       WECHAT_PAY_API_V3_KEY_FILE: /run/secrets/wechat_pay_api_v3_key
       WECHAT_PAY_PLATFORM_CERTIFICATE_FILE: /run/secrets/wechat_platform_certificate
@@ -124,6 +125,7 @@ services:
       - postgres_password
       - session_signing_key
       - wechat_app_secret
+      - wechat_web_app_secret
       - wechat_mch_private_key
       - wechat_pay_api_v3_key
       - wechat_platform_certificate
@@ -174,6 +176,8 @@ secrets:
     file: ${RUNTIME_SECRETS_DIR:-../secrets}/session_signing_key
   wechat_app_secret:
     file: ${RUNTIME_SECRETS_DIR:-../secrets}/wechat_app_secret
+  wechat_web_app_secret:
+    file: ${RUNTIME_SECRETS_DIR:-../secrets}/wechat_web_app_secret
   wechat_mch_private_key:
     file: ${RUNTIME_SECRETS_DIR:-../secrets}/wechat_mch_private_key
   wechat_pay_api_v3_key:

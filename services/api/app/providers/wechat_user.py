@@ -16,6 +16,8 @@ class WeChatSession:
 
 class WeChatMiniProgramClient:
     CODE2SESSION_URL = "https://api.weixin.qq.com/sns/jscode2session"
+    ACCESS_TOKEN_URL = "https://api.weixin.qq.com/cgi-bin/token"
+    PHONE_NUMBER_URL = "https://api.weixin.qq.com/wxa/business/getuserphonenumber"
 
     def __init__(
         self,
@@ -63,6 +65,63 @@ class WeChatMiniProgramClient:
             session_key=str(session_key),
             unionid=str(payload["unionid"]) if payload.get("unionid") else None,
         )
+
+    def get_access_token(self) -> str:
+        if not self.app_id or not self.app_secret:
+            raise ValueError("WECHAT_AUTH_CREDENTIALS_MISSING")
+        try:
+            response = requests.get(
+                self.ACCESS_TOKEN_URL,
+                params={
+                    "appid": self.app_id,
+                    "secret": self.app_secret,
+                    "grant_type": "client_credential",
+                },
+                timeout=self.timeout_seconds,
+            )
+            response.raise_for_status()
+            payload = response.json()
+        except requests.RequestException as exc:
+            raise ValueError("WECHAT_ACCESS_TOKEN_REQUEST_FAILED") from exc
+        except ValueError as exc:
+            raise ValueError("WECHAT_ACCESS_TOKEN_INVALID_JSON") from exc
+
+        errcode = payload.get("errcode")
+        if errcode not in (None, 0):
+            raise ValueError(f"WECHAT_ACCESS_TOKEN_FAILED:{errcode}")
+        access_token = payload.get("access_token")
+        if not access_token:
+            raise ValueError("WECHAT_ACCESS_TOKEN_INVALID_RESPONSE")
+        return str(access_token)
+
+    def get_phone_number(self, code: str) -> dict[str, Any]:
+        if not code.strip():
+            raise ValueError("WECHAT_PHONE_CODE_REQUIRED")
+        access_token = self.get_access_token()
+        try:
+            response = requests.post(
+                self.PHONE_NUMBER_URL,
+                params={"access_token": access_token},
+                json={"code": code},
+                timeout=self.timeout_seconds,
+            )
+            response.raise_for_status()
+            payload = response.json()
+        except requests.RequestException as exc:
+            raise ValueError("WECHAT_PHONE_REQUEST_FAILED") from exc
+        except ValueError as exc:
+            raise ValueError("WECHAT_PHONE_INVALID_JSON") from exc
+
+        errcode = payload.get("errcode")
+        if errcode not in (None, 0):
+            raise ValueError(f"WECHAT_PHONE_FAILED:{errcode}")
+        phone_info = payload.get("phone_info")
+        if not isinstance(phone_info, dict):
+            raise ValueError("WECHAT_PHONE_INVALID_RESPONSE")
+        phone = phone_info.get("purePhoneNumber") or phone_info.get("phoneNumber")
+        if not phone:
+            raise ValueError("WECHAT_PHONE_MISSING")
+        return phone_info
 
 
 def decrypt_phone_number(

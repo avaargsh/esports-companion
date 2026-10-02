@@ -199,3 +199,37 @@ def test_admin_can_detail_reject_and_revoke_player_skill():
                 )
             )
             assert revoke_audit is not None
+
+
+def test_admin_skill_rows_expose_review_and_revoke_actions():
+    with TestClient(app) as client:
+        demo = client.get("/api/v1/dev/bootstrap").json()
+        player_user_id = demo["playerUserId"]
+        admin_headers = {"X-Admin-Id": demo["adminUserId"]}
+        game = demo["games"][0]
+
+        submitted = client.put(
+            f"/api/v1/player/skills/{game['id']}",
+            headers={"X-User-Id": player_user_id},
+            json={
+                "rank": "测试段位",
+                "description": "动作契约",
+                "evidence_url": "https://example.com/skill.png",
+            },
+        )
+        assert submitted.status_code == 200
+        skill_id = submitted.json()["id"]
+
+        listed = client.get("/api/v1/admin/player-skills", headers=admin_headers)
+        assert listed.status_code == 200
+        pending = next(item for item in listed.json() if item["id"] == skill_id)
+        assert pending["verificationStatus"] == "待审核"
+        assert pending["verificationStatusCode"] == "PENDING"
+        assert pending["availableActions"] == ["APPROVE", "REJECT"]
+
+        approved = client.post(
+            f"/api/v1/admin/player-skills/{skill_id}/approve",
+            headers=admin_headers,
+        )
+        assert approved.status_code == 200
+        assert approved.json()["availableActions"] == ["REVOKE"]

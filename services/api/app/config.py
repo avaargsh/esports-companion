@@ -50,6 +50,10 @@ class Settings(BaseSettings):
     wechat_app_id: str = ""
     wechat_app_secret: str = ""
     wechat_app_secret_file: str = ""
+    wechat_web_app_id: str = ""
+    wechat_web_app_secret: str = ""
+    wechat_web_app_secret_file: str = ""
+    wechat_web_redirect_uri: str = ""
     wechat_mch_id: str = ""
     wechat_mch_cert_serial: str = ""
     wechat_mch_private_key: str = ""
@@ -97,6 +101,7 @@ class Settings(BaseSettings):
         self._load_secret_file("redis_url", "redis_url_file")
         self._load_secret_file("session_signing_key", "session_signing_key_file")
         self._load_secret_file("wechat_app_secret", "wechat_app_secret_file")
+        self._load_secret_file("wechat_web_app_secret", "wechat_web_app_secret_file")
         self._load_secret_file(
             "wechat_mch_private_key",
             "wechat_mch_private_key_file",
@@ -170,6 +175,9 @@ class Settings(BaseSettings):
         required = {
             "WECHAT_APP_ID": self.wechat_app_id,
             "WECHAT_APP_SECRET": self.wechat_app_secret,
+            "WECHAT_WEB_APP_ID": self.wechat_web_app_id,
+            "WECHAT_WEB_APP_SECRET": self.wechat_web_app_secret,
+            "WECHAT_WEB_REDIRECT_URI": self.wechat_web_redirect_uri,
             "WECHAT_MCH_ID": self.wechat_mch_id,
             "WECHAT_MCH_CERT_SERIAL": self.wechat_mch_cert_serial,
             "WECHAT_MCH_PRIVATE_KEY": self.wechat_mch_private_key,
@@ -185,6 +193,7 @@ class Settings(BaseSettings):
                 errors.append(f"{name}_REQUIRED")
 
         for name, value in {
+            "WECHAT_WEB_REDIRECT_URI": self.wechat_web_redirect_uri,
             "WECHAT_NOTIFY_URL": self.wechat_notify_url,
             "WECHAT_REFUND_NOTIFY_URL": self.wechat_refund_notify_url,
         }.items():

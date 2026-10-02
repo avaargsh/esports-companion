@@ -1,14 +1,22 @@
+import base64
+import hashlib
+import hmac
+import secrets
+import time
 import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.db import get_db
+from app.providers.auth import WeChatWebAuthProvider
 from app.providers.registry import get_auth_provider
 from app.security import Principal, current_principal, require_session
+from app.models import User
 from app.services.auth_service import AuthService
 from app.services.session_service import SessionService
 
@@ -17,6 +25,18 @@ router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 class WeChatLoginRequest(BaseModel):
     code: str = Field(min_length=1, max_length=256)
+
+
+class AdminQrResponse(BaseModel):
+    appId: str
+    redirectUri: str
+    state: str
+    authorizeUrl: str
+
+
+class AdminQrLoginRequest(BaseModel):
+    code: str = Field(min_length=1, max_length=512)
+    state: str = Field(min_length=16, max_length=512)
 
 
 class RefreshRequest(BaseModel):
@@ -55,6 +75,77 @@ class MeResponse(BaseModel):
     status: str
 
 
+
+
+_ADMIN_QR_STATE_TTL_SECONDS = 600
+
+
+def _admin_qr_state_signature(nonce: str, issued_at: str) -> str:
+    key = settings.session_signing_key.encode("utf-8")
+    message = f"admin-wechat-qr:{nonce}:{issued_at}".encode("utf-8")
+    digest = hmac.new(key, message, hashlib.sha256).digest()
+    return base64.urlsafe_b64encode(digest).decode("ascii").rstrip("=")
+
+
+def _create_admin_qr_state() -> str:
+    nonce = secrets.token_urlsafe(18)
+    issued_at = str(int(time.time()))
+    signature = _admin_qr_state_signature(nonce, issued_at)
+    return f"{nonce}.{issued_at}.{signature}"
+
+
+def _verify_admin_qr_state(state: str) -> None:
+    try:
+        nonce, issued_at, signature = state.split(".", 2)
+        issued = int(issued_at)
+    except (TypeError, ValueError):
+        raise HTTPException(400, "WECHAT_QR_STATE_INVALID")
+
+    expected = _admin_qr_state_signature(nonce, issued_at)
+    if not hmac.compare_digest(signature, expected):
+        raise HTTPException(400, "WECHAT_QR_STATE_INVALID")
+    if int(time.time()) - issued > _ADMIN_QR_STATE_TTL_SECONDS:
+        raise HTTPException(400, "WECHAT_QR_STATE_EXPIRED")
+
+
+def get_wechat_web_auth_provider() -> WeChatWebAuthProvider:
+    return WeChatWebAuthProvider(
+        app_id=settings.wechat_web_app_id,
+        app_secret=settings.wechat_web_app_secret,
+        redirect_uri=settings.wechat_web_redirect_uri,
+    )
+
+
+def _issue_platform_session(
+    db: Session,
+    *,
+    user: User,
+    provider: str,
+    provider_session_key: str | None,
+    is_new_user: bool = False,
+) -> LoginResponse:
+    roles = SessionService.roles_for_user(db, user)
+    if "PLATFORM" not in roles:
+        raise HTTPException(403, "PLATFORM_REQUIRED")
+    tokens = SessionService.create_session(
+        db,
+        user=user,
+        provider=provider,
+        provider_session_key=provider_session_key,
+    )
+    return LoginResponse(
+        userId=str(user.id),
+        provider=provider,
+        isNewUser=is_new_user,
+        roles=list(tokens.roles),
+        tokenType=tokens.token_type,
+        accessToken=tokens.access_token,
+        refreshToken=tokens.refresh_token,
+        expiresIn=tokens.expires_in,
+        refreshExpiresIn=tokens.refresh_expires_in,
+    )
+
+
 class SessionResponse(BaseModel):
     sessionId: str
     provider: str
@@ -71,15 +162,16 @@ def wechat_login(
 ):
     try:
         provider = get_auth_provider(settings.auth_provider)
-        user, created = AuthService.login_with_code(
+        identity = provider.exchange_code(body.code)
+        user, created = AuthService.login_with_identity(
             db,
-            provider=provider,
-            code=body.code,
+            identity=identity,
         )
         tokens = SessionService.create_session(
             db,
             user=user,
             provider=provider.name,
+            provider_session_key=identity.provider_session_key,
         )
         return LoginResponse(
             userId=str(user.id),
@@ -101,6 +193,82 @@ def wechat_login(
         ):
             raise HTTPException(503, message) from exc
         raise HTTPException(401, message) from exc
+
+
+@router.post("/wechat/admin-login", response_model=LoginResponse)
+def wechat_admin_login(
+    body: WeChatLoginRequest,
+    db: Session = Depends(get_db),
+):
+    try:
+        provider = get_auth_provider(settings.auth_provider)
+        identity = provider.exchange_code(body.code)
+        user, created = AuthService.login_with_identity(
+            db,
+            identity=identity,
+        )
+        return _issue_platform_session(
+            db,
+            user=user,
+            provider=provider.name,
+            provider_session_key=identity.provider_session_key,
+            is_new_user=created,
+        )
+    except HTTPException:
+        raise
+    except ValueError as exc:
+        message = str(exc)
+        if (
+            message.startswith("AUTH_PROVIDER_NOT_CONFIGURED")
+            or message.startswith("WECHAT_AUTH_CREDENTIALS_MISSING")
+            or message.startswith("PRODUCTION_SESSION_SIGNING_KEY_REQUIRED")
+        ):
+            raise HTTPException(503, message) from exc
+        raise HTTPException(401, message) from exc
+
+
+@router.get("/wechat/admin-qr", response_model=AdminQrResponse)
+def wechat_admin_qr():
+    try:
+        provider = get_wechat_web_auth_provider()
+        state = _create_admin_qr_state()
+        return AdminQrResponse(
+            appId=provider.app_id,
+            redirectUri=provider.redirect_uri,
+            state=state,
+            authorizeUrl=provider.authorize_url(state),
+        )
+    except ValueError as exc:
+        raise HTTPException(503, str(exc)) from exc
+
+
+@router.post("/wechat/admin-qr-login", response_model=LoginResponse)
+def wechat_admin_qr_login(
+    body: AdminQrLoginRequest,
+    db: Session = Depends(get_db),
+):
+    _verify_admin_qr_state(body.state)
+    try:
+        provider = get_wechat_web_auth_provider()
+        identity = provider.exchange_code(body.code)
+    except ValueError as exc:
+        message = str(exc)
+        status_code = 503 if message == "WECHAT_WEB_AUTH_CREDENTIALS_MISSING" else 401
+        raise HTTPException(status_code, message) from exc
+
+    if not identity.union_id:
+        raise HTTPException(401, "WECHAT_UNIONID_REQUIRED")
+
+    user = db.scalar(select(User).where(User.unionid == identity.union_id))
+    if not user or user.status != "ACTIVE":
+        raise HTTPException(403, "PLATFORM_REQUIRED")
+
+    return _issue_platform_session(
+        db,
+        user=user,
+        provider=provider.name,
+        provider_session_key=identity.provider_session_key,
+    )
 
 
 @router.post("/refresh", response_model=RefreshResponse)

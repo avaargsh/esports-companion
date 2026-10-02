@@ -1,4 +1,4 @@
-import { connectOrderRealtime } from "../../api/realtime"
+import { connectOrderRealtime, type RealtimeSocketTask } from "../../api/realtime"
 
 export type OrderRealtimeHandlers = {
   onConnectionChange?: (connected: boolean) => void
@@ -34,7 +34,7 @@ export async function subscribeOrderRealtime({
 
   const seen = new Set<string>()
   const seenOrder: string[] = []
-  let socket: UniApp.SocketTask | null = null
+  let socket: RealtimeSocketTask | null = null
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null
   let reconnectAttempt = 0
   let connecting = false
@@ -81,7 +81,7 @@ export async function subscribeOrderRealtime({
     if (closed || connecting) return
     connecting = true
 
-    let task: UniApp.SocketTask
+    let task: RealtimeSocketTask
     try {
       task = await connectOrderRealtime({
         orderId,

@@ -18,17 +18,23 @@ from app.schemas import PublicOfferingOut, PublicPlayerOut, PublicReviewOut, Pub
 
 router = APIRouter(prefix="/api/v1/players", tags=["marketplace"])
 
-
 def _offerings_for(db: Session, player_id: uuid.UUID) -> list[PublicOfferingOut]:
     rows = db.execute(
         select(ProviderOffering, ServiceSKU, Game)
         .join(ServiceSKU, ServiceSKU.id == ProviderOffering.sku_id)
         .join(Game, Game.id == ServiceSKU.game_id)
+        .join(
+            PlayerSkill,
+            (PlayerSkill.player_id == ProviderOffering.player_id)
+            & (PlayerSkill.game_id == ServiceSKU.game_id),
+        )
         .where(
             ProviderOffering.player_id == player_id,
             ProviderOffering.status == "ACTIVE",
             ServiceSKU.status == "ACTIVE",
             Game.status == "ACTIVE",
+            PlayerSkill.status == "ACTIVE",
+            PlayerSkill.verification_status == "APPROVED",
         )
         .order_by(Game.sort_order, ServiceSKU.price)
     ).all()
@@ -144,7 +150,11 @@ def list_players(
     result = []
     for player in players:
         item = _public_player(db, player)
-        if game_id and not any(offering.game_id == game_id for offering in item.offerings):
+        if (
+            game_id
+            and not any(offering.game_id == game_id for offering in item.offerings)
+            and not any(skill.game_id == game_id for skill in item.skills)
+        ):
             continue
         if rank:
             normalized_rank = rank.strip().casefold()
@@ -154,7 +164,7 @@ def list_players(
                 for skill in item.skills
             ):
                 continue
-        if item.offerings:
+        if item.offerings or item.skills:
             result.append(item)
     return result
 

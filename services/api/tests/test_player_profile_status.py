@@ -88,3 +88,58 @@ def test_cancelled_player_can_reapply_for_review():
         profile = client.get("/api/v1/player/profile", headers=player_headers)
         assert profile.status_code == 200
         assert profile.json()["verification_status"] == "PENDING"
+
+
+def test_admin_player_rows_expose_review_cancel_and_restore_actions():
+    with TestClient(app) as client:
+        demo = client.get("/api/v1/dev/bootstrap").json()
+        player_user_id = demo["customerUserId"]
+        admin_headers = {"X-Admin-Id": demo["adminUserId"]}
+        player_headers = {"X-User-Id": player_user_id}
+
+        applied = client.post(
+            "/api/v1/player/apply",
+            headers=player_headers,
+            json={"display_name": "动作契约陪玩", "bio": "等待审核"},
+        )
+        assert applied.status_code == 201
+        player_id = applied.json()["id"]
+
+        listed_pending = client.get("/api/v1/admin/players", headers=admin_headers)
+        assert listed_pending.status_code == 200
+        pending_row = next(item for item in listed_pending.json() if item["id"] == player_id)
+        assert pending_row["verificationStatus"] == "待审核"
+        assert pending_row["verificationStatusCode"] == "PENDING"
+        assert pending_row["availableActions"] == ["APPROVE", "REJECT"]
+
+        approved = client.post(
+            f"/api/v1/admin/players/{player_id}/approve",
+            headers=admin_headers,
+        )
+        assert approved.status_code == 200
+
+        listed_approved = client.get("/api/v1/admin/players", headers=admin_headers)
+        approved_row = next(item for item in listed_approved.json() if item["id"] == player_id)
+        assert approved_row["verificationStatus"] == "审核通过"
+        assert approved_row["availableActions"] == ["CANCEL"]
+
+        cancelled = client.post(
+            f"/api/v1/admin/players/{player_id}/cancel",
+            headers=admin_headers,
+            json={"reason": "风控测试"},
+        )
+        assert cancelled.status_code == 200
+
+        listed_cancelled = client.get("/api/v1/admin/players", headers=admin_headers)
+        cancelled_row = next(item for item in listed_cancelled.json() if item["id"] == player_id)
+        assert cancelled_row["verificationStatus"] == "资格已取消"
+        assert cancelled_row["availableActions"] == ["RESTORE"]
+
+        restored = client.post(
+            f"/api/v1/admin/players/{player_id}/restore",
+            headers=admin_headers,
+        )
+        assert restored.status_code == 200
+        assert restored.json()["verificationStatus"] == "审核通过"
+        assert restored.json()["verificationStatusCode"] == "APPROVED"
+        assert restored.json()["availableActions"] == ["CANCEL"]

@@ -97,6 +97,49 @@ def test_admin_manual_refund_completion_moves_order_to_refunded():
         assert dispute["status"] == "RESOLVED"
         assert dispute["resolution"] == "REFUND_CUSTOMER"
 
+        no_provider_order = client.post(
+            "/api/v1/orders",
+            headers={"X-User-Id": customer_id},
+            json={
+                "sku_id": sku_id,
+                "quantity": 1,
+                "remark": f"no-provider-dispute-{uuid.uuid4().hex}",
+            },
+        )
+        assert no_provider_order.status_code == 201
+        no_provider_order_id = no_provider_order.json()["id"]
+        no_provider_paid = client.post(
+            f"/api/v1/orders/{no_provider_order_id}/mock-pay",
+            headers={
+                "X-User-Id": customer_id,
+                "Idempotency-Key": f"no-provider-pay-{uuid.uuid4().hex}",
+            },
+        )
+        assert no_provider_paid.status_code == 200
+        no_provider_dispute = client.post(
+            f"/api/v1/orders/{no_provider_order_id}/disputes",
+            headers={
+                "X-User-Id": customer_id,
+                "Idempotency-Key": f"no-provider-dispute-{uuid.uuid4().hex}",
+            },
+            json={
+                "reason_code": "CANCEL_BEFORE_SERVICE",
+                "description": "refund before provider assigned",
+            },
+        )
+        assert no_provider_dispute.status_code == 201
+        no_provider_disputes = client.get(
+            "/api/v1/admin/disputes",
+            headers={"X-Admin-Id": admin_id},
+        )
+        assert no_provider_disputes.status_code == 200
+        no_provider_row = next(
+            item for item in no_provider_disputes.json()
+            if item["id"] == no_provider_dispute.json()["id"]
+        )
+        assert "REFUND_CUSTOMER" in no_provider_row["available_actions"]
+        assert "RELEASE_PROVIDER" not in no_provider_row["available_actions"]
+
         refunds = client.get(
             "/api/v1/admin/refunds",
             headers={"X-Admin-Id": admin_id},

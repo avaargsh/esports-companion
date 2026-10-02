@@ -19,6 +19,7 @@ from app.order_timeout import run_timeout_scanner
 from app.realtime import run_outbox_publisher
 from app.refund_reconcile import run_refund_reconcile_worker
 from app.routers.admin import router as admin_router
+from app.routers.announcements import router as announcements_router
 from app.routers.admin_catalog import router as admin_catalog_router
 from app.routers.auth import router as auth_router
 from app.routers.catalog import router as catalog_router
@@ -153,6 +154,7 @@ app.include_router(admin_router)
 app.include_router(admin_disputes_router)
 app.include_router(admin_catalog_router)
 app.include_router(auth_router)
+app.include_router(announcements_router)
 app.include_router(user_wechat_router)
 if not settings.is_secure_deployment:
     app.include_router(dev_router)

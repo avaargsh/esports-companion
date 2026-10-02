@@ -15,7 +15,7 @@ const props = defineProps<{
 }>()
 
 const pendingPlayers = computed(() =>
-  props.players.filter(item => item.verificationStatus === "PENDING")
+  props.players.filter(item => item.verificationStatusCode === "PENDING")
 )
 
 const gmv = computed(() =>
@@ -34,18 +34,18 @@ const platformRevenue = computed(() =>
       <strong>{{ orders.length }}</strong>
       <small>当前数据集</small>
     </article>
-    <article class="metric">
-      <span>GMV</span>
+    <article class="metric gold">
+      <span>GMV 累计金额</span>
       <strong>¥{{ (gmv / 100).toFixed(2) }}</strong>
       <small>订单累计金额</small>
     </article>
-    <article class="metric">
+    <article class="metric" :class="{ warning: pendingPlayers.length > 0 }">
       <span>待审核陪玩</span>
       <strong>{{ pendingPlayers.length }}</strong>
       <small>需要运营处理</small>
     </article>
     <article class="metric accent">
-      <span>平台服务费</span>
+      <span>平台服务费收益</span>
       <strong>¥{{ (platformRevenue / 100).toFixed(2) }}</strong>
       <small>已结算订单</small>
     </article>

@@ -44,6 +44,10 @@ def expect_status(actual, expected, step):
         raise SmokeError(f"{step}: expected HTTP {expected}, got {actual}")
 
 
+def state_code(item):
+    return item.get("statusCode") or item.get("status_code") or item.get("status")
+
+
 def wait_ready():
     deadline = time.time() + 45
     last_error = None
@@ -351,7 +355,7 @@ def run():
         query={"reason": "RELEASE_CHECKLIST_REJECT"},
     )
     expect_status(status, 200, "admin withdrawal reject")
-    if rejected["status"] != "REJECTED":
+    if state_code(rejected) != "REJECTED":
         raise SmokeError("admin withdrawal reject: unexpected state")
 
     status, approved_withdrawal = request(
@@ -372,7 +376,7 @@ def run():
         payload={"provider_txn_id": payout_ref},
     )
     expect_status(status, 200, "admin withdrawal approve")
-    if approved["status"] != "COMPLETED":
+    if state_code(approved) != "COMPLETED":
         raise SmokeError("admin withdrawal approve: unexpected state")
     status, admin_withdrawals = request(
         "GET",

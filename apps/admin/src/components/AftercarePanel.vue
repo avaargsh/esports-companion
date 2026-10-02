@@ -16,6 +16,7 @@ type Dispute = {
   held_amount: number
   resolution?: string | null
   created_at: string
+  available_actions?: string[]
 }
 
 type Refund = {
@@ -40,6 +41,10 @@ const evidenceOrderId = ref("")
 
 function stateCode(item: { status: string; statusCode?: string; status_code?: string }) {
   return item.statusCode || item.status_code || item.status
+}
+
+function hasAction(item: Dispute, action: string) {
+  return item.available_actions?.includes(action) ?? false
 }
 
 const openDisputes = computed(() => disputes.value.filter(item => stateCode(item) === "OPEN"))
@@ -150,8 +155,18 @@ onMounted(load)
           <small>冻结 ¥{{ (item.held_amount/100).toFixed(2) }} · {{ new Date(item.created_at).toLocaleString() }}</small>
         </div>
         <div v-if="stateCode(item) === 'OPEN'" class="case-actions">
-          <button class="secondary" :disabled="!!busyId" @click="resolveDispute(item,'release')">继续结算</button>
-          <button class="danger" :disabled="!!busyId" @click="resolveDispute(item,'refund')">批准退款</button>
+          <button
+            v-if="hasAction(item, 'RELEASE_PROVIDER')"
+            class="secondary"
+            :disabled="!!busyId"
+            @click="resolveDispute(item,'release')"
+          >继续结算</button>
+          <button
+            v-if="hasAction(item, 'REFUND_CUSTOMER')"
+            class="danger"
+            :disabled="!!busyId"
+            @click="resolveDispute(item,'refund')"
+          >批准退款</button>
         </div>
         <div v-else class="resolution">{{ item.resolution || "已处理" }}</div>
       </div>
@@ -201,38 +216,5 @@ onMounted(load)
 </template>
 
 <style scoped>
-.ops { display:grid; gap:22px; }
-.error { padding:12px 14px; border-radius:12px; background:#fff0f0; color:#c63d3d; font-size:12px; }
-.metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; }
-.metrics article { padding:20px; border:1px solid #ecebf1; border-radius:18px; background:#fff; }
-.metrics span { color:#92929d; font-size:11px; }
-.metrics strong { display:block; margin-top:10px; font-size:26px; }
-.panel { padding:24px; border:1px solid #ecebf1; border-radius:20px; background:#fff; }
-header { display:flex; justify-content:space-between; align-items:center; gap:20px; margin-bottom:18px; }
-h2 { margin:0; font-size:18px; }
-header p { margin:6px 0 0; color:#92929d; font-size:12px; }
-.count { padding:7px 10px; border-radius:999px; background:#f2f1f7; color:#777783; font-size:11px; }
-.case { display:flex; align-items:center; justify-content:space-between; gap:22px; padding:18px 4px; border-top:1px solid #f0eff4; }
-.case-main { min-width:0; flex:1; }
-.case-top { display:flex; gap:10px; align-items:center; }
-.order-link { border:0; padding:0; background:transparent; color:#4d46a8; font-size:11px; font-weight:800; cursor:pointer; text-align:left; }
-.case-top em, .row em { padding:4px 7px; border-radius:999px; background:#f2f1f5; color:#777783; font-size:10px; font-style:normal; }
-.case-top em.open { background:#fff2d8; color:#a56d00; }
-.case p { margin:7px 0; color:#6d6d78; font-size:11px; }
-.desc { max-width:760px; color:#33333b; font-size:12px; line-height:1.55; }
-.case small { display:block; margin-top:7px; color:#aaaab4; font-size:10px; }
-.case-actions { display:flex; gap:8px; flex:none; }
-button { border:0; border-radius:10px; padding:8px 11px; cursor:pointer; }
-button:disabled { opacity:.45; cursor:not-allowed; }
-.secondary { background:#f0edff; color:#6c5ce7; }
-.danger { background:#fff0f0; color:#c63d3d; }
-.ghost { border:1px solid #e5e4ec; background:#fff; color:#666672; }
-.small { padding:6px 9px; font-size:10px; }
-.resolution { color:#777783; font-size:11px; }
-.empty { padding:34px; border-radius:14px; background:#fafafd; color:#9999a4; text-align:center; font-size:12px; }
-.table { overflow:hidden; }
-.row { display:grid; grid-template-columns:1.5fr .7fr .8fr .8fr 1fr; gap:12px; align-items:center; min-height:58px; border-top:1px solid #f0eff4; font-size:11px; }
-.row.head { min-height:36px; border:0; color:#9999a4; font-size:10px; font-weight:800; }
-.row b,.row small { display:block; }
-.row small { margin-top:4px; color:#aaaab4; font-size:9px; }
+.ops{display:grid;gap:22px}.error{padding:12px 14px;border:1px solid rgba(239,68,68,.18);border-radius:12px;background:rgba(239,68,68,.1);color:#f87171;font-size:12px}.metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.metrics article{padding:20px;border:1px solid rgba(0,0,0,.10);border-radius:16px;background:#ffffff;box-shadow:0 10px 30px -5px rgba(0,0,0,.35)}.metrics span{color:#6b7280;font-size:11px}.metrics strong{display:block;margin-top:10px;color:#111827;font-size:26px}.panel{padding:24px;border:1px solid rgba(0,0,0,.10);border-radius:16px;background:#ffffff;box-shadow:0 10px 30px -5px rgba(0,0,0,.12)}header{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:18px}h2{margin:0;color:#111827;font-size:18px}header p{margin:6px 0 0;color:#6b7280;font-size:12px}.count{padding:7px 10px;border-radius:999px;background:rgba(0,0,0,.06);color:#111827;font-size:11px;font-weight:850}.case{display:flex;align-items:center;justify-content:space-between;gap:22px;padding:18px 4px;border-top:1px solid rgba(0,0,0,.06)}.case-main{min-width:0;flex:1}.case-top{display:flex;gap:10px;align-items:center}.order-link{border:0;padding:0;background:transparent;color:#111827;font-size:11px;font-weight:800;cursor:pointer;text-align:left}.case-top em,.row em{padding:4px 7px;border-radius:999px;background:#f3f4f6;color:#6b7280;font-size:10px;font-style:normal}.case-top em.open{background:rgba(0,0,0,.06);color:#111827}.case p{margin:7px 0;color:#6b7280;font-size:11px}.desc{max-width:760px;color:#111827;font-size:12px;line-height:1.55}.case small{display:block;margin-top:7px;color:#6b7280;font-size:10px}.case-actions{display:flex;gap:8px;flex:none}button{border:0;border-radius:10px;padding:8px 11px;cursor:pointer;font-weight:800}button:disabled{opacity:.45;cursor:not-allowed}.secondary{background:rgba(0,0,0,.06);color:#111827}.danger{background:rgba(239,68,68,.12);color:#f87171}.ghost{border:1px solid rgba(0,0,0,.10);background:#f3f4f6;color:#111827}.small{padding:6px 9px;font-size:10px}.resolution{color:#6b7280;font-size:11px}.empty{padding:34px;border:1px dashed rgba(0,0,0,.12);border-radius:14px;background:rgba(0,0,0,.04);color:#111827;text-align:center;font-size:12px}.table{overflow:hidden}.row{display:grid;grid-template-columns:1.5fr .7fr .8fr .8fr 1fr;gap:12px;align-items:center;min-height:58px;border-top:1px solid rgba(0,0,0,.06);color:#111827;font-size:11px}.row.head{min-height:36px;border:0;border-radius:10px;background:#f3f4f6;color:#374151;font-size:10px;font-weight:800}.row b,.row small{display:block}.row small{margin-top:4px;color:#6b7280;font-size:9px}
 </style>

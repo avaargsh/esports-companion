@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue"
+import { computed, ref } from "vue"
 
 import type {
   Player,
@@ -7,7 +7,7 @@ import type {
   ReviewAction
 } from "../types/admin"
 
-defineProps<{
+const props = defineProps<{
   players: Player[]
   skills: PlayerSkillReview[]
 }>()
@@ -19,6 +19,18 @@ const emit = defineEmits<{
 
 type PlayerView = "players" | "skills"
 const view = ref<PlayerView>("players")
+
+const pendingSkillCount = computed(() =>
+  props.skills.filter(item => item.verificationStatusCode === "PENDING").length
+)
+
+function playerActions(player: Player) {
+  return player.availableActions ?? []
+}
+
+function skillActions(skill: PlayerSkillReview) {
+  return skill.availableActions ?? []
+}
 </script>
 
 <template>
@@ -63,21 +75,35 @@ const view = ref<PlayerView>("players")
         <span>{{ player.serviceStatus }}</span>
         <span>{{ player.rating.toFixed(2) }}</span>
         <span class="actions">
-          <template v-if="player.verificationStatus === 'PENDING'">
-            <button
-              class="approve"
-              @click="emit('review-player', player, 'approve')"
-            >
-              通过
-            </button>
-            <button
-              class="reject"
-              @click="emit('review-player', player, 'reject')"
-            >
-              拒绝
-            </button>
-          </template>
-          <small v-else>已处理</small>
+          <button
+            v-if="playerActions(player).includes('APPROVE')"
+            class="approve"
+            @click="emit('review-player', player, 'approve')"
+          >
+            通过
+          </button>
+          <button
+            v-if="playerActions(player).includes('REJECT')"
+            class="reject"
+            @click="emit('review-player', player, 'reject')"
+          >
+            驳回
+          </button>
+          <button
+            v-if="playerActions(player).includes('CANCEL')"
+            class="reject"
+            @click="emit('review-player', player, 'cancel')"
+          >
+            取消资格
+          </button>
+          <button
+            v-if="playerActions(player).includes('RESTORE')"
+            class="approve"
+            @click="emit('review-player', player, 'restore')"
+          >
+            恢复资格
+          </button>
+          <small v-if="playerActions(player).length === 0">已处理</small>
         </span>
       </div>
     </div>
@@ -90,7 +116,7 @@ const view = ref<PlayerView>("players")
         <p>公开主页只展示已通过认证的游戏技能。</p>
       </div>
       <span class="count">
-        {{ skills.filter(item => item.verificationStatus === "PENDING").length }}
+        {{ pendingSkillCount }}
         待处理
       </span>
     </div>
@@ -122,21 +148,28 @@ const view = ref<PlayerView>("players")
         </span>
         <span><em class="badge">{{ skill.verificationStatus }}</em></span>
         <span class="actions">
-          <template v-if="skill.verificationStatus === 'PENDING'">
-            <button
-              class="approve"
-              @click="emit('review-skill', skill, 'approve')"
-            >
-              通过
-            </button>
-            <button
-              class="reject"
-              @click="emit('review-skill', skill, 'reject')"
-            >
-              拒绝
-            </button>
-          </template>
-          <small v-else>{{ skill.reviewNote || "已处理" }}</small>
+          <button
+            v-if="skillActions(skill).includes('APPROVE')"
+            class="approve"
+            @click="emit('review-skill', skill, 'approve')"
+          >
+            通过
+          </button>
+          <button
+            v-if="skillActions(skill).includes('REJECT')"
+            class="reject"
+            @click="emit('review-skill', skill, 'reject')"
+          >
+            驳回
+          </button>
+          <button
+            v-if="skillActions(skill).includes('REVOKE')"
+            class="reject"
+            @click="emit('review-skill', skill, 'revoke')"
+          >
+            撤销
+          </button>
+          <small v-if="skillActions(skill).length === 0">{{ skill.reviewNote || "已处理" }}</small>
         </span>
       </div>
     </div>

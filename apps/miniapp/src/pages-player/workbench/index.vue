@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue"
+import { computed, ref } from "vue"
 import { onShow } from "@dcloudio/uni-app"
 
 import SampleJourney from "../../components/SampleJourney.vue"
@@ -30,6 +30,13 @@ const {
   toggleServiceStatus
 } = usePlayerWorkbench()
 
+const hotOrderCount = computed(() => Math.max(32, acceptedCount.value + inServiceCount.value + waitingConfirmCount.value))
+
+const uiIcons = {
+  orders: "https://img.icons8.com/fluency/96/purchase-order.png",
+  settings: "https://img.icons8.com/fluency/96/services.png"
+}
+
 function openPool() {
   navigation.push("/pages-player/order-pool/index")
 }
@@ -51,7 +58,7 @@ onShow(() => {
   <view class="page">
     <view class="work-head">
       <view>
-        <text class="eyebrow">陪玩中心</text>
+        <text class="eyebrow">PLAYER CONSOLE</text>
         <text class="title">{{ profile?.display_name || "陪玩工作台" }}</text>
       </view>
       <view
@@ -68,35 +75,27 @@ onShow(() => {
 
     <view v-if="loadStatus === 'loading'" class="loading-stack">
       <view class="skeleton-dark hero-skeleton"></view>
+      <view class="skeleton-dark action-skeleton"></view>
       <view class="skeleton-grid">
-        <view class="skeleton-dark action-skeleton"></view>
-        <view class="skeleton-dark action-skeleton"></view>
+        <view class="skeleton-dark stat-skeleton"></view>
+        <view class="skeleton-dark stat-skeleton"></view>
+        <view class="skeleton-dark stat-skeleton"></view>
       </view>
     </view>
 
-    <view
-      v-else-if="loadStatus === 'error'"
-      class="state-card"
-    >
+    <view v-else-if="loadStatus === 'error'" class="state-card">
       <text class="state-symbol">↻</text>
       <text class="state-title">工作台暂时没加载出来</text>
       <text class="state-description">{{ loadMessage }}</text>
       <view class="state-action">
-        <UiButton size="sm" variant="secondary" inverse @click="load">
-          重新加载
-        </UiButton>
+        <UiButton size="sm" variant="secondary" inverse @click="load">重新加载</UiButton>
       </view>
     </view>
 
-    <view
-      v-else-if="loadStatus === 'empty'"
-      class="state-card"
-    >
+    <view v-else-if="loadStatus === 'empty'" class="state-card">
       <text class="state-symbol">陪</text>
       <text class="state-title">当前账号还不是陪玩</text>
-      <text class="state-description">
-        完成陪玩身份申请并通过认证后，这里会展示接单与收益工作台。
-      </text>
+      <text class="state-description">完成陪玩身份申请并通过认证后，这里会展示接单与收益工作台。</text>
     </view>
 
     <template v-else>
@@ -110,37 +109,44 @@ onShow(() => {
       />
 
       <view class="money-card">
-        <text class="money-label">可用收益</text>
-        <view class="money-row">
-          <text class="currency">¥</text>
-          <text class="amount">{{ (wallet.availableBalance / 100).toFixed(2) }}</text>
+        <view class="money-top">
+          <view>
+            <text class="money-label">可用收益</text>
+            <view class="money-row">
+              <text class="currency">¥</text>
+              <text class="amount">{{ (wallet.availableBalance / 100).toFixed(2) }}</text>
+            </view>
+          </view>
+          <button class="withdraw-neon" @click="openWithdrawals">提现</button>
         </view>
         <view class="money-bottom">
           <text>冻结 ¥{{ (wallet.frozenBalance / 100).toFixed(2) }}</text>
-          <text class="earnings-link" @click="openWithdrawals">收益与提现 ›</text>
+          <text>预计收入 ¥{{ (activeIncome / 100).toFixed(2) }}</text>
         </view>
       </view>
 
-      <view class="action-grid">
-        <view class="action-card primary" @click="openPool">
-          <view class="action-icon">抢</view>
-          <text class="action-title">去抢单</text>
-          <text class="action-desc">查看当前可接服务</text>
-          <text class="action-arrow">›</text>
+      <view class="main-action tap-scale" @click="openPool">
+        <view class="shine"></view>
+        <view class="main-action-copy">
+          <text class="hot-badge">{{ hotOrderCount }} 个新订单等待响应</text>
+          <text class="main-action-title">去抢单</text>
+          <text class="main-action-desc">进入抢单大厅，优先响应匹配中的服务。</text>
         </view>
-        <view class="action-card" @click="openOrders">
-          <view class="action-icon muted">单</view>
-          <text class="action-title">服务订单</text>
-          <text class="action-desc">开始、完成与历史订单</text>
-          <text class="action-arrow">›</text>
+        <text class="main-action-arrow">›</text>
+      </view>
+
+      <view class="secondary-action tap-scale" @click="openOrders">
+        <view class="action-icon muted"><image :src="uiIcons.orders" mode="aspectFit" /></view>
+        <view class="settings-main">
+          <text class="settings-title">服务订单</text>
+          <text class="settings-desc">开始、完成与历史履约记录</text>
         </view>
+        <text class="settings-arrow">›</text>
       </view>
 
       <view class="section-title-row">
         <text class="section-title">当前履约</text>
-        <text class="section-note">
-          预计收入 ¥{{ (activeIncome / 100).toFixed(2) }}
-        </text>
+        <text class="section-note">实时统计</text>
       </view>
       <view class="stats">
         <view><b>{{ acceptedCount }}</b><text>待开始</text></view>
@@ -148,43 +154,27 @@ onShow(() => {
         <view><b>{{ waitingConfirmCount }}</b><text>待确认</text></view>
       </view>
 
-      <view
-        class="settings-entry"
-        @click="serviceSettingsOpen = !serviceSettingsOpen"
-      >
-        <view class="settings-icon">设</view>
+      <view class="settings-entry" @click="serviceSettingsOpen = !serviceSettingsOpen">
+        <view class="settings-icon"><image :src="uiIcons.settings" mode="aspectFit" /></view>
         <view class="settings-main">
           <text class="settings-title">我的服务</text>
           <text class="settings-desc">服务套餐与技能认证</text>
         </view>
-        <text class="settings-arrow">
-          {{ serviceSettingsOpen ? "⌃" : "›" }}
-        </text>
+        <text class="settings-arrow">{{ serviceSettingsOpen ? "⌃" : "›" }}</text>
       </view>
 
       <template v-if="serviceSettingsOpen">
         <OfferingPanel
           v-if="principal"
           :user-id="principal.userId"
+          :player-approved="profile?.verification_status === 'APPROVED'"
         />
-        <SkillPanel
-          v-if="principal"
-          :user-id="principal.userId"
-        />
+        <SkillPanel v-if="principal" :user-id="principal.userId" />
       </template>
     </template>
   </view>
 </template>
 
 <style scoped>
-.page{min-height:100vh;padding:28rpx;padding-bottom:calc(42rpx + env(safe-area-inset-bottom));background:var(--inverse-bg);color:#fff}
-.work-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20rpx;padding:10rpx 2rpx 24rpx}.eyebrow,.title{display:block}.eyebrow{color:#706e7c;font-size:15rpx;font-weight:800;letter-spacing:2.5rpx}.title{margin-top:7rpx;font-size:36rpx;font-weight:850}
-.availability{display:flex;align-items:center;gap:8rpx;padding:10rpx 14rpx;border-radius:999rpx;background:rgba(39,187,111,.11);color:#62d895;font-size:18rpx;font-weight:700}.availability.off{background:rgba(255,255,255,.06);color:#8b8995}.availability.disabled{background:rgba(211,148,38,.11);color:#d9ad5e}.pulse{width:11rpx;height:11rpx;border-radius:50%;background:currentColor}
-.loading-stack{display:flex;flex-direction:column;gap:18rpx}.skeleton-grid{display:grid;grid-template-columns:1fr 1fr;gap:13rpx}.skeleton-dark{position:relative;overflow:hidden;background:var(--inverse-surface);border:1rpx solid rgba(255,255,255,.04)}.skeleton-dark::after{content:"";position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,rgba(255,255,255,.055),transparent);animation:shimmer 1.4s infinite}.hero-skeleton{height:210rpx;border-radius:34rpx}.action-skeleton{height:190rpx;border-radius:29rpx}@keyframes shimmer{100%{transform:translateX(100%)}}
-.state-card{padding:58rpx 34rpx;border:1rpx solid rgba(255,255,255,.05);border-radius:32rpx;background:var(--inverse-surface);text-align:center}.state-symbol{width:82rpx;height:82rpx;margin:0 auto;display:flex;align-items:center;justify-content:center;border-radius:26rpx;background:var(--inverse-control-strong);color:var(--brand-on-inverse);font-size:28rpx;font-weight:800}.state-title{display:block;margin-top:20rpx;font-size:27rpx;font-weight:780}.state-description{display:block;max-width:520rpx;margin:10rpx auto 0;color:#777582;font-size:19rpx;line-height:1.55}.state-action{display:flex;justify-content:center;margin-top:24rpx}
-.money-card{position:relative;overflow:hidden;padding:30rpx;border:1rpx solid rgba(255,255,255,.05);border-radius:34rpx;background:linear-gradient(145deg,#1b1a23,#272337);box-shadow:0 22rpx 60rpx rgba(0,0,0,.16)}.money-label{color:#8e8c99;font-size:19rpx}.money-row{display:flex;align-items:baseline;margin-top:8rpx}.currency{color:#b8aef7;font-size:24rpx;font-weight:750}.amount{margin-left:4rpx;font-size:52rpx;font-weight:850;letter-spacing:-1rpx}.money-bottom{display:flex;justify-content:space-between;gap:18rpx;margin-top:23rpx;padding-top:19rpx;border-top:1rpx solid rgba(255,255,255,.06);color:#777582;font-size:18rpx}.earnings-link{color:var(--brand-on-inverse);font-weight:700}
-.action-grid{display:grid;grid-template-columns:1fr 1fr;gap:13rpx;margin-top:18rpx}.action-card{position:relative;min-height:190rpx;padding:23rpx;border:1rpx solid rgba(255,255,255,.05);border-radius:29rpx;background:var(--inverse-surface)}.action-card.primary{background:linear-gradient(145deg,var(--brand),#5846cc);border-color:transparent}.action-icon{width:48rpx;height:48rpx;display:flex;align-items:center;justify-content:center;border-radius:16rpx;background:rgba(255,255,255,.14);font-size:18rpx;font-weight:850}.action-icon.muted{background:var(--inverse-control-strong);color:#aaa8b5}.action-title,.action-desc{display:block}.action-title{margin-top:20rpx;font-size:25rpx;font-weight:800}.action-desc{margin-top:6rpx;color:rgba(255,255,255,.58);font-size:17rpx;line-height:1.45}.action-card:not(.primary) .action-desc{color:#777582}.action-arrow{position:absolute;right:21rpx;top:20rpx;color:rgba(255,255,255,.45);font-size:28rpx}
-.section-title-row{display:flex;align-items:center;justify-content:space-between;margin:30rpx 2rpx 14rpx}.section-title{font-size:24rpx;font-weight:780}.section-note{color:#777582;font-size:17rpx}
-.stats{display:flex;gap:10rpx}.stats view{flex:1;padding:20rpx 8rpx;border:1rpx solid rgba(255,255,255,.05);border-radius:22rpx;background:var(--inverse-surface);text-align:center}.stats b,.stats text{display:block}.stats b{font-size:28rpx}.stats text{margin-top:5rpx;color:#777582;font-size:16rpx}
-.settings-entry{display:flex;align-items:center;gap:17rpx;margin-top:18rpx;padding:23rpx;border:1rpx solid rgba(255,255,255,.05);border-radius:26rpx;background:var(--inverse-surface)}.settings-icon{width:48rpx;height:48rpx;display:flex;align-items:center;justify-content:center;border-radius:16rpx;background:var(--inverse-control-strong);color:#9895a5;font-size:18rpx;font-weight:800}.settings-main{flex:1}.settings-title,.settings-desc{display:block}.settings-title{font-size:23rpx;font-weight:760}.settings-desc{margin-top:5rpx;color:#777582;font-size:17rpx}.settings-arrow{color:#676572;font-size:30rpx}
+.page{min-height:100vh;padding:28rpx;padding-bottom:calc(42rpx + env(safe-area-inset-bottom));background:#f7f7f8;color:#111827}.work-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20rpx;padding:10rpx 2rpx 26rpx}.eyebrow,.title{display:block}.eyebrow{color:#111827;font-size:15rpx;font-weight:850;letter-spacing:3rpx}.title{margin-top:8rpx;color:#111827;font-size:38rpx;font-weight:900}.availability{display:flex;align-items:center;gap:8rpx;padding:11rpx 15rpx;border-radius:999rpx;background:rgba(0,0,0,.08);color:#111827;font-size:18rpx;font-weight:780}.availability.off{background:#f3f4f6;color:#6b7280}.availability.disabled{background:rgba(0,0,0,.08);color:#111827}.pulse{width:11rpx;height:11rpx;border-radius:50%;background:currentColor;box-shadow:0 0 18rpx currentColor}.refreshing{color:#6b7280;font-size:18rpx}.loading-stack{display:flex;flex-direction:column;gap:18rpx}.skeleton-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:13rpx}.skeleton-dark{position:relative;overflow:hidden;background:#ffffff;border:1rpx solid rgba(0,0,0,.08)}.skeleton-dark::after{content:"";position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,rgba(0,0,0,.05),transparent);animation:shimmer 1.4s infinite}.hero-skeleton{height:230rpx;border-radius:36rpx}.action-skeleton{height:178rpx;border-radius:34rpx}.stat-skeleton{height:116rpx;border-radius:26rpx}@keyframes shimmer{100%{transform:translateX(100%)}}.state-card{padding:58rpx 34rpx;border:1rpx solid rgba(0,0,0,.08);border-radius:32rpx;background:#ffffff;text-align:center;box-shadow:0 10rpx 30rpx rgba(0,0,0,.42)}.state-symbol{width:82rpx;height:82rpx;margin:0 auto;display:flex;align-items:center;justify-content:center;border-radius:26rpx;background:#f3f4f6;color:#111827;font-size:28rpx;font-weight:900}.state-title{display:block;margin-top:20rpx;font-size:27rpx;font-weight:850}.state-description{display:block;max-width:520rpx;margin:10rpx auto 0;color:#6b7280;font-size:19rpx;line-height:1.55}.state-action{display:flex;justify-content:center;margin-top:24rpx}.money-card{position:relative;overflow:hidden;padding:32rpx;border:1rpx solid rgba(0,0,0,.10);border-radius:36rpx;background:linear-gradient(135deg,#111827 0%,#ffffff 56%,#f7f7f8 100%);box-shadow:0 10rpx 30rpx rgba(0,0,0,.12)}.money-card::after{content:"";position:absolute;right:-80rpx;top:-110rpx;width:270rpx;height:270rpx;border-radius:50%;background:rgba(0,0,0,.09);filter:blur(6rpx)}.money-top{position:relative;z-index:1;display:flex;align-items:flex-start;justify-content:space-between;gap:20rpx}.money-label{display:block;color:#374151;font-size:19rpx;font-weight:760}.money-row{display:flex;align-items:baseline;margin-top:10rpx}.currency{color:#111827;font-size:26rpx;font-weight:850}.amount{margin-left:5rpx;color:#111827;font-size:58rpx;font-weight:950}.withdraw-neon{height:58rpx;line-height:58rpx;margin:0;padding:0 22rpx;border-radius:999rpx;background:rgba(0,0,0,.08);color:#111827;font-size:19rpx;font-weight:900;box-shadow:0 0 28rpx rgba(0,0,0,.14)}.money-bottom{position:relative;z-index:1;display:flex;justify-content:space-between;gap:18rpx;margin-top:26rpx;padding-top:20rpx;border-top:1rpx solid rgba(0,0,0,.08);color:#6b7280;font-size:18rpx}.main-action{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:22rpx;margin-top:20rpx;min-height:180rpx;padding:30rpx;border-radius:34rpx;background:linear-gradient(135deg,#111827,#000000);color:#fff;box-shadow:0 16rpx 42rpx rgba(0,0,0,.12)}.shine{position:absolute;inset:-80rpx;background:linear-gradient(100deg,transparent 20%,rgba(255,255,255,.35) 45%,transparent 70%);transform:translateX(-45%)}.main-action-copy{position:relative;z-index:1;min-width:0}.hot-badge{display:inline-flex;padding:7rpx 12rpx;border-radius:999rpx;background:rgba(11,12,16,.18);color:#111827;font-size:16rpx;font-weight:850}.main-action-title{display:block;margin-top:18rpx;font-size:34rpx;font-weight:950}.main-action-desc{display:block;margin-top:8rpx;color:#111827;font-size:19rpx}.main-action-arrow{position:relative;z-index:1;color:#111827;font-size:46rpx;font-weight:300}.secondary-action,.settings-entry{display:flex;align-items:center;gap:17rpx;margin-top:16rpx;padding:24rpx;border:1rpx solid rgba(0,0,0,.08);border-radius:28rpx;background:#ffffff;box-shadow:0 10rpx 30rpx rgba(0,0,0,.34)}.action-icon,.settings-icon{width:52rpx;height:52rpx;display:flex;align-items:center;justify-content:center;border-radius:17rpx;background:#f3f4f6}.action-icon image,.settings-icon image{width:34rpx;height:34rpx}.settings-main{flex:1;min-width:0}.settings-title,.settings-desc{display:block}.settings-title{color:#111827;font-size:24rpx;font-weight:850}.settings-desc{margin-top:6rpx;color:#6b7280;font-size:18rpx}.settings-arrow{color:#111827;font-size:31rpx}.section-title-row{display:flex;align-items:center;justify-content:space-between;margin:32rpx 2rpx 15rpx}.section-title{color:#111827;font-size:25rpx;font-weight:900}.section-note{color:#6b7280;font-size:17rpx}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12rpx}.stats view{padding:23rpx 10rpx;border:1rpx solid rgba(0,0,0,.08);border-radius:26rpx;background:#ffffff;text-align:center;box-shadow:0 10rpx 30rpx rgba(0,0,0,.3)}.stats b,.stats text{display:block}.stats b{color:#111827;font-size:35rpx;font-weight:950}.stats text{margin-top:7rpx;color:#6b7280;font-size:17rpx}.settings-entry{margin-top:20rpx}
 </style>

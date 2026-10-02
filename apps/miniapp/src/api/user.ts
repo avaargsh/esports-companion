@@ -1,6 +1,6 @@
 import { API_ORIGIN } from "./config"
 import { createHttpClient } from "../platform/http"
-import { getStoredSession } from "./auth"
+import { clearStoredSession, getStoredSession } from "./auth"
 
 export type ApiEnvelope<T> = {
   code: number
@@ -60,7 +60,11 @@ function persistLogin(data: WxLoginData) {
 }
 
 function unwrap<T>(payload: ApiEnvelope<T>): T {
-  if (payload.code !== 0) throw new Error(payload.message || "REQUEST_FAILED")
+  if (payload.code !== 0) {
+    const error = new Error(payload.message || "REQUEST_FAILED")
+    if (isAuthExpiredError(error)) clearStoredSession()
+    throw error
+  }
   return payload.data
 }
 
@@ -69,6 +73,42 @@ function authHeaders(): Record<string, string> {
   if (!session?.accessToken) throw new Error("LOGIN_REQUIRED")
   return {
     Authorization: `${session.tokenType || "Bearer"} ${session.accessToken}`
+  }
+}
+
+function isAuthExpiredError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false
+  return [
+    "ACCESS_TOKEN_INVALID",
+    "AUTHENTICATION_REQUIRED",
+    "SESSION_AUTH_REQUIRED",
+    "USER_NOT_FOUND"
+  ].includes(error.message)
+}
+
+function normalizeAuthError(error: unknown): never {
+  if (isAuthExpiredError(error)) {
+    clearStoredSession()
+    throw new Error("登录已过期，请重新登录")
+  }
+  throw error
+}
+
+async function requestWithAuth<T>(
+  path: string,
+  options: {
+    method?: "GET" | "POST" | "PUT" | "DELETE"
+    data?: string | Record<string, unknown> | ArrayBuffer
+  } = {}
+): Promise<T> {
+  try {
+    const payload = await userHttp.request<ApiEnvelope<T>>(path, {
+      ...options,
+      headers: authHeaders()
+    })
+    return unwrap(payload)
+  } catch (error) {
+    return normalizeAuthError(error)
   }
 }
 
@@ -99,22 +139,17 @@ export async function wxUserLogin(): Promise<WxLoginData> {
 }
 
 export async function getCurrentUserProfile(): Promise<CurrentUserProfile> {
-  const payload = await userHttp.request<ApiEnvelope<CurrentUserProfile>>("/api/user/me", {
-    headers: authHeaders()
-  })
-  return unwrap(payload)
+  return requestWithAuth<CurrentUserProfile>("/api/user/me")
 }
 
 export async function updateCurrentUserProfile(data: {
   nickname?: string
   avatarUrl?: string | null
 }): Promise<CurrentUserProfile> {
-  const payload = await userHttp.request<ApiEnvelope<CurrentUserProfile>>("/api/user/profile", {
+  return requestWithAuth<CurrentUserProfile>("/api/user/profile", {
     method: "POST",
-    data,
-    headers: authHeaders()
+    data
   })
-  return unwrap(payload)
 }
 
 export async function uploadUserAvatar(data: {
@@ -122,37 +157,31 @@ export async function uploadUserAvatar(data: {
   contentType: string
   dataBase64: string
 }): Promise<AvatarUploadData> {
-  const payload = await userHttp.request<ApiEnvelope<AvatarUploadData>>("/api/user/avatar", {
+  return requestWithAuth<AvatarUploadData>("/api/user/avatar", {
     method: "POST",
-    data,
-    headers: authHeaders()
+    data
   })
-  return unwrap(payload)
 }
 
 export async function bindPhoneNumber(detail: {
+  code?: string
   encryptedData?: string
   iv?: string
+  errMsg?: string
 }): Promise<BindPhoneData> {
-  if (!detail.encryptedData || !detail.iv) {
+  if (detail.errMsg && !detail.errMsg.includes("ok")) {
     throw new Error("PHONE_AUTH_CANCELED")
   }
-  const session = getStoredSession()
-  if (!session?.accessToken) {
-    throw new Error("LOGIN_REQUIRED")
+  if (!detail.code && (!detail.encryptedData || !detail.iv)) {
+    throw new Error("PHONE_AUTH_CANCELED")
   }
-  const payload = await userHttp.request<ApiEnvelope<BindPhoneData>>(
-    "/api/user/bind-phone",
-    {
-      method: "POST",
-      data: {
-        encryptedData: detail.encryptedData,
-        iv: detail.iv
-      },
-      headers: {
-        Authorization: `${session.tokenType || "Bearer"} ${session.accessToken}`
-      }
-    }
-  )
-  return unwrap(payload)
+  return requestWithAuth<BindPhoneData>("/api/user/bind-phone", {
+    method: "POST",
+    data: detail.code
+      ? { code: detail.code }
+      : {
+          encryptedData: detail.encryptedData,
+          iv: detail.iv
+        }
+  })
 }

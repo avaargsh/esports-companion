@@ -31,8 +31,9 @@ class WxLoginRequest(BaseModel):
 
 
 class BindPhoneRequest(BaseModel):
-    encryptedData: str = Field(min_length=1)
-    iv: str = Field(min_length=1)
+    code: str | None = Field(default=None, min_length=1, max_length=256)
+    encryptedData: str | None = Field(default=None, min_length=1)
+    iv: str | None = Field(default=None, min_length=1)
 
 
 class UserProfileUpdateRequest(BaseModel):
@@ -173,17 +174,22 @@ def bind_phone(
     db: Session = Depends(get_db),
 ):
     try:
-        from app.models import AuthSession
+        if body.code:
+            payload = get_wechat_client().get_phone_number(body.code)
+        else:
+            from app.models import AuthSession
 
-        auth_session = db.get(AuthSession, principal.session_id)
-        if not auth_session or not auth_session.provider_session_key:
-            return fail(400, "WECHAT_SESSION_KEY_MISSING")
-        payload = decrypt_phone_number(
-            encrypted_data=body.encryptedData,
-            iv=body.iv,
-            session_key=auth_session.provider_session_key,
-            expected_app_id=settings.wechat_app_id,
-        )
+            auth_session = db.get(AuthSession, principal.session_id)
+            if not body.encryptedData or not body.iv:
+                return fail(400, "WECHAT_PHONE_CREDENTIALS_MISSING")
+            if not auth_session or not auth_session.provider_session_key:
+                return fail(400, "WECHAT_SESSION_KEY_MISSING")
+            payload = decrypt_phone_number(
+                encrypted_data=body.encryptedData,
+                iv=body.iv,
+                session_key=auth_session.provider_session_key,
+                expected_app_id=settings.wechat_app_id,
+            )
         phone = str(payload.get("purePhoneNumber") or payload.get("phoneNumber"))
         user = db.get(User, principal.user_id)
         if not user:
