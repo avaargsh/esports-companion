@@ -12,6 +12,33 @@ export function listCustomerOrders(
   })
 }
 
+export function listPlayerOrders(userId: string): Promise<Order[]> {
+  return request<Order[]>("/player/orders", { userId })
+}
+
+export function listPlayerOrderPool(
+  userId: string,
+  gameId: string,
+  limit = 20
+): Promise<Order[]> {
+  return request<Order[]>(
+    `/player/order-pool?game_id=${encodeURIComponent(gameId)}&limit=${limit}`,
+    { userId }
+  )
+}
+
+export function claimPlayerOrder(
+  userId: string,
+  orderId: string,
+  expectedVersion: number
+): Promise<Order> {
+  return request<Order>(`/player/orders/${orderId}/claim`, {
+    method: "POST",
+    userId,
+    data: { expected_version: expectedVersion }
+  })
+}
+
 export function getOrderDetail(
   userId: string,
   orderId: string
