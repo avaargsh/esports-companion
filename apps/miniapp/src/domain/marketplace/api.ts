@@ -8,10 +8,11 @@ export function listPublicPlayers({
   gameId?: string
   limit?: number
 } = {}): Promise<PublicPlayer[]> {
-  const params = new URLSearchParams()
-  params.set("limit", String(limit))
-  if (gameId) params.set("game_id", gameId)
-  return request<PublicPlayer[]>(`/players?${params.toString()}`)
+  const query = [`limit=${limit}`]
+  if (gameId) {
+    query.push(`game_id=${encodeURIComponent(gameId)}`)
+  }
+  return request<PublicPlayer[]>(`/players?${query.join("&")}`)
 }
 
 export function getPublicPlayer(
