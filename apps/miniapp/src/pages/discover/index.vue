@@ -1,50 +1,29 @@
 <script setup lang="ts">
-import { ref } from "vue"
 import { onLoad } from "@dcloudio/uni-app"
-import { request } from "../../api/client"
+
 import EmptyState from "../../components/EmptyState.vue"
 import PlayerCard from "../../components/PlayerCard.vue"
-import type { Game, PublicPlayer } from "../../types/domain"
+import { usePlayerDiscovery } from "../../features/discovery/usePlayerDiscovery"
 import { navigation } from "../../platform/navigation"
+import type { PublicPlayer } from "../../types/domain"
 
-const games = ref<Game[]>([])
-const players = ref<PublicPlayer[]>([])
-const selectedGameId = ref("")
-const loading = ref(true)
-const failed = ref(false)
+const {
+  games,
+  players,
+  selectedGameId,
+  loadStatus,
+  loadMessage,
+  init,
+  loadPlayers,
+  selectGame
+} = usePlayerDiscovery()
 
-async function loadPlayers() {
-  loading.value = true
-  failed.value = false
-  try {
-    const suffix = selectedGameId.value
-      ? `?limit=30&game_id=${encodeURIComponent(selectedGameId.value)}`
-      : "?limit=30"
-    players.value = await request<PublicPlayer[]>(`/players${suffix}`)
-  } catch {
-    failed.value = true
-    players.value = []
-  } finally {
-    loading.value = false
-  }
-}
-async function selectGame(id:string) {
-  if (selectedGameId.value === id) return
-  selectedGameId.value = id
-  await loadPlayers()
-}
-function openPlayer(player:PublicPlayer) {
+function openPlayer(player: PublicPlayer) {
   navigation.push("/pages/player/index", { id: player.id })
 }
+
 onLoad(async query => {
-  selectedGameId.value = String(query?.gameId || "")
-  try {
-    games.value = await request<Game[]>("/games")
-    await loadPlayers()
-  } catch {
-    failed.value = true
-    loading.value = false
-  }
+  await init(String(query?.gameId ?? ""))
 })
 </script>
 
@@ -69,17 +48,17 @@ onLoad(async query => {
     </scroll-view>
 
     <view class="summary">
-      <text>{{ loading ? "正在刷新" : players.length + " 位可接单" }}</text>
+      <text>{{ loadStatus === "loading" ? "正在刷新" : players.length + " 位可接单" }}</text>
       <text class="hint">按综合体验展示</text>
     </view>
 
-    <view v-if="loading" class="list">
+    <view v-if="loadStatus === 'loading'" class="list">
       <view v-for="n in 5" :key="n" class="skeleton row-skeleton"></view>
     </view>
     <EmptyState
-      v-else-if="failed"
+      v-else-if="loadStatus === 'error'"
       title="加载失败"
-      description="网络恢复后重新加载"
+      :description="loadMessage"
       action="重试"
       symbol="↻"
       @action="loadPlayers"

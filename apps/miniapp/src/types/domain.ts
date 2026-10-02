@@ -8,6 +8,10 @@ export type OrderAction =
   | "REQUEST_REFUND"
   | "OPEN_DISPUTE"
 
+export type CheckoutAction =
+  | "CREATE_ORDER"
+  | "CREATE_DESIGNATED_ORDER"
+
 export type OrderStatus =
   | "WAITING_PAYMENT"
   | "PAID"
@@ -36,6 +40,7 @@ export type ServiceSku = {
   service_type: string
   duration_minutes: number
   price: number
+  available_actions?: CheckoutAction[]
 }
 
 export type ServicePlayer = {
@@ -139,6 +144,7 @@ export type PublicPlayer = {
   offerings: PublicOffering[]
   skills: PublicSkill[]
   reviews: PublicReview[]
+  available_actions?: CheckoutAction[]
 }
 
 

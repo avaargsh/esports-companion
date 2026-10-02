@@ -3,6 +3,29 @@ import type { Order, OrderEvent } from "../../types/domain"
 
 export type OrderAftercareKind = "refund" | "dispute"
 
+export type CreateCustomerOrderInput = {
+  skuId?: string
+  offeringId?: string
+  quantity: number
+  remark: string
+}
+
+export function createCustomerOrder(
+  userId: string,
+  input: CreateCustomerOrderInput
+): Promise<Order> {
+  return request<Order>("/orders", {
+    method: "POST",
+    userId,
+    data: {
+      sku_id: input.skuId,
+      offering_id: input.offeringId,
+      quantity: input.quantity,
+      remark: input.remark
+    }
+  })
+}
+
 export function listCustomerOrders(
   userId: string,
   limit = 50
