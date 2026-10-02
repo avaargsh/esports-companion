@@ -67,6 +67,27 @@ def check_transport_ownership(violations: list[str]) -> None:
             )
 
 
+def check_wechat_native_ownership(violations: list[str]) -> None:
+    owner = SRC / "platform" / "wechat.ts"
+    forbidden = (
+        "uni.login(",
+        "uni.requestPayment(",
+        "requestSubscribeMessage(",
+    )
+    for path in sorted(SRC.rglob("*")):
+        if path.suffix not in {".ts", ".vue"} or path == owner:
+            continue
+        text = path.read_text(encoding="utf-8")
+        for marker in forbidden:
+            offset = text.find(marker)
+            if offset >= 0:
+                violations.append(
+                    f"{path.relative_to(ROOT)}:{line_number(text, offset)}: "
+                    f"direct WeChat capability {marker!r} is forbidden; "
+                    "use platform/wechat.ts"
+                )
+
+
 def check_environment_ownership(violations: list[str]) -> None:
     owner = SRC / "platform" / "env.ts"
     allowed = {owner, SRC / "env.d.ts"}
@@ -107,6 +128,7 @@ def main() -> int:
     violations: list[str] = []
     check_platform_dependencies(violations)
     check_transport_ownership(violations)
+    check_wechat_native_ownership(violations)
     check_environment_ownership(violations)
     check_required_adapters(violations)
 
