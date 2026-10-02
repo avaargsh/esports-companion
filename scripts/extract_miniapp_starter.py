@@ -67,7 +67,7 @@ def write_scaffold(destination_root: Path) -> None:
                 "compilerOptions": {
                     "target": "ES2022",
                     "module": "ESNext",
-                    "moduleResolution": "Node",
+                    "moduleResolution": "Bundler",
                     "strict": True,
                     "jsx": "preserve",
                     "resolveJsonModule": True,
