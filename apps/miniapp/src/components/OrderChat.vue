@@ -70,7 +70,7 @@ async function send() {
     content.value = ""
     await load()
   } catch (reason) {
-    error.value = friendlyError(reason instanceof Error ? reason.message : "")
+    error.value = orderMessageError(reason instanceof Error ? reason.message : "")
   } finally {
     sending.value = false
   }
