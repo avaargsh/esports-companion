@@ -84,6 +84,23 @@ Owns backend-neutral session mechanics:
 
 It does not know WeChat login endpoints, user roles, backend payloads or application-specific storage schemas. Those remain in `src/api/auth.ts`.
 
+### `src/platform/wechat.ts`
+
+Owns direct WeChat-native capability calls that should not leak across product
+modules:
+
+- WeChat login code acquisition;
+- WeChat payment invocation;
+- subscription-message authorization.
+
+Product adapters still own backend endpoints, payment preparation and business
+copy. The platform adapter owns only the native runtime invocation and normalized
+runtime errors.
+
+When privacy/user-service capabilities are added, follow the current official
+Mini Program demo contract and keep the native API call in this module rather
+than scattering `wx.*` / `uni.*` calls across pages.
+
 ### `src/platform/navigation.ts`
 
 Owns small navigation mechanics:
@@ -135,9 +152,11 @@ That keeps existing product imports stable while the reusable ownership lives in
 1. `platform/*` cannot import product API/components/pages/domain utilities.
 2. product-domain endpoint/type markers cannot leak into `platform/*`.
 3. direct `uni.request()` calls are forbidden outside `platform/http.ts`.
-4. runtime `VITE_*` access is centralized in `platform/env.ts`.
-5. the product API client must continue composing the generic platform HTTP client;
-6. the product auth adapter must continue composing the generic platform session kernel.
+4. direct login/payment/subscription-message native calls are forbidden outside
+   `platform/wechat.ts`.
+5. runtime `VITE_*` access is centralized in `platform/env.ts`.
+6. the product API client must continue composing the generic platform HTTP client;
+7. the product auth adapter must continue composing the generic platform session kernel.
 
 Together with:
 
