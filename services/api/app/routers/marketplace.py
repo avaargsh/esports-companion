@@ -101,6 +101,12 @@ def _public_player(
                 .limit(20)
             )
         ]
+    offerings = _offerings_for(db, player.id)
+    available_actions = (
+        ["CREATE_DESIGNATED_ORDER"]
+        if player.service_status == "AVAILABLE" and offerings
+        else []
+    )
     return PublicPlayerOut(
         id=player.id,
         display_name=player.display_name,
@@ -111,9 +117,10 @@ def _public_player(
         rating=rating,
         review_count=review_count,
         order_count=player.order_count,
-        offerings=_offerings_for(db, player.id),
+        offerings=offerings,
         skills=_skills_for(db, player.id),
         reviews=reviews,
+        available_actions=available_actions,
     )
 
 
