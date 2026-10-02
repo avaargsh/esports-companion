@@ -1,67 +1,42 @@
 <script setup lang="ts">
-import { computed, ref } from "vue"
 import { onLoad } from "@dcloudio/uni-app"
-import { request } from "../../api/client"
-import { getDemoIdentities } from "../../api/demo"
-import { isWeChatAuthMode } from "../../api/config"
+
 import CheckoutBar from "../../components/CheckoutBar.vue"
 import EmptyState from "../../components/EmptyState.vue"
 import SampleJourney from "../../components/SampleJourney.vue"
-import type { Order, ServiceSku } from "../../types/domain"
-import { showMessage } from "../../ui/feedback"
+import { useGameCheckout } from "../../features/checkout/useGameCheckout"
 import { navigation } from "../../platform/navigation"
 
-const gameId=ref("")
-const gameName=ref("选择服务")
-const skus=ref<ServiceSku[]>([])
-const selectedId=ref("")
-const remark=ref("")
-const quantity=ref(1)
-const creating=ref(false)
-const loading=ref(true)
-const failed=ref(false)
-const demoMode=!isWeChatAuthMode()
+const {
+  gameName,
+  skus,
+  selectedId,
+  remark,
+  quantity,
+  creating,
+  demoMode,
+  loadStatus,
+  loadMessage,
+  selected,
+  totalAmount,
+  canCreate,
+  changeQuantity,
+  loadSkus,
+  init,
+  createOrder
+} = useGameCheckout()
 
-const selected=computed(()=>skus.value.find(i=>i.id===selectedId.value)??null)
-const totalAmount=computed(()=>(selected.value?.price||0)*quantity.value)
-function changeQuantity(delta:number){ quantity.value=Math.min(10,Math.max(1,quantity.value+delta)) }
-
-async function loadSkus(){
-  if(!gameId.value)return
-  loading.value=true
-  failed.value=false
-  try{
-    skus.value=await request<ServiceSku[]>(`/games/${gameId.value}/skus`)
-    selectedId.value=skus.value[0]?.id??""
-  }catch(error){
-    failed.value=true
-    showMessage(error instanceof Error?error.message:"服务加载失败")
-  }finally{
-    loading.value=false
-  }
-}
-
-onLoad(async query=>{
-  gameId.value=String(query?.id??"")
-  gameName.value=decodeURIComponent(String(query?.name??"选择服务"))
-  if(!gameId.value){failed.value=true;loading.value=false;return}
-  await loadSkus()
+onLoad(async query => {
+  await init(
+    String(query?.id ?? ""),
+    decodeURIComponent(String(query?.name ?? "选择服务"))
+  )
 })
 
-async function createOrder(){
-  if(!selected.value||creating.value)return
-  creating.value=true
-  try{
-    const identities=await getDemoIdentities()
-    const order=await request<Order>("/orders",{
-      method:"POST",
-      userId:identities.customer.userId,
-      data:{sku_id:selected.value.id,quantity:quantity.value,remark:remark.value.trim()}
-    })
-    navigation.replace("/pages/order-detail/index",{id:order.id})
-  }catch(error){
-    showMessage(error instanceof Error?error.message:"下单失败")
-  }finally{creating.value=false}
+async function createAndOpen() {
+  const order = await createOrder()
+  if (!order) return
+  navigation.replace("/pages/order-detail/index", { id: order.id })
 }
 </script>
 
@@ -82,17 +57,17 @@ async function createOrder(){
 
     <view class="service-title">
       <text>选择服务</text>
-      <text class="count">{{ loading ? "加载中" : skus.length + " 个套餐" }}</text>
+      <text class="count">{{ loadStatus === "loading" ? "加载中" : skus.length + " 个套餐" }}</text>
     </view>
 
-    <view v-if="loading" class="sku-list">
+    <view v-if="loadStatus === 'loading'" class="sku-list">
       <view v-for="n in 3" :key="n" class="sku-skeleton skeleton"></view>
     </view>
 
     <EmptyState
-      v-else-if="failed"
+      v-else-if="loadStatus === 'error'"
       title="服务暂时没加载出来"
-      description="检查网络后再试一次"
+      :description="loadMessage"
       action="重新加载"
       symbol="↻"
       @action="loadSkus"
@@ -157,8 +132,8 @@ async function createOrder(){
       :note="selected ? selected.name + ' · × ' + quantity : ''"
       primary-text="确认下单"
       :loading="creating"
-      :disabled="!selected || loading || failed"
-      @primary="createOrder"
+      :disabled="!canCreate || loadStatus === 'loading' || loadStatus === 'error'"
+      @primary="createAndOpen"
     />
   </view>
 </template>
