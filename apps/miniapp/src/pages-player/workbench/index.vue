@@ -36,7 +36,7 @@ const {
   start: startLoad,
   succeed: finishLoad,
   fail: failLoad
-} = useAsyncStatus()
+} = useAsyncStatus("loading")
 
 const online = computed(() => profile.value?.service_status === "AVAILABLE")
 const verified = computed(() => profile.value?.verification_status === "APPROVED")
@@ -263,7 +263,7 @@ onShow(() => {
 
 <style scoped>
 .page{min-height:100vh;padding:28rpx;padding-bottom:calc(42rpx + env(safe-area-inset-bottom));background:var(--inverse-bg);color:#fff}
-.work-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20rpx;padding:10rpx 2rpx 24rpx}.eyebrow,.title{display:block}.eyebrow{color:#706e7c;font-size:15rpx;font-weight:800;letter-spacing:2.5rpx}.title{margin-top:7rpx;font-size:36rpx;font-weight:850}.refreshing{padding-bottom:5rpx;color:#777582;font-size:17rpx}
+.work-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20rpx;padding:10rpx 2rpx 24rpx}.eyebrow,.title{display:block}.eyebrow{color:#706e7c;font-size:15rpx;font-weight:800;letter-spacing:2.5rpx}.title{margin-top:7rpx;font-size:36rpx;font-weight:850}
 .availability{display:flex;align-items:center;gap:8rpx;padding:10rpx 14rpx;border-radius:999rpx;background:rgba(39,187,111,.11);color:#62d895;font-size:18rpx;font-weight:700}.availability.off{background:rgba(255,255,255,.06);color:#8b8995}.availability.disabled{background:rgba(211,148,38,.11);color:#d9ad5e}.pulse{width:11rpx;height:11rpx;border-radius:50%;background:currentColor}
 .loading-stack{display:flex;flex-direction:column;gap:18rpx}.skeleton-grid{display:grid;grid-template-columns:1fr 1fr;gap:13rpx}.skeleton-dark{position:relative;overflow:hidden;background:var(--inverse-surface);border:1rpx solid rgba(255,255,255,.04)}.skeleton-dark::after{content:"";position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,rgba(255,255,255,.055),transparent);animation:shimmer 1.4s infinite}.hero-skeleton{height:210rpx;border-radius:34rpx}.action-skeleton{height:190rpx;border-radius:29rpx}@keyframes shimmer{100%{transform:translateX(100%)}}
 .state-card{padding:58rpx 34rpx;border:1rpx solid rgba(255,255,255,.05);border-radius:32rpx;background:var(--inverse-surface);text-align:center}.state-symbol{width:82rpx;height:82rpx;margin:0 auto;display:flex;align-items:center;justify-content:center;border-radius:26rpx;background:var(--inverse-control-strong);color:var(--brand-on-inverse);font-size:28rpx;font-weight:800}.state-title{display:block;margin-top:20rpx;font-size:27rpx;font-weight:780}.state-description{display:block;max-width:520rpx;margin:10rpx auto 0;color:#777582;font-size:19rpx;line-height:1.55}.state-action{display:flex;justify-content:center;margin-top:24rpx}
