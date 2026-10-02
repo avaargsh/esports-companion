@@ -93,7 +93,7 @@ function quickOrder() {
         :description="loadMessage"
         action="重新加载"
         symbol="↻"
-        @action="loadHome"
+        @action="load"
       />
       <view v-else class="game-grid">
         <view
