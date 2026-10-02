@@ -148,6 +148,10 @@ export function usePlayerOrderDetail() {
           },
           onMessageCreated() {
             chatRefreshKey.value += 1
+          },
+          onReconnected() {
+            chatRefreshKey.value += 1
+            void reload({ silent: true })
           }
         }
       })
