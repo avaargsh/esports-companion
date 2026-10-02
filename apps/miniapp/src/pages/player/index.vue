@@ -1,71 +1,49 @@
 <script setup lang="ts">
-import { computed, ref } from "vue"
 import { onLoad } from "@dcloudio/uni-app"
-import { request } from "../../api/client"
-import { getDemoIdentities } from "../../api/demo"
+
 import CheckoutBar from "../../components/CheckoutBar.vue"
 import EmptyState from "../../components/EmptyState.vue"
-import type { Order, PublicOffering, PublicPlayer } from "../../types/domain"
-import { showMessage } from "../../ui/feedback"
+import { useDesignatedCheckout } from "../../features/checkout/useDesignatedCheckout"
+import { navigation } from "../../platform/navigation"
 
-const playerId=ref("")
-const player=ref<PublicPlayer|null>(null)
-const selectedOfferingId=ref("")
-const remark=ref("")
-const quantity=ref(1)
-const loading=ref(true)
-const failed=ref(false)
-const creating=ref(false)
+const {
+  player,
+  selectedOfferingId,
+  remark,
+  quantity,
+  creating,
+  loadStatus,
+  loadMessage,
+  selectedOffering,
+  totalAmount,
+  canCreate,
+  changeQuantity,
+  loadPlayer,
+  init,
+  createOrder
+} = useDesignatedCheckout()
 
-const selectedOffering=computed<PublicOffering|null>(()=>
-  player.value?.offerings.find(i=>i.id===selectedOfferingId.value)??null
-)
-const totalAmount=computed(()=>(selectedOffering.value?.price||0)*quantity.value)
-function changeQuantity(delta:number){quantity.value=Math.min(10,Math.max(1,quantity.value+delta))}
-
-onLoad(async query=>{
-  playerId.value=String(query?.id??"")
-  if(!playerId.value){
-    failed.value=true
-    loading.value=false
-    return
-  }
-  try{
-    player.value=await request<PublicPlayer>(`/players/${playerId.value}`)
-    selectedOfferingId.value=player.value.offerings[0]?.id??""
-  }catch(error){
-    failed.value=true
-    showMessage(error instanceof Error?error.message:"大神资料加载失败")
-  }finally{loading.value=false}
+onLoad(async query => {
+  await init(String(query?.id ?? ""))
 })
 
-async function createDesignatedOrder(){
-  if(!selectedOffering.value||creating.value)return
-  creating.value=true
-  try{
-    const identities=await getDemoIdentities()
-    const order=await request<Order>("/orders",{
-      method:"POST",
-      userId:identities.customer.userId,
-      data:{offering_id:selectedOffering.value.id,quantity:quantity.value,remark:remark.value.trim()}
-    })
-    uni.redirectTo({url:`/pages/order-detail/index?id=${order.id}`})
-  }catch(error){
-    showMessage(error instanceof Error?error.message:"下单失败")
-  }finally{creating.value=false}
+async function createAndOpen() {
+  const order = await createOrder()
+  if (!order) return
+  navigation.replace("/pages/order-detail/index", { id: order.id })
 }
 </script>
 
 <template>
-  <view v-if="loading" class="safe-page">
+  <view v-if="loadStatus === 'loading'" class="safe-page">
     <view class="profile-skeleton skeleton"></view>
     <view v-for="n in 3" :key="n" class="row-skeleton skeleton"></view>
   </view>
 
-  <view v-else-if="failed || !player" class="safe-page">
+  <view v-else-if="loadStatus === 'error' || !player" class="safe-page">
     <EmptyState
       title="大神资料暂时没加载出来"
-      description="可以返回找大神列表后再试一次"
+      :description="loadMessage || '可以返回找大神列表后再试一次'"
       symbol="↻"
     />
   </view>
@@ -180,10 +158,10 @@ async function createDesignatedOrder(){
     <CheckoutBar
       :cents="totalAmount"
       :note="selectedOffering ? selectedOffering.game_name + ' · ' + selectedOffering.sku_name : ''"
-      :primary-text="player.service_status==='AVAILABLE' ? '指定下单' : '大神暂不可接单'"
+      :primary-text="canCreate ? '指定下单' : '大神暂不可接单'"
       :loading="creating"
-      :disabled="!selectedOffering || player.service_status!=='AVAILABLE'"
-      @primary="createDesignatedOrder"
+      :disabled="!selectedOffering || !canCreate"
+      @primary="createAndOpen"
     />
   </view>
 </template>
