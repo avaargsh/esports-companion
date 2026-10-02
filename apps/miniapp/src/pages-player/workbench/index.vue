@@ -2,7 +2,8 @@
 import { computed, ref } from "vue"
 import { onShow } from "@dcloudio/uni-app"
 import { isWeChatAuthMode } from "../../api/config"
-import SampleJourney from "../../components/SampleJourney.vue"\nimport UiButton from "../../components/ui/UiButton.vue"
+import SampleJourney from "../../components/SampleJourney.vue"
+import UiButton from "../../components/ui/UiButton.vue"
 import {
   getPlayerProfile,
   listPlayerOrders,
