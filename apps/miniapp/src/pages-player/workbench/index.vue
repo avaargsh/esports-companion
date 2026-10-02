@@ -1,119 +1,34 @@
 <script setup lang="ts">
-import { computed, ref } from "vue"
+import { ref } from "vue"
 import { onShow } from "@dcloudio/uni-app"
-import { isWeChatAuthMode } from "../../api/config"
+
 import SampleJourney from "../../components/SampleJourney.vue"
 import UiButton from "../../components/ui/UiButton.vue"
-import {
-  getPlayerProfile,
-  listPlayerOrders,
-  updatePlayerServiceStatus,
-  type PlayerProfile
-} from "../../domain/player/api"
-import { getWallet } from "../../domain/wallet/api"
+import { usePlayerWorkbench } from "../../features/player-workbench/usePlayerWorkbench"
 import { navigation } from "../../platform/navigation"
-import {
-  getPlayerPrincipal,
-  type ProductPrincipal
-} from "../../product/principal"
-import { useAsyncStatus } from "../../shared/composables/useAsyncStatus"
-import type { Order, Wallet } from "../../types/domain"
-import { showMessage } from "../../ui/feedback"
 import OfferingPanel from "./OfferingPanel.vue"
 import SkillPanel from "./SkillPanel.vue"
 
-const profile = ref<PlayerProfile | null>(null)
-const wallet = ref<Wallet>({ availableBalance: 0, frozenBalance: 0 })
-const orders = ref<Order[]>([])
-const principal = ref<ProductPrincipal | null>(null)
-const busy = ref(false)
-const refreshing = ref(false)
 const serviceSettingsOpen = ref(false)
-const demoMode = !isWeChatAuthMode()
+
 const {
-  status: loadStatus,
-  message: loadMessage,
-  start: startLoad,
-  succeed: finishLoad,
-  fail: failLoad
-} = useAsyncStatus("loading")
-
-const online = computed(() => profile.value?.service_status === "AVAILABLE")
-const verified = computed(() => profile.value?.verification_status === "APPROVED")
-const acceptedCount = computed(() =>
-  orders.value.filter(item => item.status === "ACCEPTED").length
-)
-const inServiceCount = computed(() =>
-  orders.value.filter(item => item.status === "IN_SERVICE").length
-)
-const waitingConfirmCount = computed(() =>
-  orders.value.filter(item => item.status === "FINISH_REQUESTED").length
-)
-const activeIncome = computed(() =>
-  orders.value
-    .filter(item =>
-      ["ACCEPTED", "IN_SERVICE", "FINISH_REQUESTED"].includes(item.status)
-    )
-    .reduce((sum, item) => sum + item.player_amount, 0)
-)
-
-async function load() {
-  const hasContent = Boolean(profile.value)
-  if (hasContent) refreshing.value = true
-  else startLoad()
-
-  try {
-    const nextPrincipal = await getPlayerPrincipal()
-    if (!nextPrincipal) {
-      principal.value = null
-      profile.value = null
-      orders.value = []
-      wallet.value = { availableBalance: 0, frozenBalance: 0 }
-      finishLoad({ empty: true })
-      return
-    }
-
-    const [nextProfile, nextWallet, nextOrders] = await Promise.all([
-      getPlayerProfile(nextPrincipal.userId),
-      getWallet(nextPrincipal.userId),
-      listPlayerOrders(nextPrincipal.userId)
-    ])
-
-    principal.value = nextPrincipal
-    profile.value = nextProfile
-    wallet.value = nextWallet
-    orders.value = nextOrders
-    finishLoad()
-  } catch (error) {
-    if (hasContent) {
-      showMessage(error instanceof Error ? error.message : "工作台刷新失败")
-    } else {
-      failLoad(error, "陪玩工作台加载失败")
-    }
-  } finally {
-    refreshing.value = false
-  }
-}
-
-async function toggleStatus() {
-  if (!profile.value || !principal.value || busy.value) return
-  if (!verified.value) {
-    showMessage("认证通过后才能开启接单")
-    return
-  }
-
-  busy.value = true
-  try {
-    profile.value = await updatePlayerServiceStatus(
-      principal.value.userId,
-      online.value ? "OFFLINE" : "AVAILABLE"
-    )
-  } catch (error) {
-    showMessage(error instanceof Error ? error.message : "状态切换失败")
-  } finally {
-    busy.value = false
-  }
-}
+  profile,
+  wallet,
+  principal,
+  busy,
+  refreshing,
+  demoMode,
+  loadStatus,
+  loadMessage,
+  online,
+  serviceAction,
+  acceptedCount,
+  inServiceCount,
+  waitingConfirmCount,
+  activeIncome,
+  load,
+  toggleServiceStatus
+} = usePlayerWorkbench()
 
 function openPool() {
   navigation.push("/pages-player/order-pool/index")
@@ -142,11 +57,11 @@ onShow(() => {
       <view
         v-if="profile"
         class="availability"
-        :class="{ off: !online, disabled: !verified }"
-        @click="toggleStatus"
+        :class="{ off: !online, disabled: !serviceAction }"
+        @click="toggleServiceStatus"
       >
         <text class="pulse"></text>
-        {{ !verified ? "待认证" : online ? "正在接单" : "暂停接单" }}
+        {{ !serviceAction ? "待认证" : online ? "正在接单" : "暂停接单" }}
       </view>
       <text v-else-if="refreshing" class="refreshing">刷新中</text>
     </view>

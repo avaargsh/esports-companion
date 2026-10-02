@@ -1,74 +1,50 @@
 <script setup lang="ts">
-import { computed, ref } from "vue"
 import { onPullDownRefresh, onShow } from "@dcloudio/uni-app"
-import { request } from "../../api/client"
-import { getDemoIdentities } from "../../api/demo"
-import { isWeChatAuthMode } from "../../api/config"
-import type { Game, Order } from "../../types/domain"
-import SampleJourney from "../../components/SampleJourney.vue"
-import { claimErrorMessage } from "../../utils/order"
-import { showSuccess, showMessage } from "../../ui/feedback"
 
-type Player={id:string;user_id:string;display_name:string;verification_status:string;service_status:string}
-const games=ref<Game[]>([])
-const gameId=ref("")
-const orders=ref<Order[]>([])
-const profile=ref<Player|null>(null)
-const playerUserId=ref("")
-const loading=ref(false)
-const claimingId=ref("")
-const demoMode=!isWeChatAuthMode()
-const bestIncome=computed(()=>orders.value.reduce((max,i)=>Math.max(max,i.player_amount),0))
-const canClaim=computed(()=>profile.value?.verification_status==="APPROVED"&&profile.value?.service_status==="AVAILABLE")
-const claimBlockReason=computed(()=>{
-  if(!profile.value)return "正在同步陪玩身份"
-  if(profile.value.verification_status!=="APPROVED")return "认证未通过，暂不可接单"
-  if(profile.value.service_status!=="AVAILABLE")return "已暂停接单，请先回工作台开启接单"
-  return ""
+import EmptyState from "../../components/EmptyState.vue"
+import SampleJourney from "../../components/SampleJourney.vue"
+import { usePlayerOrderPool } from "../../features/player-workbench/usePlayerOrderPool"
+import { navigation } from "../../platform/navigation"
+import { stopPullDownRefresh } from "../../platform/page"
+import type { Order } from "../../types/domain"
+
+const {
+  games,
+  gameId,
+  orders,
+  claimingId,
+  demoMode,
+  loadStatus,
+  loadMessage,
+  bestIncome,
+  claimBlockReason,
+  acceptingOrders,
+  canClaim,
+  bootstrap,
+  refresh,
+  loadPool,
+  selectGame,
+  claim
+} = usePlayerOrderPool()
+
+function backToWorkbench() {
+  navigation.back()
+}
+
+async function claimAndOpen(order: Order) {
+  const claimed = await claim(order)
+  if (!claimed) return
+  navigation.push("/pages-player/order-detail/index", { id: claimed.id })
+}
+
+onShow(() => {
+  void bootstrap()
 })
-async function loadPool(){
-  if(!gameId.value||!playerUserId.value)return
-  loading.value=true
-  try{
-    orders.value=await request<Order[]>(`/player/order-pool?game_id=${gameId.value}`,{userId:playerUserId.value})
-  }catch(error){
-    orders.value=[]
-    showMessage(claimErrorMessage(error instanceof Error?error.message:""))
-  }finally{loading.value=false}
-}
-async function bootstrap(){
-  try{
-    const identities=await getDemoIdentities()
-    playerUserId.value=identities.players[0]?.userId??""
-    if(!playerUserId.value)throw new Error("PLAYER_PROFILE_NOT_FOUND")
-    const [p,g]=await Promise.all([
-      request<Player>("/player/profile",{userId:playerUserId.value}),
-      request<Game[]>("/games")
-    ])
-    profile.value=p;games.value=g
-    if(!gameId.value&&games.value.length)gameId.value=games.value[0].id
-    await loadPool()
-  }catch(error){showMessage(claimErrorMessage(error instanceof Error?error.message:""))}
-}
-async function selectGame(id:string){if(gameId.value===id)return;gameId.value=id;await loadPool()}
-function backToWorkbench(){uni.navigateBack()}
-async function claim(order:Order){
-  if(!playerUserId.value||claimingId.value)return
-  if(!canClaim.value){showMessage(claimBlockReason.value);return}
-  claimingId.value=order.id
-  try{
-    const claimed=await request<Order>(`/player/orders/${order.id}/claim`,{
-      method:"POST",userId:playerUserId.value,data:{expected_version:order.version}
-    })
-    showSuccess("接单成功")
-    uni.navigateTo({url:`/pages-player/order-detail/index?id=${claimed.id}`})
-  }catch(error){
-    showMessage(claimErrorMessage(error instanceof Error?error.message:""))
-    await loadPool()
-  }finally{claimingId.value=""}
-}
-onShow(()=>{void bootstrap()})
-onPullDownRefresh(async()=>{await loadPool();uni.stopPullDownRefresh()})
+
+onPullDownRefresh(async () => {
+  await refresh()
+  stopPullDownRefresh()
+})
 </script>
 
 <template>
@@ -78,7 +54,7 @@ onPullDownRefresh(async()=>{await loadPool();uni.stopPullDownRefresh()})
         <text class="eyebrow">接单市场</text>
         <text class="title">抢单大厅</text>
       </view>
-      <view class="live"><text class="pulse"></text>{{ canClaim ? "可接单" : "暂停" }}</view>
+      <view class="live"><text class="pulse"></text>{{ acceptingOrders ? "可接单" : "暂停" }}</view>
     </view>
 
     <SampleJourney
@@ -108,15 +84,25 @@ onPullDownRefresh(async()=>{await loadPool();uni.stopPullDownRefresh()})
       </view>
     </scroll-view>
 
-    <view v-if="loading" class="list">
+    <view v-if="loadStatus === 'loading'" class="list">
       <view v-for="n in 3" :key="n" class="order-skeleton"></view>
     </view>
+
+    <EmptyState
+      v-else-if="loadStatus === 'error'"
+      title="抢单大厅暂时没加载出来"
+      :description="loadMessage"
+      action="重新加载"
+      symbol="↻"
+      inverse
+      @action="bootstrap"
+    />
 
     <view v-else-if="!orders.length" class="empty">
       <view class="empty-icon">⌁</view>
       <text class="empty-title">现在没有可接订单</text>
       <text class="empty-desc">只展示与你已启用服务匹配的订单，下拉即可刷新。</text>
-      <button class="ghost" @click="loadPool">刷新订单</button>
+      <button class="ghost" @click="() => loadPool()">刷新订单</button>
     </view>
 
     <view v-else class="list">
@@ -139,8 +125,8 @@ onPullDownRefresh(async()=>{await loadPool();uni.stopPullDownRefresh()})
           <text>服务数量 × {{ order.quantity || 1 }}</text>
           <text>订单总额 ¥{{ (order.total_amount/100).toFixed(2) }}</text>
         </view>
-        <button class="claim" :disabled="!canClaim||!!claimingId" @click="claim(order)">
-          {{ claimingId===order.id ? "正在抢单…" : canClaim ? "立即抢单" : "暂不可接单" }}
+        <button class="claim" :disabled="!canClaim(order)||!!claimingId" @click="claimAndOpen(order)">
+          {{ claimingId===order.id ? "正在抢单…" : canClaim(order) ? "立即抢单" : "暂不可接单" }}
         </button>
       </view>
     </view>
