@@ -6,10 +6,10 @@ import SampleJourney from "../../components/SampleJourney.vue"
 import UiButton from "../../components/ui/UiButton.vue"
 import {
   getPlayerProfile,
-  listPlayerOrders,
   updatePlayerServiceStatus,
   type PlayerProfile
 } from "../../domain/player/api"
+import { listPlayerOrders } from "../../domain/order/api"
 import { getWallet } from "../../domain/wallet/api"
 import { navigation } from "../../platform/navigation"
 import {
