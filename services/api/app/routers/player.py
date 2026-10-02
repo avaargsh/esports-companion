@@ -12,6 +12,7 @@ from app.schemas import (
     OrderOut,
     PlayerApply,
     PlayerOut,
+    PlayerPoolOrderOut,
     PlayerSkillOut,
     PlayerSkillUpsert,
     PlayerUpdate,
@@ -26,6 +27,26 @@ from app.services.order_service import OrderNotFound, OrderService
 from app.security import Principal, current_user_id, require_player
 
 router = APIRouter(prefix="/api/v1/player", tags=["player"])
+
+
+def _player_available_actions(player: PlayerProfile) -> list[str]:
+    if player.verification_status != "APPROVED":
+        return []
+    if player.service_status == "AVAILABLE":
+        return ["GO_OFFLINE"]
+    return ["GO_AVAILABLE"]
+
+
+def _player_out(player: PlayerProfile) -> dict:
+    payload = PlayerOut.model_validate(player).model_dump()
+    payload["available_actions"] = _player_available_actions(player)
+    return payload
+
+
+def _pool_order_out(order: Order, *, can_claim: bool) -> dict:
+    payload = OrderOut.model_validate(order).model_dump()
+    payload["available_actions"] = ["CLAIM_ORDER"] if can_claim else []
+    return payload
 
 
 def get_player(db: Session, user_id: uuid.UUID) -> PlayerProfile:
@@ -43,7 +64,7 @@ def apply(
 ):
     existing = db.scalar(select(PlayerProfile).where(PlayerProfile.user_id == user_id))
     if existing:
-        return existing
+        return _player_out(existing)
     player = PlayerProfile(
         user_id=user_id,
         display_name=body.display_name,
@@ -54,7 +75,7 @@ def apply(
     db.add(player)
     db.commit()
     db.refresh(player)
-    return player
+    return _player_out(player)
 
 
 @router.get("/profile", response_model=PlayerOut)
@@ -62,7 +83,7 @@ def profile(
     user_id: uuid.UUID = Depends(current_user_id),
     db: Session = Depends(get_db),
 ):
-    return get_player(db, user_id)
+    return _player_out(get_player(db, user_id))
 
 
 @router.patch("/profile", response_model=PlayerOut)
@@ -85,7 +106,7 @@ def update_profile(
         player.service_status = body.service_status
     db.commit()
     db.refresh(player)
-    return player
+    return _player_out(player)
 
 
 @router.get("/skills", response_model=list[PlayerSkillOut])
@@ -139,7 +160,7 @@ def upsert_skill(
     return skill
 
 
-@router.get("/order-pool", response_model=list[OrderOut])
+@router.get("/order-pool", response_model=list[PlayerPoolOrderOut])
 def order_pool(
     game_id: uuid.UUID,
     limit: int = 20,
@@ -199,7 +220,11 @@ def order_pool(
             fallback = fallback.where(Order.id.not_in(parsed_ids))
         result.extend(db.scalars(fallback).all())
 
-    return result
+    can_claim = (
+        player_profile.verification_status == "APPROVED"
+        and player_profile.service_status == "AVAILABLE"
+    )
+    return [_pool_order_out(order, can_claim=can_claim) for order in result]
 
 
 @router.get("/orders", response_model=list[OrderOut])
