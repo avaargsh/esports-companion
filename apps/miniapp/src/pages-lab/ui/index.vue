@@ -1,9 +1,30 @@
 <script setup lang="ts">
+import { ref } from "vue"
 import EmptyState from "../../components/EmptyState.vue"
+import UiActionSheet, {
+  type UiActionSheetItem
+} from "../../components/ui/UiActionSheet.vue"
 import UiBadge from "../../components/ui/UiBadge.vue"
 import UiButton from "../../components/ui/UiButton.vue"
 import UiCell from "../../components/ui/UiCell.vue"
 import { confirmAction, showMessage, showSuccess } from "../../ui/feedback"
+
+const sheetVisible = ref(false)
+const sheetItems: UiActionSheetItem[] = [
+  {
+    label: "申请退款",
+    description: "服务未开始或符合退款条件时使用"
+  },
+  {
+    label: "申请平台介入",
+    description: "服务存在争议，需要平台协助处理"
+  }
+]
+
+function demoSheetAction(index: number) {
+  const item = sheetItems[index]
+  if (item) showMessage(`ActionSheet: ${item.label}`)
+}
 
 async function demoConfirm() {
   const confirmed = await confirmAction({
@@ -74,6 +95,25 @@ async function demoConfirm() {
         />
         <view class="divider"></view>
         <UiCell title="只读信息" value="Value" />
+      </view>
+    </view>
+
+    <view class="section">
+      <text class="section-title">Complex interaction adapter</text>
+      <view class="surface-card adapter-card">
+        <text class="adapter-title">TDesign ActionSheet</text>
+        <text class="adapter-description">
+          只通过本地 UiActionSheet 适配器使用第三方复杂组件，业务页面不直接依赖 TDesign。
+        </text>
+        <UiButton block variant="secondary" @click="sheetVisible = true">
+          打开动作面板
+        </UiButton>
+        <UiActionSheet
+          v-model:visible="sheetVisible"
+          :items="sheetItems"
+          description="订单售后操作"
+          @selected="demoSheetAction"
+        />
       </view>
     </view>
 
@@ -194,6 +234,28 @@ async function demoConfirm() {
 
 .cell-group {
   overflow: hidden;
+}
+
+.adapter-card {
+  padding: 26rpx;
+}
+
+.adapter-title,
+.adapter-description {
+  display: block;
+}
+
+.adapter-title {
+  color: var(--ink);
+  font-size: 24rpx;
+  font-weight: 800;
+}
+
+.adapter-description {
+  margin: 8rpx 0 20rpx;
+  color: var(--muted);
+  font-size: 18rpx;
+  line-height: 1.55;
 }
 
 .divider {
