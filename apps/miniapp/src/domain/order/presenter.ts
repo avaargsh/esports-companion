@@ -164,3 +164,100 @@ export function formatOrderTimestamp(value: string): string {
   const pad = (n: number) => String(n).padStart(2, "0")
   return `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
+
+
+export type PlayerPrimaryAction =
+  | { kind: "start"; label: string }
+  | { kind: "finish"; label: string }
+
+const PLAYER_EVENT_LABELS: Record<string, string> = {
+  ORDER_CREATED: "订单已创建",
+  PAYMENT_SUCCESS: "用户支付成功",
+  ORDER_ENTERED_MATCHING: "进入抢单大厅",
+  ORDER_CLAIMED: "你已接单",
+  ORDER_ASSIGNED: "已分配给你",
+  SERVICE_STARTED: "服务已开始",
+  FINISH_REQUESTED: "已申请完成",
+  USER_CONFIRMED_FINISH: "用户确认完成",
+  AUTO_CONFIRMED_FINISH: "超时自动确认",
+  ORDER_SETTLED: "订单已结算",
+  DISPUTE_OPENED: "订单进入售后",
+  REFUND_COMPLETED: "订单已退款"
+}
+
+const PLAYER_ACTOR_LABELS: Record<string, string> = {
+  USER: "用户",
+  PLAYER: "你",
+  SYSTEM: "系统",
+  PAYMENT: "支付系统",
+  PLATFORM: "平台"
+}
+
+export function playerPrimaryAction(
+  order: Order | null
+): PlayerPrimaryAction | null {
+  if (!order) return null
+  if (hasAction(order, "START_SERVICE")) {
+    return { kind: "start", label: "开始服务" }
+  }
+  if (hasAction(order, "REQUEST_FINISH")) {
+    return { kind: "finish", label: "申请完成" }
+  }
+  return null
+}
+
+export function playerCanOpenDispute(order: Order | null): boolean {
+  return Boolean(order && hasAction(order, "OPEN_DISPUTE"))
+}
+
+export function playerIncomeCaption(status?: OrderStatus): string {
+  return status === "SETTLED" ? "本单已结算收入" : "本单预计收入"
+}
+
+export function playerDemoJourney(
+  status: OrderStatus | undefined
+): DemoJourney | null {
+  if (status === "ACCEPTED") {
+    return {
+      step: 4,
+      title: "开始履约",
+      description: "点击「开始服务」，真实服务完成后再申请完成。"
+    }
+  }
+  if (status === "IN_SERVICE") {
+    return {
+      step: 4,
+      title: "完成本次服务",
+      description: "服务结束后点击「申请完成」，订单会等待用户确认。"
+    }
+  }
+  if (status === "FINISH_REQUESTED") {
+    return {
+      step: 5,
+      title: "等待用户确认",
+      description: "用户确认后订单进入结算；超时由后端自动确认流程处理。"
+    }
+  }
+  if (status === "SETTLED") {
+    return {
+      step: 6,
+      title: "收入已经结算",
+      description: "回工作台可看到可用收益；用户评价会继续回流到公开主页。"
+    }
+  }
+  return null
+}
+
+export function playerEventTitle(event: OrderEvent): string {
+  if (PLAYER_EVENT_LABELS[event.event_type]) {
+    return PLAYER_EVENT_LABELS[event.event_type]
+  }
+  if (event.to_status) {
+    return orderStatusMeta(event.to_status, "PLAYER").label
+  }
+  return event.event_type.replaceAll("_", " ")
+}
+
+export function playerActorLabel(actor: string): string {
+  return PLAYER_ACTOR_LABELS[actor] || "系统"
+}
