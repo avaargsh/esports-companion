@@ -20,6 +20,7 @@ class SKUOut(BaseModel):
     service_type: str
     duration_minutes: int
     price: int
+    available_actions: list[str] = Field(default_factory=list)
     model_config = {"from_attributes": True}
 
 
@@ -261,6 +262,7 @@ class PublicPlayerOut(BaseModel):
     offerings: list[PublicOfferingOut]
     skills: list[PublicSkillOut] = Field(default_factory=list)
     reviews: list[PublicReviewOut] = Field(default_factory=list)
+    available_actions: list[str] = Field(default_factory=list)
 
 
 class DisputeCreate(BaseModel):
