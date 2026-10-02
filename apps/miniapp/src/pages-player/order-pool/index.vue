@@ -4,7 +4,8 @@ import { onPullDownRefresh, onShow } from "@dcloudio/uni-app"
 import EmptyState from "../../components/EmptyState.vue"
 import SampleJourney from "../../components/SampleJourney.vue"
 import { usePlayerOrderPool } from "../../features/player-workbench/usePlayerOrderPool"
-import { navigation } from "../../platform/navigation"\nimport { stopPullDownRefresh } from "../../platform/page"
+import { navigation } from "../../platform/navigation"
+import { stopPullDownRefresh } from "../../platform/page"
 import type { Order } from "../../types/domain"
 
 const {
@@ -93,7 +94,7 @@ onPullDownRefresh(async () => {
       :description="loadMessage"
       action="重新加载"
       symbol="↻"
-      dark
+      inverse
       @action="bootstrap"
     />
 
