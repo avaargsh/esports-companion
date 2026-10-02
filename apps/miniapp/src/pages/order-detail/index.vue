@@ -1,375 +1,78 @@
 <script setup lang="ts">
-import { computed, ref } from "vue"
-import { onLoad, onUnload } from "@dcloudio/uni-app"
+import { onLoad, onShow, onUnload } from "@dcloudio/uni-app"
 
-import { request } from "../../api/client"
-import { startOrderPayment } from "../../api/payment"
-import { connectOrderRealtime } from "../../api/realtime"
-import { getDemoIdentities } from "../../api/demo"
-import { isWeChatAuthMode } from "../../api/config"
+import EmptyState from "../../components/EmptyState.vue"
 import OrderChat from "../../components/OrderChat.vue"
 import OrderProgress from "../../components/OrderProgress.vue"
 import PriceText from "../../components/PriceText.vue"
 import PrimaryActionBar from "../../components/PrimaryActionBar.vue"
-import StatusTag from "../../components/StatusTag.vue"
 import SampleJourney from "../../components/SampleJourney.vue"
-import type { Order, OrderEvent } from "../../types/domain"
-import { orderStatusMeta } from "../../utils/order"
-import { confirmAction, showSuccess, showMessage } from "../../ui/feedback"
+import StatusTag from "../../components/StatusTag.vue"
+import { useCustomerOrderDetail } from "../../features/order-detail/useCustomerOrderDetail"
 
-const orderId = ref("")
-const order = ref<Order | null>(null)
-const events = ref<OrderEvent[]>([])
-const eventsExpanded = ref(false)
-const customerUserId = ref("")
-const socketConnected = ref(false)
-const loading = ref(true)
-const busy = ref(false)
-const rating = ref(5)
-const review = ref("")
-const reviewed = ref(false)
-const demoMode = !isWeChatAuthMode()
-const aftercareReason = ref("")
-const chatRefreshKey = ref(0)
-let socket: UniApp.SocketTask | null = null
-
-const meta = computed(() =>
-  order.value ? orderStatusMeta(order.value.status, "CUSTOMER") : null
-)
-
-const demoJourney = computed(() => {
-  const status = order.value?.status
-  if (status === "WAITING_PAYMENT") {
-    return { step: 2, title: "完成模拟支付", description: "支付后订单会进入公开匹配池；下一步到「我的」切换陪玩身份。" }
-  }
-  if (status === "MATCHING") {
-    return { step: 3, title: "切到陪玩端抢单", description: "底部进入「我的」→「陪玩工作台」→「抢单大厅」，接走这笔订单。" }
-  }
-  if (status === "ACCEPTED" || status === "IN_SERVICE") {
-    return { step: 4, title: "等待陪玩履约", description: "陪玩端会开始并完成服务；订单内聊天和状态会持续留痕。" }
-  }
-  if (status === "FINISH_REQUESTED") {
-    return { step: 5, title: "确认本次服务完成", description: "确认后平台执行结算，陪玩收入才会进入可用余额。" }
-  }
-  if (status === "SETTLED" && !reviewed.value) {
-    return { step: 6, title: "最后一步：提交评价", description: "评价会进入陪玩公开主页，形成下一次用户选择所依赖的信誉。" }
-  }
-  if (status === "SETTLED" && reviewed.value) {
-    return { step: 6, title: "陪玩交易闭环完成", description: "成交、履约、结算和评价均已完成；可点「服务大神」查看信誉回流。" }
-  }
-  return null
-})
-
-const visibleEvents = computed(() =>
-  eventsExpanded.value || events.value.length <= 4
-    ? events.value
-    : events.value.slice(-4)
-)
-
-const chatVisible = computed(() =>
-  [
-    "ACCEPTED",
-    "IN_SERVICE",
-    "FINISH_REQUESTED",
-    "COMPLETED",
-    "SETTLED",
-    "DISPUTED",
-    "REFUNDING",
-    "REFUNDED"
-  ].includes(order.value?.status ?? "")
-)
-
-const chatWritable = computed(() =>
-  ["ACCEPTED", "IN_SERVICE", "FINISH_REQUESTED", "DISPUTED"].includes(
-    order.value?.status ?? ""
-  )
-)
-
-const primaryAction = computed(() => {
-  const current = order.value
-  if (!current) return null
-  if (current.available_actions?.includes("PAY")) {
-    return { kind: "pay", label: "去支付" } as const
-  }
-  if (current.status === "FINISH_REQUESTED") {
-    return { kind: "confirm", label: "确认完成" } as const
-  }
-  if (["CANCELLED", "REFUNDED"].includes(current.status)) {
-    return { kind: "again", label: "再来一单" } as const
-  }
-  return null
-})
-
-const secondaryAction = computed(() => {
-  const current = order.value
-  if (current?.available_actions?.includes("CANCEL")) {
-    return { kind: "cancel", label: "取消订单" } as const
-  }
-  return null
-})
-
-const eventLabels: Record<string, string> = {
-  ORDER_CREATED: "订单已创建",
-  PAYMENT_SUCCESS: "支付成功",
-  ORDER_ENTERED_MATCHING: "进入接单队列",
-  ORDER_CLAIMED: "陪玩已接单",
-  ORDER_ASSIGNED: "陪玩已接单",
-  SERVICE_STARTED: "服务已开始",
-  FINISH_REQUESTED: "陪玩申请完成",
-  USER_CONFIRMED_FINISH: "用户确认完成",
-  AUTO_CONFIRMED_FINISH: "超时自动确认",
-  ORDER_SETTLED: "订单已结算",
-  ORDER_CANCELLED: "订单已取消",
-  DISPUTE_OPENED: "已申请平台介入",
-  REFUND_REQUESTED: "退款申请处理中",
-  REFUND_COMPLETED: "退款已完成"
-}
-
-function eventTitle(event: OrderEvent): string {
-  if (eventLabels[event.event_type]) return eventLabels[event.event_type]
-  if (event.to_status) return orderStatusMeta(event.to_status, "CUSTOMER").label
-  return event.event_type.replaceAll("_", " ")
-}
-
-function actorLabel(actor: string): string {
-  const labels: Record<string, string> = {
-    USER: "你",
-    PLAYER: "陪玩",
-    SYSTEM: "系统",
-    PAYMENT: "支付系统",
-    PLATFORM: "平台"
-  }
-  return labels[actor] || "系统"
-}
-
-function formatTime(value: string): string {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ""
-  const pad = (n: number) => String(n).padStart(2, "0")
-  return `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
-}
-
-async function reload() {
-  if (!orderId.value) return
-  try {
-    const [orderResult, eventResult] = await Promise.all([
-      request<Order>(`/orders/${orderId.value}`, { userId: customerUserId.value }),
-      request<OrderEvent[]>(`/orders/${orderId.value}/events`, { userId: customerUserId.value })
-    ])
-    order.value = orderResult
-    events.value = eventResult
-  } catch (error) {
-    showMessage(error instanceof Error ? error.message : "订单加载失败")
-  } finally {
-    loading.value = false
-  }
-}
-
-async function connectRealtime() {
-  if (!orderId.value || !customerUserId.value) return
-  const task = await connectOrderRealtime({
-    orderId: orderId.value,
-    demoUserId: customerUserId.value
-  })
-
-  socket = task
-  task.onOpen(() => {
-    socketConnected.value = true
-    task.send({
-      data: JSON.stringify({
-        type: "subscribe",
-        channels: [`order:${orderId.value}`]
-      })
-    })
-  })
-  task.onClose(() => { socketConnected.value = false })
-  task.onError(() => { socketConnected.value = false })
-  task.onMessage(message => {
-    try {
-      const payload = JSON.parse(String(message.data))
-      if (payload.type === "order.status_changed") void reload()
-      if (payload.type === "order.message_created") chatRefreshKey.value += 1
-    } catch {
-      // Ignore non-order realtime messages.
-    }
-  })
-}
+const {
+  order,
+  events,
+  eventsExpanded,
+  customerUserId,
+  socketConnected,
+  busy,
+  rating,
+  review,
+  reviewed,
+  aftercareReason,
+  chatRefreshKey,
+  demoMode,
+  loadStatus,
+  loadMessage,
+  meta,
+  demoJourney,
+  visibleEvents,
+  chatVisible,
+  chatWritable,
+  primaryAction,
+  secondaryAction,
+  init,
+  refresh,
+  retry,
+  dispose,
+  runPrimary,
+  cancelOrder,
+  requestAftercare,
+  submitReview,
+  openServicePlayer,
+  eventTitle,
+  actorLabel,
+  formatTime
+} = useCustomerOrderDetail()
 
 onLoad(async query => {
-  orderId.value = String(query?.id ?? "")
-  const identities = await getDemoIdentities()
-  customerUserId.value = identities.customer.userId
-  await reload()
-  await connectRealtime()
+  await init(String(query?.id ?? ""))
 })
 
-onUnload(() => socket?.close({}))
+onShow(() => {
+  void refresh()
+})
 
-function sleep(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms))
-}
-
-async function waitForPaymentConfirmation() {
-  for (let attempt = 0; attempt < 8; attempt += 1) {
-    if (attempt > 0) await sleep(750)
-    await reload()
-    if (order.value && order.value.status !== "WAITING_PAYMENT") {
-      return true
-    }
-  }
-  return false
-}
-
-async function runPrimary() {
-  const current = order.value
-  const action = primaryAction.value
-  if (!current || !action || busy.value) return
-
-  if (action.kind === "again") {
-    if (current.service_player?.id) {
-      uni.navigateTo({ url: `/pages/player/index?id=${current.service_player.id}` })
-    } else if (current.game_id) {
-      uni.navigateTo({ url: `/pages/game/index?id=${current.game_id}` })
-    } else {
-      uni.switchTab({ url: "/pages/home/index" })
-    }
-    return
-  }
-
-  if (action.kind === "confirm") {
-    const confirmed = await confirmAction({
-      title: "确认服务已完成？",
-      content: "确认后订单将进入结算流程；如果服务存在问题，请先申请退款或平台介入。",
-      confirmText: "确认完成"
-    })
-    if (!confirmed) return
-  }
-
-  busy.value = true
-  try {
-    if (action.kind === "pay") {
-      const result = await startOrderPayment(current.id, customerUserId.value)
-      if (result.mode === "mock") {
-        order.value = result.order
-        showSuccess("支付成功")
-      } else {
-        const confirmed = result.alreadyConfirmed || await waitForPaymentConfirmation()
-        if (confirmed) showSuccess("支付已确认")
-        else showMessage("支付结果确认中，请稍后刷新", 2600)
-      }
-    }
-
-    if (action.kind === "confirm") {
-      order.value = await request<Order>(`/orders/${current.id}/confirm`, {
-        method: "POST",
-        userId: customerUserId.value
-      })
-      showSuccess("已确认完成")
-    }
-    await reload()
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "操作失败，请刷新后重试"
-    showMessage(message === "PAYMENT_CANCELLED" ? "已取消支付" : message)
-    await reload()
-  } finally {
-    busy.value = false
-  }
-}
-
-async function cancelOrder() {
-  const current = order.value
-  if (!current || busy.value) return
-
-  const confirmed = await confirmAction({
-    title: "取消订单？",
-    content: "取消后订单将不再继续履约，相关资金会按当前订单规则处理。",
-    confirmText: "确认取消",
-    tone: "danger"
-  })
-  if (!confirmed) return
-
-  busy.value = true
-  try {
-    order.value = await request<Order>(`/orders/${current.id}/cancel`, {
-      method: "POST",
-      userId: customerUserId.value
-    })
-    showSuccess("订单已取消")
-    await reload()
-  } catch (error) {
-    showMessage(error instanceof Error ? error.message : "取消失败")
-    await reload()
-  } finally {
-    busy.value = false
-  }
-}
-
-async function requestAftercare(action: "refund" | "dispute") {
-  const current = order.value
-  if (!current || busy.value) return
-
-  const confirmed = await confirmAction({
-    title: action === "refund" ? "提交退款申请？" : "申请平台介入？",
-    content: action === "refund"
-      ? "提交后订单会进入平台处理流程，资金结算可能暂停。"
-      : "平台介入后会根据订单记录和双方信息处理争议，资金结算可能暂停。",
-    confirmText: action === "refund" ? "提交退款" : "申请介入",
-    tone: action === "refund" ? "danger" : "brand"
-  })
-  if (!confirmed) return
-
-  busy.value = true
-  try {
-    await request(`/orders/${current.id}/disputes`, {
-      method: "POST",
-      userId: customerUserId.value,
-      headers: { "Idempotency-Key": `miniapp-dispute-${current.id}` },
-      data: {
-        reason_code: action === "refund" ? "CANCEL_BEFORE_SERVICE" : "SERVICE_ISSUE",
-        description: aftercareReason.value.trim()
-      }
-    })
-    aftercareReason.value = ""
-    showSuccess(action === "refund" ? "退款申请已提交" : "已申请平台介入")
-    await reload()
-  } catch (error) {
-    showMessage(error instanceof Error ? error.message : "提交失败")
-  } finally {
-    busy.value = false
-  }
-}
-
-async function submitReview() {
-  const current = order.value
-  if (!current || reviewed.value || busy.value) return
-  busy.value = true
-  try {
-    await request(`/orders/${current.id}/reviews`, {
-      method: "POST",
-      userId: customerUserId.value,
-      data: { rating: rating.value, content: review.value.trim() }
-    })
-    reviewed.value = true
-    showSuccess("评价已提交")
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "评价失败"
-    if (message.includes("ORDER_ALREADY_REVIEWED")) reviewed.value = true
-    showMessage(message)
-  } finally {
-    busy.value = false
-  }
-}
-
-function openServicePlayer() {
-  if (order.value?.service_player?.id) {
-    uni.navigateTo({ url: `/pages/player/index?id=${order.value.service_player.id}` })
-  }
-}
+onUnload(() => {
+  dispose()
+})
 </script>
 
 <template>
   <view class="page">
-    <view v-if="loading" class="loading">正在同步订单状态…</view>
+    <view v-if="loadStatus === 'loading'" class="loading">
+      正在同步订单状态…
+    </view>
+
+    <EmptyState
+      v-else-if="loadStatus === 'error'"
+      title="订单暂时没加载出来"
+      :description="loadMessage"
+      action="重新加载"
+      symbol="↻"
+      @action="retry"
+    />
 
     <template v-else-if="order && meta">
       <SampleJourney
@@ -384,7 +87,7 @@ function openServicePlayer() {
           <text class="dot"></text>
           <text>自动更新暂时中断，可手动刷新</text>
         </view>
-        <text class="refresh" @click="reload">刷新</text>
+        <text class="refresh" @click="refresh">刷新</text>
       </view>
 
       <view class="status-card">

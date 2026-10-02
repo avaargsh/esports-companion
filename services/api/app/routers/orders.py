@@ -25,22 +25,23 @@ from app.security import Principal, current_principal, current_user_id
 router = APIRouter(prefix="/api/v1/orders", tags=["orders"])
 
 
-def _available_actions(order: Order) -> list[str]:
+def _available_actions(order: Order, *, viewer_role: str) -> list[str]:
+    if viewer_role != "USER":
+        return []
     if order.status == OrderStatus.WAITING_PAYMENT.value:
         return ["PAY", "CANCEL"]
     if order.status == OrderStatus.MATCHING.value:
         return ["REQUEST_REFUND"]
     if order.status == OrderStatus.ACCEPTED.value:
         return ["REQUEST_REFUND", "OPEN_DISPUTE"]
-    if order.status in {
-        OrderStatus.IN_SERVICE.value,
-        OrderStatus.FINISH_REQUESTED.value,
-    }:
+    if order.status == OrderStatus.IN_SERVICE.value:
         return ["OPEN_DISPUTE"]
+    if order.status == OrderStatus.FINISH_REQUESTED.value:
+        return ["CONFIRM_FINISH", "OPEN_DISPUTE"]
     return []
 
 
-def _order_detail(db: Session, order: Order) -> dict:
+def _order_detail(db: Session, order: Order, *, viewer_role: str) -> dict:
     assignment = db.scalar(
         select(OrderAssignment).where(
             OrderAssignment.order_id == order.id,
@@ -65,7 +66,10 @@ def _order_detail(db: Session, order: Order) -> dict:
 
     payload = OrderOut.model_validate(order).model_dump()
     payload["service_player"] = service_player
-    payload["available_actions"] = _available_actions(order)
+    payload["available_actions"] = _available_actions(
+        order,
+        viewer_role=viewer_role,
+    )
     return payload
 
 
@@ -112,13 +116,13 @@ def get_order(
 ):
     try:
         order = OrderService.get(db, order_id)
-        OrderAuthorizationPolicy.require_viewer(
+        actor = OrderAuthorizationPolicy.require_viewer(
             db,
             order=order,
             user_id=principal.user_id,
             roles=principal.roles,
         )
-        return _order_detail(db, order)
+        return _order_detail(db, order, viewer_role=actor.role)
     except OrderNotFound as exc:
         raise HTTPException(404, "ORDER_NOT_FOUND") from exc
     except PermissionError as exc:
