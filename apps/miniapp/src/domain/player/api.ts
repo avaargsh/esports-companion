@@ -1,6 +1,5 @@
 import { request } from "../../api/client"
 import type { Order } from "../../types/domain"
-import type { ProductPrincipal } from "../../product/principal"
 
 export type PlayerProfile = {
   id: string
@@ -10,29 +9,21 @@ export type PlayerProfile = {
   service_status: string
 }
 
-export function getPlayerProfile(
-  principal: ProductPrincipal
-): Promise<PlayerProfile> {
-  return request<PlayerProfile>("/player/profile", {
-    userId: principal.userId
-  })
+export function getPlayerProfile(userId: string): Promise<PlayerProfile> {
+  return request<PlayerProfile>("/player/profile", { userId })
 }
 
-export function listPlayerOrders(
-  principal: ProductPrincipal
-): Promise<Order[]> {
-  return request<Order[]>("/player/orders", {
-    userId: principal.userId
-  })
+export function listPlayerOrders(userId: string): Promise<Order[]> {
+  return request<Order[]>("/player/orders", { userId })
 }
 
 export function updatePlayerServiceStatus(
-  principal: ProductPrincipal,
+  userId: string,
   serviceStatus: "AVAILABLE" | "OFFLINE"
 ): Promise<PlayerProfile> {
   return request<PlayerProfile>("/player/profile", {
     method: "PUT",
-    userId: principal.userId,
+    userId,
     data: { service_status: serviceStatus }
   })
 }
