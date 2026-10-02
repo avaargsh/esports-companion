@@ -2,7 +2,7 @@
 import { computed, ref } from "vue"
 import { onShow } from "@dcloudio/uni-app"
 import { isWeChatAuthMode } from "../../api/config"
-import SampleJourney from "../../components/SampleJourney.vue"
+import SampleJourney from "../../components/SampleJourney.vue"\nimport UiButton from "../../components/ui/UiButton.vue"
 import {
   getPlayerProfile,
   listPlayerOrders,
@@ -29,7 +29,13 @@ const busy = ref(false)
 const refreshing = ref(false)
 const serviceSettingsOpen = ref(false)
 const demoMode = !isWeChatAuthMode()
-const loadState = useAsyncStatus()
+const {
+  status: loadStatus,
+  message: loadMessage,
+  start: startLoad,
+  succeed: finishLoad,
+  fail: failLoad
+} = useAsyncStatus()
 
 const online = computed(() => profile.value?.service_status === "AVAILABLE")
 const verified = computed(() => profile.value?.verification_status === "APPROVED")
@@ -53,7 +59,7 @@ const activeIncome = computed(() =>
 async function load() {
   const hasContent = Boolean(profile.value)
   if (hasContent) refreshing.value = true
-  else loadState.start()
+  else startLoad()
 
   try {
     const nextPrincipal = await getPlayerPrincipal()
@@ -62,7 +68,7 @@ async function load() {
       profile.value = null
       orders.value = []
       wallet.value = { availableBalance: 0, frozenBalance: 0 }
-      loadState.succeed({ empty: true })
+      finishLoad({ empty: true })
       return
     }
 
@@ -76,12 +82,12 @@ async function load() {
     profile.value = nextProfile
     wallet.value = nextWallet
     orders.value = nextOrders
-    loadState.succeed()
+    finishLoad()
   } catch (error) {
     if (hasContent) {
       showMessage(error instanceof Error ? error.message : "工作台刷新失败")
     } else {
-      loadState.fail(error, "陪玩工作台加载失败")
+      failLoad(error, "陪玩工作台加载失败")
     }
   } finally {
     refreshing.value = false
@@ -144,7 +150,7 @@ onShow(() => {
       <text v-else-if="refreshing" class="refreshing">刷新中</text>
     </view>
 
-    <view v-if="loadState.status.value === 'loading'" class="loading-stack">
+    <view v-if="loadStatus === 'loading'" class="loading-stack">
       <view class="skeleton-dark hero-skeleton"></view>
       <view class="skeleton-grid">
         <view class="skeleton-dark action-skeleton"></view>
@@ -153,17 +159,21 @@ onShow(() => {
     </view>
 
     <view
-      v-else-if="loadState.status.value === 'error'"
+      v-else-if="loadStatus === 'error'"
       class="state-card"
     >
       <text class="state-symbol">↻</text>
       <text class="state-title">工作台暂时没加载出来</text>
-      <text class="state-description">{{ loadState.message.value }}</text>
-      <button class="state-action" @click="load">重新加载</button>
+      <text class="state-description">{{ loadMessage }}</text>
+      <view class="state-action">
+        <UiButton size="sm" variant="secondary" inverse @click="load">
+          重新加载
+        </UiButton>
+      </view>
     </view>
 
     <view
-      v-else-if="loadState.status.value === 'empty'"
+      v-else-if="loadStatus === 'empty'"
       class="state-card"
     >
       <text class="state-symbol">陪</text>
@@ -255,7 +265,7 @@ onShow(() => {
 .work-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20rpx;padding:10rpx 2rpx 24rpx}.eyebrow,.title{display:block}.eyebrow{color:#706e7c;font-size:15rpx;font-weight:800;letter-spacing:2.5rpx}.title{margin-top:7rpx;font-size:36rpx;font-weight:850}.refreshing{padding-bottom:5rpx;color:#777582;font-size:17rpx}
 .availability{display:flex;align-items:center;gap:8rpx;padding:10rpx 14rpx;border-radius:999rpx;background:rgba(39,187,111,.11);color:#62d895;font-size:18rpx;font-weight:700}.availability.off{background:rgba(255,255,255,.06);color:#8b8995}.availability.disabled{background:rgba(211,148,38,.11);color:#d9ad5e}.pulse{width:11rpx;height:11rpx;border-radius:50%;background:currentColor}
 .loading-stack{display:flex;flex-direction:column;gap:18rpx}.skeleton-grid{display:grid;grid-template-columns:1fr 1fr;gap:13rpx}.skeleton-dark{position:relative;overflow:hidden;background:var(--inverse-surface);border:1rpx solid rgba(255,255,255,.04)}.skeleton-dark::after{content:"";position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,rgba(255,255,255,.055),transparent);animation:shimmer 1.4s infinite}.hero-skeleton{height:210rpx;border-radius:34rpx}.action-skeleton{height:190rpx;border-radius:29rpx}@keyframes shimmer{100%{transform:translateX(100%)}}
-.state-card{padding:58rpx 34rpx;border:1rpx solid rgba(255,255,255,.05);border-radius:32rpx;background:var(--inverse-surface);text-align:center}.state-symbol{width:82rpx;height:82rpx;margin:0 auto;display:flex;align-items:center;justify-content:center;border-radius:26rpx;background:var(--inverse-control-strong);color:var(--brand-on-inverse);font-size:28rpx;font-weight:800}.state-title{display:block;margin-top:20rpx;font-size:27rpx;font-weight:780}.state-description{display:block;max-width:520rpx;margin:10rpx auto 0;color:#777582;font-size:19rpx;line-height:1.55}.state-action{width:240rpx;height:76rpx;margin:24rpx auto 0;line-height:76rpx;border-radius:22rpx;background:var(--brand);color:#fff;font-size:21rpx;font-weight:760}
+.state-card{padding:58rpx 34rpx;border:1rpx solid rgba(255,255,255,.05);border-radius:32rpx;background:var(--inverse-surface);text-align:center}.state-symbol{width:82rpx;height:82rpx;margin:0 auto;display:flex;align-items:center;justify-content:center;border-radius:26rpx;background:var(--inverse-control-strong);color:var(--brand-on-inverse);font-size:28rpx;font-weight:800}.state-title{display:block;margin-top:20rpx;font-size:27rpx;font-weight:780}.state-description{display:block;max-width:520rpx;margin:10rpx auto 0;color:#777582;font-size:19rpx;line-height:1.55}.state-action{display:flex;justify-content:center;margin-top:24rpx}
 .money-card{position:relative;overflow:hidden;padding:30rpx;border:1rpx solid rgba(255,255,255,.05);border-radius:34rpx;background:linear-gradient(145deg,#1b1a23,#272337);box-shadow:0 22rpx 60rpx rgba(0,0,0,.16)}.money-label{color:#8e8c99;font-size:19rpx}.money-row{display:flex;align-items:baseline;margin-top:8rpx}.currency{color:#b8aef7;font-size:24rpx;font-weight:750}.amount{margin-left:4rpx;font-size:52rpx;font-weight:850;letter-spacing:-1rpx}.money-bottom{display:flex;justify-content:space-between;gap:18rpx;margin-top:23rpx;padding-top:19rpx;border-top:1rpx solid rgba(255,255,255,.06);color:#777582;font-size:18rpx}.earnings-link{color:var(--brand-on-inverse);font-weight:700}
 .action-grid{display:grid;grid-template-columns:1fr 1fr;gap:13rpx;margin-top:18rpx}.action-card{position:relative;min-height:190rpx;padding:23rpx;border:1rpx solid rgba(255,255,255,.05);border-radius:29rpx;background:var(--inverse-surface)}.action-card.primary{background:linear-gradient(145deg,var(--brand),#5846cc);border-color:transparent}.action-icon{width:48rpx;height:48rpx;display:flex;align-items:center;justify-content:center;border-radius:16rpx;background:rgba(255,255,255,.14);font-size:18rpx;font-weight:850}.action-icon.muted{background:var(--inverse-control-strong);color:#aaa8b5}.action-title,.action-desc{display:block}.action-title{margin-top:20rpx;font-size:25rpx;font-weight:800}.action-desc{margin-top:6rpx;color:rgba(255,255,255,.58);font-size:17rpx;line-height:1.45}.action-card:not(.primary) .action-desc{color:#777582}.action-arrow{position:absolute;right:21rpx;top:20rpx;color:rgba(255,255,255,.45);font-size:28rpx}
 .section-title-row{display:flex;align-items:center;justify-content:space-between;margin:30rpx 2rpx 14rpx}.section-title{font-size:24rpx;font-weight:780}.section-note{color:#777582;font-size:17rpx}
