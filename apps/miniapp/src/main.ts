@@ -1,3 +1,4 @@
+import "@tdesign/uniapp/theme.css"
 import { createSSRApp } from "vue"
 import App from "./App.vue"
 
