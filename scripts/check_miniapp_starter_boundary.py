@@ -53,6 +53,26 @@ def check_platform_dependencies(violations: list[str]) -> None:
                 )
 
 
+def check_product_page_dependencies(violations: list[str]) -> None:
+    page_roots = (SRC / "pages", SRC / "pages-player")
+    forbidden = (
+        "api/client",
+        "api/demo",
+    )
+
+    for root in page_roots:
+        for path in sorted(root.rglob("*.vue")):
+            text = path.read_text(encoding="utf-8")
+            for marker in forbidden:
+                offset = text.find(marker)
+                if offset >= 0:
+                    violations.append(
+                        f"{path.relative_to(ROOT)}:{line_number(text, offset)}: "
+                        f"product page must not import {marker!r}; "
+                        "compose product/domain/feature boundaries instead"
+                    )
+
+
 def check_transport_ownership(violations: list[str]) -> None:
     owner = SRC / "platform" / "http.ts"
     for path in sorted(SRC.rglob("*")):
@@ -150,6 +170,7 @@ def check_required_adapters(violations: list[str]) -> None:
 def main() -> int:
     violations: list[str] = []
     check_platform_dependencies(violations)
+    check_product_page_dependencies(violations)
     check_transport_ownership(violations)
     check_wechat_native_ownership(violations)
     check_environment_ownership(violations)
