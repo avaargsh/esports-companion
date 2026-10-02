@@ -62,6 +62,10 @@ class OrderDetailOut(OrderOut):
     available_actions: list[str] = Field(default_factory=list)
 
 
+class PlayerPoolOrderOut(OrderOut):
+    available_actions: list[str] = Field(default_factory=list)
+
+
 class OrderEventOut(BaseModel):
     id: uuid.UUID
     event_type: str
@@ -89,6 +93,7 @@ class PlayerOut(BaseModel):
     display_name: str
     verification_status: str
     service_status: str
+    available_actions: list[str] = Field(default_factory=list)
     model_config = {"from_attributes": True}
 
 
