@@ -74,6 +74,8 @@ def _order_detail(db: Session, order: Order, *, viewer_role: str) -> dict:
             }
 
     payload = OrderOut.model_validate(order).model_dump()
+    payload["status"] = order.status
+    payload["status_code"] = order.status
     payload["service_player"] = service_player
     payload["available_actions"] = _available_actions(
         order,

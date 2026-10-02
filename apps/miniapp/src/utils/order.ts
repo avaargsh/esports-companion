@@ -11,6 +11,34 @@ export type OrderStatusMeta = {
   step: number
 }
 
+const ORDER_STATUS_BY_TEXT: Record<string, OrderStatus> = {
+  "待支付": "WAITING_PAYMENT",
+  "已支付": "PAID",
+  "支付成功": "PAID",
+  "待接单": "MATCHING",
+  "等待接单": "MATCHING",
+  "已接单": "ACCEPTED",
+  "已接单，准备开始": "ACCEPTED",
+  "服务中": "IN_SERVICE",
+  "服务进行中": "IN_SERVICE",
+  "待确认完成": "FINISH_REQUESTED",
+  "请确认完成": "FINISH_REQUESTED",
+  "已完成": "COMPLETED",
+  "已结算": "SETTLED",
+  "已结算入账": "SETTLED",
+  "已取消": "CANCELLED",
+  "退款处理中": "REFUNDING",
+  "已退款": "REFUNDED",
+  "订单已退款": "REFUNDED",
+  "争议处理中": "DISPUTED",
+  "售后处理中": "DISPUTED"
+}
+
+export function orderStatusCode(status?: string | null): OrderStatus {
+  if (!status) return "WAITING_PAYMENT"
+  return (ORDER_STATUS_BY_TEXT[status] || status) as OrderStatus
+}
+
 const CUSTOMER_STATUS: Record<OrderStatus, OrderStatusMeta> = {
   WAITING_PAYMENT: {
     label: "待支付",
@@ -77,17 +105,17 @@ const CUSTOMER_STATUS: Record<OrderStatus, OrderStatusMeta> = {
   },
   REFUNDING: {
     label: "退款处理中",
-    description: "退款正在处理中，请稍候",
-    tone: "neutral",
-    progress: 0,
-    step: 1
+    description: "平台正在处理退款，完成后订单会自动更新",
+    tone: "warning",
+    progress: 88,
+    step: 4
   },
   REFUNDED: {
     label: "已退款",
-    description: "退款已完成",
-    tone: "neutral",
-    progress: 0,
-    step: 1
+    description: "退款已完成，资金将按支付渠道原路退回",
+    tone: "success",
+    progress: 100,
+    step: 5
   },
   DISPUTED: {
     label: "售后处理中",
@@ -164,17 +192,17 @@ const PLAYER_STATUS: Record<OrderStatus, OrderStatusMeta> = {
   },
   REFUNDING: {
     label: "退款处理中",
-    description: "订单正在退款处理中",
-    tone: "neutral",
-    progress: 0,
-    step: 1
+    description: "平台正在处理退款，完成后订单会自动更新",
+    tone: "warning",
+    progress: 88,
+    step: 4
   },
   REFUNDED: {
     label: "订单已退款",
     description: "本次订单退款已完成",
-    tone: "neutral",
-    progress: 0,
-    step: 1
+    tone: "success",
+    progress: 100,
+    step: 5
   },
   DISPUTED: {
     label: "售后处理中",
@@ -186,13 +214,14 @@ const PLAYER_STATUS: Record<OrderStatus, OrderStatusMeta> = {
 }
 
 export function orderStatusMeta(
-  status: OrderStatus,
+  status: OrderStatus | string,
   role: OrderRole = "CUSTOMER"
 ): OrderStatusMeta {
-  return role === "PLAYER" ? PLAYER_STATUS[status] : CUSTOMER_STATUS[status]
+  const code = orderStatusCode(status)
+  return role === "PLAYER" ? PLAYER_STATUS[code] : CUSTOMER_STATUS[code]
 }
 
-export function isActiveOrder(status: OrderStatus): boolean {
+export function isActiveOrder(status: OrderStatus | string): boolean {
   return [
     "WAITING_PAYMENT",
     "PAID",
@@ -200,11 +229,11 @@ export function isActiveOrder(status: OrderStatus): boolean {
     "ACCEPTED",
     "IN_SERVICE",
     "FINISH_REQUESTED"
-  ].includes(status)
+  ].includes(orderStatusCode(status))
 }
 
-export function isCustomerCancellable(status: OrderStatus): boolean {
-  return ["WAITING_PAYMENT", "MATCHING"].includes(status)
+export function isCustomerCancellable(status: OrderStatus | string): boolean {
+  return ["WAITING_PAYMENT", "MATCHING"].includes(orderStatusCode(status))
 }
 
 export function claimErrorMessage(message: string): string {

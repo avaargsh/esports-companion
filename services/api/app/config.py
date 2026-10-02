@@ -63,6 +63,16 @@ class Settings(BaseSettings):
     wechat_pay_platform_certificate: str = ""
     wechat_pay_platform_certificate_file: str = ""
 
+    minio_endpoint: str = "localhost:9000"
+    minio_access_key: str = "minioadmin"
+    minio_access_key_file: str = ""
+    minio_secret_key: str = "minioadmin"
+    minio_secret_key_file: str = ""
+    minio_bucket_name: str = "esports-images"
+    minio_secure: bool = False
+    minio_public_url: str = "http://localhost:9000"
+    minio_presigned_expires_seconds: int = 900
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     @property
@@ -99,6 +109,8 @@ class Settings(BaseSettings):
             "wechat_pay_platform_certificate",
             "wechat_pay_platform_certificate_file",
         )
+        self._load_secret_file("minio_access_key", "minio_access_key_file")
+        self._load_secret_file("minio_secret_key", "minio_secret_key_file")
 
         if self.access_token_ttl_seconds <= 0:
             raise ValueError("ACCESS_TOKEN_TTL_MUST_BE_POSITIVE")
@@ -108,6 +120,10 @@ class Settings(BaseSettings):
             raise ValueError("OTEL_TRACE_SAMPLE_RATIO_OUT_OF_RANGE")
         if self.otel_export_timeout_seconds <= 0:
             raise ValueError("OTEL_EXPORT_TIMEOUT_MUST_BE_POSITIVE")
+        if self.minio_presigned_expires_seconds <= 0:
+            raise ValueError("MINIO_PRESIGNED_EXPIRES_SECONDS_MUST_BE_POSITIVE")
+        if not self.minio_bucket_name.strip():
+            raise ValueError("MINIO_BUCKET_NAME_REQUIRED")
         if self.otel_enabled:
             parsed_otel = urlparse(self.otel_exporter_otlp_traces_endpoint)
             if (
@@ -174,6 +190,9 @@ class Settings(BaseSettings):
         }.items():
             if value and not self._is_public_https(value):
                 errors.append(f"{name}_MUST_BE_PUBLIC_HTTPS")
+
+        if not self._is_public_https(self.minio_public_url):
+            errors.append("MINIO_PUBLIC_URL_MUST_BE_PUBLIC_HTTPS")
 
         if not self.cors_origins:
             errors.append("CORS_ALLOWED_ORIGINS_REQUIRED")

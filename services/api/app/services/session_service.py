@@ -61,6 +61,7 @@ class SessionService:
         *,
         user: User,
         provider: str,
+        provider_session_key: str | None = None,
     ) -> TokenPair:
         SessionService._validate_signing_key()
         now = datetime.now(timezone.utc)
@@ -70,6 +71,7 @@ class SessionService:
             refresh_token_hash=SessionService._hash_refresh(refresh_token),
             expires_at=now + timedelta(seconds=settings.refresh_token_ttl_seconds),
             provider=provider.upper(),
+            provider_session_key=provider_session_key,
         )
         db.add(session)
         db.flush()
@@ -127,6 +129,7 @@ class SessionService:
             expires_at=now + timedelta(seconds=settings.refresh_token_ttl_seconds),
             rotated_from_id=current.id,
             provider=current.provider,
+            provider_session_key=current.provider_session_key,
         )
         db.add(next_session)
         db.flush()

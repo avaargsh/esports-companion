@@ -72,16 +72,18 @@ def test_admin_withdrawal_completion_requires_real_payout_reference():
         assert blank_reference.status_code == 422
 
         complete_request_id = f"withdrawal-complete-{uuid.uuid4().hex}"
+        provider_txn_id = f"wechat-transfer-{uuid.uuid4().hex}"
         completed = client.post(
             f"/api/v1/admin/withdrawals/{withdrawal_id}/complete",
             headers={
                 "Authorization": f"Bearer {access_token}",
                 "X-Request-Id": complete_request_id,
             },
-            json={"provider_txn_id": "wechat-transfer-20260929-001"},
+            json={"provider_txn_id": provider_txn_id},
         )
         assert completed.status_code == 200
-        assert completed.json()["status"] == "COMPLETED"
+        assert completed.json()["status"] == "已完成"
+        assert completed.json()["statusCode"] == "COMPLETED"
 
         rows = client.get(
             "/api/v1/admin/withdrawals",
@@ -89,7 +91,7 @@ def test_admin_withdrawal_completion_requires_real_payout_reference():
         )
         assert rows.status_code == 200
         item = next(row for row in rows.json() if row["id"] == withdrawal_id)
-        assert item["providerTxnId"] == "wechat-transfer-20260929-001"
+        assert item["providerTxnId"] == provider_txn_id
 
         evidence_request_id = f"withdrawal-evidence-{uuid.uuid4().hex}"
         evidence = client.get(
@@ -101,7 +103,7 @@ def test_admin_withdrawal_completion_requires_real_payout_reference():
         )
         assert evidence.status_code == 200
         payload = evidence.json()
-        assert payload["withdrawal"]["providerTxnId"] == "wechat-transfer-20260929-001"
+        assert payload["withdrawal"]["providerTxnId"] == provider_txn_id
         assert payload["wallet"]["availableBalance"] == 7500
         assert payload["wallet"]["frozenBalance"] == 0
         assert [entry["entryType"] for entry in payload["ledger"]] == [
@@ -164,7 +166,7 @@ def test_admin_withdrawal_completion_requires_real_payout_reference():
             assert authority["expectedState"]["walletFrozenBalance"] == 2500
             assert authority["boundedWrite"] == {
                 "operation": "WITHDRAWAL_COMPLETE",
-                "providerTxnId": "wechat-transfer-20260929-001",
+                "providerTxnId": provider_txn_id,
                 "withdrawalStatus": "COMPLETED",
                 "walletFrozenDelta": -2500,
             }
@@ -264,7 +266,8 @@ def test_admin_withdrawal_reject_binds_request_and_session_evidence():
             },
         )
         assert rejected.status_code == 200
-        assert rejected.json()["status"] == "REJECTED"
+        assert rejected.json()["status"] == "已拒绝"
+        assert rejected.json()["statusCode"] == "REJECTED"
 
         with SessionLocal() as db:
             audit = db.scalar(

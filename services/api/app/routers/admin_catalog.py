@@ -1,12 +1,17 @@
+import base64
+import binascii
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.db import get_db
 from app.models import Game, ServiceSKU
+from app.providers.object_storage import MinIOImageStorage
 from app.schemas import (
     GameAdminCreate,
     GameAdminUpdate,
@@ -14,15 +19,58 @@ from app.schemas import (
     SKUAdminUpdate,
 )
 from app.security import Principal, require_platform
+from app.status_labels import COMMON_STATUS_TEXT, status_text
 
 router = APIRouter(prefix="/api/v1/admin/catalog", tags=["admin-catalog"])
 
 
+class CatalogImageUpload(BaseModel):
+    filename: str = Field(min_length=1, max_length=255)
+    content_type: str = Field(default="application/octet-stream", max_length=128)
+    data_base64: str = Field(min_length=1)
+
+
+def _storage() -> MinIOImageStorage:
+    return MinIOImageStorage(
+        endpoint=settings.minio_endpoint,
+        access_key=settings.minio_access_key,
+        secret_key=settings.minio_secret_key,
+        bucket_name=settings.minio_bucket_name,
+        secure=settings.minio_secure,
+        public_url=settings.minio_public_url,
+    )
+
+
 def _validate_status(status: str) -> str:
     value = status.upper()
-    if value not in {"ACTIVE", "INACTIVE"}:
+    if value not in {"ACTIVE", "INACTIVE", "DELETED"}:
         raise HTTPException(409, "INVALID_CATALOG_STATUS")
     return value
+
+
+@router.post("/images", status_code=201)
+def upload_catalog_image(
+    body: CatalogImageUpload,
+    principal: Principal = Depends(require_platform),
+):
+    try:
+        content = base64.b64decode(body.data_base64, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise HTTPException(400, "INVALID_IMAGE_DATA") from exc
+    if not content:
+        raise HTTPException(400, "EMPTY_IMAGE")
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(413, "IMAGE_TOO_LARGE")
+    try:
+        storage = _storage()
+        key = storage.upload_image_bytes(
+            filename=body.filename,
+            content=content,
+            content_type=body.content_type,
+        )
+        return {"key": key, "url": storage.get_public_url(key)}
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
 
 
 @router.get("/games")
@@ -30,14 +78,21 @@ def list_games(
     principal: Principal = Depends(require_platform),
     db: Session = Depends(get_db),
 ):
-    games = list(db.scalars(select(Game).order_by(Game.sort_order, Game.created_at)))
+    games = list(
+        db.scalars(
+            select(Game)
+            .where(Game.status != "DELETED")
+            .order_by(Game.sort_order, Game.created_at)
+        )
+    )
     return [
         {
             "id": str(game.id),
             "code": game.code,
             "name": game.name,
             "iconUrl": game.icon_url,
-            "status": game.status,
+            "status": status_text(game.status, COMMON_STATUS_TEXT),
+            "statusCode": game.status,
             "sortOrder": game.sort_order,
         }
         for game in games
@@ -68,7 +123,9 @@ def create_game(
         "id": str(game.id),
         "code": game.code,
         "name": game.name,
-        "status": game.status,
+        "iconUrl": game.icon_url,
+        "status": status_text(game.status, COMMON_STATUS_TEXT),
+            "statusCode": game.status,
         "sortOrder": game.sort_order,
     }
 
@@ -81,7 +138,7 @@ def update_game(
     db: Session = Depends(get_db),
 ):
     game = db.get(Game, game_id)
-    if not game:
+    if not game or game.status == "DELETED":
         raise HTTPException(404, "GAME_NOT_FOUND")
     if body.name is not None:
         game.name = body.name
@@ -97,9 +154,28 @@ def update_game(
         "id": str(game.id),
         "code": game.code,
         "name": game.name,
-        "status": game.status,
+        "iconUrl": game.icon_url,
+        "status": status_text(game.status, COMMON_STATUS_TEXT),
+            "statusCode": game.status,
         "sortOrder": game.sort_order,
     }
+
+
+@router.delete("/games/{game_id}")
+def delete_game(
+    game_id: uuid.UUID,
+    principal: Principal = Depends(require_platform),
+    db: Session = Depends(get_db),
+):
+    game = db.get(Game, game_id)
+    if not game or game.status == "DELETED":
+        raise HTTPException(404, "GAME_NOT_FOUND")
+    game.status = "DELETED"
+    skus = list(db.scalars(select(ServiceSKU).where(ServiceSKU.game_id == game.id)))
+    for sku in skus:
+        sku.status = "INACTIVE"
+    db.commit()
+    return {"id": str(game.id), "status": status_text(game.status, COMMON_STATUS_TEXT), "statusCode": game.status}
 
 
 @router.get("/skus")
@@ -111,6 +187,7 @@ def list_skus(
         db.execute(
             select(ServiceSKU, Game)
             .join(Game, Game.id == ServiceSKU.game_id)
+            .where(Game.status != "DELETED")
             .order_by(Game.sort_order, ServiceSKU.created_at)
         )
     )
@@ -125,7 +202,8 @@ def list_skus(
             "durationMinutes": sku.duration_minutes,
             "price": sku.price,
             "platformFeeRate": float(sku.platform_fee_rate),
-            "status": sku.status,
+            "status": status_text(sku.status, COMMON_STATUS_TEXT),
+            "statusCode": sku.status,
             "config": sku.config_json,
         }
         for sku, game in rows
@@ -139,7 +217,7 @@ def create_sku(
     db: Session = Depends(get_db),
 ):
     game = db.get(Game, body.game_id)
-    if not game:
+    if not game or game.status == "DELETED":
         raise HTTPException(404, "GAME_NOT_FOUND")
     sku = ServiceSKU(
         game_id=game.id,
@@ -155,7 +233,7 @@ def create_sku(
     db.add(sku)
     db.commit()
     db.refresh(sku)
-    return {"id": str(sku.id), "status": sku.status}
+    return {"id": str(sku.id), "status": status_text(sku.status, COMMON_STATUS_TEXT), "statusCode": sku.status}
 
 
 @router.patch("/skus/{sku_id}")
@@ -184,4 +262,4 @@ def update_sku(
         sku.status = _validate_status(body.status)
     db.commit()
     db.refresh(sku)
-    return {"id": str(sku.id), "status": sku.status}
+    return {"id": str(sku.id), "status": status_text(sku.status, COMMON_STATUS_TEXT), "statusCode": sku.status}

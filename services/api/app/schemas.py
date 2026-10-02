@@ -92,6 +92,7 @@ class PlayerOut(BaseModel):
     id: uuid.UUID
     user_id: uuid.UUID
     display_name: str
+    bio: str
     verification_status: str
     service_status: str
     available_actions: list[str] = Field(default_factory=list)

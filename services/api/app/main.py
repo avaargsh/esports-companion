@@ -27,11 +27,13 @@ from app.routers.disputes import router as disputes_router
 from app.routers.admin_disputes import router as admin_disputes_router
 from app.routers.orders import router as orders_router
 from app.routers.messages import router as messages_router
+from app.routers.minio import router as minio_router
 from app.routers.payments import router as payments_router
 from app.routers.player import router as player_router
 from app.routers.offerings import router as offerings_router
 from app.routers.realtime import router as realtime_router
 from app.routers.reviews import router as reviews_router
+from app.routers.user_wechat import router as user_wechat_router
 from app.routers.refunds import router as refunds_router
 from app.routers.wallet import router as wallet_router
 from app.routers.marketplace import router as marketplace_router
@@ -138,6 +140,7 @@ app.include_router(catalog_router)
 app.include_router(marketplace_router)
 app.include_router(orders_router)
 app.include_router(messages_router)
+app.include_router(minio_router)
 app.include_router(disputes_router)
 app.include_router(payments_router)
 app.include_router(refunds_router)
@@ -150,6 +153,7 @@ app.include_router(admin_router)
 app.include_router(admin_disputes_router)
 app.include_router(admin_catalog_router)
 app.include_router(auth_router)
+app.include_router(user_wechat_router)
 if not settings.is_secure_deployment:
     app.include_router(dev_router)
 app.include_router(realtime_router)

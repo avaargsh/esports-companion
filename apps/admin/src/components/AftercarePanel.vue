@@ -8,6 +8,8 @@ type Dispute = {
   id: string
   order_id: string
   status: string
+  statusCode?: string
+  status_code?: string
   opened_by_role: string
   reason_code: string
   description: string
@@ -22,6 +24,8 @@ type Refund = {
   dispute_id: string
   amount: number
   status: string
+  statusCode?: string
+  status_code?: string
   provider: string
   out_refund_no?: string | null
   provider_refund_id?: string | null
@@ -34,9 +38,13 @@ const error = ref("")
 const busyId = ref("")
 const evidenceOrderId = ref("")
 
-const openDisputes = computed(() => disputes.value.filter(item => item.status === "OPEN"))
+function stateCode(item: { status: string; statusCode?: string; status_code?: string }) {
+  return item.statusCode || item.status_code || item.status
+}
+
+const openDisputes = computed(() => disputes.value.filter(item => stateCode(item) === "OPEN"))
 const activeRefunds = computed(() =>
-  refunds.value.filter(item => !["COMPLETED", "FAILED", "REJECTED"].includes(item.status))
+  refunds.value.filter(item => !["COMPLETED", "FAILED", "REJECTED"].includes(stateCode(item)))
 )
 
 async function load() {
@@ -79,6 +87,34 @@ async function reconcileRefund(item: Refund) {
   }
 }
 
+async function completeManualRefund(item: Refund) {
+  if (busyId.value) return
+  const providerRefundId = window.prompt(
+    "请输入已完成退款的外部流水号 / 退款单号",
+    item.out_refund_no || ""
+  )
+  if (providerRefundId === null) return
+  const trimmed = providerRefundId.trim()
+  if (!trimmed) {
+    error.value = "请填写退款流水号后再确认完成"
+    return
+  }
+
+  busyId.value = item.id
+  error.value = ""
+  try {
+    await adminRequest(`/admin/refunds/${item.id}/complete`, {
+      method: "POST",
+      body: { provider_refund_id: trimmed }
+    })
+    await load()
+  } catch (reason) {
+    error.value = reason instanceof Error ? reason.message : "手工退款确认失败"
+  } finally {
+    busyId.value = ""
+  }
+}
+
 onMounted(load)
 </script>
 
@@ -107,13 +143,13 @@ onMounted(load)
             <button class="order-link" @click="evidenceOrderId = item.order_id">
               订单 {{ item.order_id.slice(0, 12) }} · 查看事实
             </button>
-            <em :class="{ open:item.status==='OPEN' }">{{ item.status }}</em>
+            <em :class="{ open: stateCode(item) === 'OPEN' }">{{ item.status }}</em>
           </div>
           <p>{{ item.reason_code }} · {{ item.opened_by_role }}</p>
           <div class="desc">{{ item.description || "未填写补充说明" }}</div>
           <small>冻结 ¥{{ (item.held_amount/100).toFixed(2) }} · {{ new Date(item.created_at).toLocaleString() }}</small>
         </div>
-        <div v-if="item.status === 'OPEN'" class="case-actions">
+        <div v-if="stateCode(item) === 'OPEN'" class="case-actions">
           <button class="secondary" :disabled="!!busyId" @click="resolveDispute(item,'release')">继续结算</button>
           <button class="danger" :disabled="!!busyId" @click="resolveDispute(item,'refund')">批准退款</button>
         </div>
@@ -139,7 +175,13 @@ onMounted(load)
           <span><em>{{ item.status }}</em></span>
           <span>
             <button
-              v-if="!['COMPLETED','FAILED'].includes(item.status) && item.provider !== 'MANUAL'"
+              v-if="item.provider === 'MANUAL' && !['COMPLETED','FAILED','REJECTED'].includes(stateCode(item))"
+              class="danger small"
+              :disabled="!!busyId"
+              @click="completeManualRefund(item)"
+            >确认已退款</button>
+            <button
+              v-else-if="!['COMPLETED','FAILED'].includes(stateCode(item)) && item.provider !== 'MANUAL'"
               class="ghost small"
               :disabled="!!busyId"
               @click="reconcileRefund(item)"

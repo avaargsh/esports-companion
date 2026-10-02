@@ -84,7 +84,7 @@ watch(() => props.userId, () => { void load() }, { immediate: true })
         <view class="skill-name">{{ gameNames.get(skill.game_id) || "游戏" }} · {{ skill.rank || "-" }}</view>
         <view class="skill-meta">
           <text :class="['status', skill.verification_status.toLowerCase()]">
-            {{ skill.verification_status === "APPROVED" ? "已认证" : skill.verification_status === "PENDING" ? "审核中" : "未通过" }}
+            {{ (skill.verification_status === "APPROVED" ? "已认证" : skill.verification_status === "PENDING" ? "审核中" : skill.verification_status === "REVOKED" ? "已撤销" : "未通过") }}
           </text>
           <text v-if="skill.review_note"> · {{ skill.review_note }}</text>
         </view>

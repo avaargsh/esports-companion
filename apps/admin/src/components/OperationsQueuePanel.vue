@@ -21,6 +21,7 @@ type QueueItem = {
   entityId: string
   orderId?: string | null
   status: string
+  statusCode?: string
   ageSeconds: number
   slaSeconds: number
   createdAt: string

@@ -64,6 +64,13 @@ def apply(
 ):
     existing = db.scalar(select(PlayerProfile).where(PlayerProfile.user_id == user_id))
     if existing:
+        if existing.verification_status in {"REJECTED", "CANCELLED"}:
+            existing.display_name = body.display_name
+            existing.bio = body.bio
+            existing.verification_status = "PENDING"
+            existing.service_status = "OFFLINE"
+            db.commit()
+            db.refresh(existing)
         return _player_out(existing)
     player = PlayerProfile(
         user_id=user_id,
@@ -102,6 +109,8 @@ def update_profile(
         if body.service_status not in {"OFFLINE", "AVAILABLE"}:
             raise HTTPException(409, "INVALID_SERVICE_STATUS")
         if body.service_status == "AVAILABLE" and player.verification_status != "APPROVED":
+            if player.verification_status == "CANCELLED":
+                raise HTTPException(409, "PLAYER_QUALIFICATION_CANCELLED")
             raise HTTPException(409, "PLAYER_NOT_APPROVED")
         player.service_status = body.service_status
     db.commit()

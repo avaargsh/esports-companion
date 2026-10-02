@@ -19,6 +19,15 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base
+from .status_labels import (
+    COMMON_STATUS_TEXT,
+    DISPUTE_STATUS_TEXT,
+    ORDER_STATUS_TEXT,
+    PLAYER_SKILL_STATUS_TEXT,
+    PLAYER_VERIFICATION_STATUS_TEXT,
+    SERVICE_STATUS_TEXT,
+    status_text,
+)
 
 
 def new_uuid():
@@ -55,10 +64,25 @@ class AuthSession(Base):
         ForeignKey("auth_sessions.id")
     )
     provider: Mapped[str] = mapped_column(String(32))
+    provider_session_key: Mapped[str | None] = mapped_column(String(256))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class AdminMenuIcon(Base, TimestampMixin):
+    __tablename__ = "admin_menu_icons"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    menu_key: Mapped[str] = mapped_column(String(32), unique=True, index=True)
+    label: Mapped[str] = mapped_column(String(32))
+    icon_url: Mapped[str] = mapped_column(String(512))
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    @property
+    def status_text(self) -> str:
+        return status_text(self.status, COMMON_STATUS_TEXT)
+    status: Mapped[str] = mapped_column(String(32), default="ACTIVE", index=True)
 
 
 class Game(Base, TimestampMixin):
@@ -83,6 +107,14 @@ class PlayerProfile(Base, TimestampMixin):
     rating: Mapped[Decimal] = mapped_column(Numeric(3, 2), default=0)
     order_count: Mapped[int] = mapped_column(Integer, default=0)
 
+    @property
+    def verification_status_text(self) -> str:
+        return status_text(self.verification_status, PLAYER_VERIFICATION_STATUS_TEXT)
+
+    @property
+    def service_status_text(self) -> str:
+        return status_text(self.service_status, SERVICE_STATUS_TEXT)
+
 
 class PlayerSkill(Base, TimestampMixin):
     __tablename__ = "player_skills"
@@ -98,6 +130,26 @@ class PlayerSkill(Base, TimestampMixin):
     verification_status: Mapped[str] = mapped_column(String(32), default="PENDING", index=True)
     review_note: Mapped[str] = mapped_column(Text, default="")
     status: Mapped[str] = mapped_column(String(32), default="ACTIVE")
+
+    @property
+    def verification_status_text(self) -> str:
+        return status_text(self.verification_status, PLAYER_SKILL_STATUS_TEXT)
+
+    @property
+    def status_text(self) -> str:
+        return status_text(self.status, COMMON_STATUS_TEXT)
+
+
+class PlayerSkillAuditLog(Base):
+    __tablename__ = "player_skill_audit_logs"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    skill_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("player_skills.id"), index=True)
+    operator_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    action: Mapped[str] = mapped_column(String(32), index=True)
+    from_status: Mapped[str] = mapped_column(String(32))
+    to_status: Mapped[str] = mapped_column(String(32))
+    reason: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class ServiceSKU(Base, TimestampMixin):
@@ -156,6 +208,10 @@ class Order(Base, TimestampMixin):
     settled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
+    @property
+    def status_text(self) -> str:
+        return status_text(self.status, ORDER_STATUS_TEXT)
+
 
 class OrderAssignment(Base, TimestampMixin):
     __tablename__ = "order_assignments"
@@ -187,6 +243,14 @@ class OrderEvent(Base):
     actor_id: Mapped[str | None] = mapped_column(String(128))
     payload_json: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    @property
+    def from_status_text(self) -> str:
+        return status_text(self.from_status, ORDER_STATUS_TEXT)
+
+    @property
+    def to_status_text(self) -> str:
+        return status_text(self.to_status, ORDER_STATUS_TEXT)
 
 
 class OrderMessage(Base):
@@ -271,6 +335,10 @@ class Withdrawal(Base, TimestampMixin):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     rejected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
+    @property
+    def status_text(self) -> str:
+        return status_text(self.status, COMMON_STATUS_TEXT)
+
 
 class Settlement(Base, TimestampMixin):
     __tablename__ = "settlements"
@@ -284,6 +352,10 @@ class Settlement(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(String(32), default="PENDING")
     idempotency_key: Mapped[str] = mapped_column(String(128))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    @property
+    def status_text(self) -> str:
+        return status_text(self.status, COMMON_STATUS_TEXT)
 
 
 class Review(Base, TimestampMixin):
@@ -327,6 +399,10 @@ class Dispute(Base, TimestampMixin):
     resolved_by_user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     idempotency_key: Mapped[str] = mapped_column(String(128))
+
+    @property
+    def status_text(self) -> str:
+        return status_text(self.status, DISPUTE_STATUS_TEXT)
 
 
 class Refund(Base, TimestampMixin):

@@ -8,6 +8,8 @@ type ServicePlayer = {
   display_name: string
   rating: number
   service_status: string
+  status_code?: string
+  service_status_code?: string
   binding: string
   assigned_by?: string | null
 }
@@ -17,6 +19,7 @@ type OrderDetail = {
   order_no: string
   user_id: string
   status: string
+  status_code?: string
   quantity: number
   unit_price: number
   total_amount: number
@@ -30,7 +33,9 @@ type OrderEvent = {
   id: string
   event_type: string
   from_status?: string | null
+  from_status_code?: string | null
   to_status?: string | null
+  to_status_code?: string | null
   actor_type: string
   created_at: string
 }

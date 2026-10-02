@@ -23,7 +23,7 @@ import { getCustomerPrincipal } from "../../product/principal"
 import { useAsyncStatus } from "../../shared/composables/useAsyncStatus"
 import type { Order, OrderEvent } from "../../types/domain"
 import { showMessage } from "../../ui/feedback"
-import { orderStatusMeta } from "../../utils/order"
+import { orderStatusCode, orderStatusMeta } from "../../utils/order"
 import { useCustomerOrderActions } from "./useCustomerOrderActions"
 
 export function useCustomerOrderDetail() {
@@ -46,8 +46,12 @@ export function useCustomerOrderDetail() {
 
   let realtime: OrderRealtimeSubscription | null = null
 
+  const orderStatus = computed(() =>
+    order.value ? order.value.status_code || orderStatusCode(order.value.status) : undefined
+  )
+
   const meta = computed(() =>
-    order.value ? orderStatusMeta(order.value.status, "CUSTOMER") : null
+    order.value ? orderStatusMeta(orderStatus.value || "WAITING_PAYMENT", "CUSTOMER") : null
   )
 
   const visibleEvents = computed(() =>
@@ -57,11 +61,11 @@ export function useCustomerOrderDetail() {
   )
 
   const chatVisible = computed(() =>
-    isOrderChatVisible(order.value?.status)
+    isOrderChatVisible(orderStatus.value)
   )
 
   const chatWritable = computed(() =>
-    isOrderChatWritable(order.value?.status)
+    isOrderChatWritable(orderStatus.value)
   )
 
   const primaryAction = computed(() =>
@@ -122,7 +126,7 @@ export function useCustomerOrderDetail() {
   })
 
   const demoJourney = computed(() =>
-    customerDemoJourney(order.value?.status, reviewed.value)
+    customerDemoJourney(orderStatus.value, reviewed.value)
   )
 
   async function connectRealtime(): Promise<void> {

@@ -8,6 +8,7 @@ type Withdrawal = {
   userId: string
   amount: number
   status: string
+  statusCode?: string
   provider: string
   providerTxnId?: string | null
   failureReason?: string | null
@@ -31,7 +32,7 @@ async function copyValue(value: string, label: string) {
   }
 }
 
-const pending = computed(() => items.value.filter(item => item.status === "PENDING"))
+const pending = computed(() => items.value.filter(item => (item.statusCode || item.status) === "PENDING"))
 const pendingAmount = computed(() => pending.value.reduce((sum,item)=>sum+item.amount,0))
 
 async function load() {
@@ -54,7 +55,7 @@ async function act(item: Withdrawal, action: "complete" | "reject") {
       error.value = "确认打款前必须填写真实外部流水号"
       return
     }
-    if (!window.confirm("确认外部打款已经成功？提交后资金会解除冻结并记为 COMPLETED。")) return
+    if (!window.confirm("确认外部打款已经成功？提交后资金会解除冻结并记为已完成。")) return
     body = { provider_txn_id: normalized }
   }
 
@@ -113,9 +114,9 @@ onMounted(load)
           </span>
           <span class="amount">¥{{ (item.amount/100).toFixed(2) }}</span>
           <span>{{ item.provider }}</span>
-          <span><em :class="{ pending:item.status==='PENDING' }">{{ item.status }}</em></span>
+          <span><em :class="{ pending:(item.statusCode || item.status)==='PENDING' }">{{ item.status }}</em></span>
           <span class="actions">
-            <template v-if="item.status === 'PENDING'">
+            <template v-if="(item.statusCode || item.status) === 'PENDING'">
               <button class="complete" :disabled="!!busyId" @click="act(item,'complete')">通过</button>
               <button class="reject" :disabled="!!busyId" @click="act(item,'reject')">拒绝</button>
             </template>

@@ -48,9 +48,9 @@ function quickOrder() {
 <template>
   <view class="safe-page custom-safe-page home">
     <view class="topbar">
-      <view>
+      <view class="brand-block">
+        <image class="brand-logo" src="../../assets/roots-logo.png" mode="aspectFit" />
         <text class="hello">今天想玩点什么？</text>
-        <text class="brand">PLAYMATE</text>
       </view>
       <view class="shield">保</view>
     </view>
@@ -155,15 +155,14 @@ function quickOrder() {
   justify-content:space-between;
   margin-bottom:24rpx;
 }
-.hello,.brand { display:block; }
-.hello { color:var(--muted); font-size:19rpx; }
-.brand {
-  margin-top:5rpx;
-  color:var(--ink);
-  font-size:28rpx;
-  font-weight:900;
-  letter-spacing:2rpx;
+.brand-block { min-width:0; }
+.brand-logo {
+  display:block;
+  width:278rpx;
+  height:72rpx;
+  margin-bottom:7rpx;
 }
+.hello { display:block; color:var(--muted); font-size:19rpx; }
 .shield {
   width:64rpx;
   height:64rpx;

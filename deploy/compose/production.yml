@@ -44,12 +44,40 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    command:
+      - sh
+      - -ec
+      - |
+        export MINIO_ROOT_USER="$(cat /run/secrets/minio_access_key)"
+        export MINIO_ROOT_PASSWORD="$(cat /run/secrets/minio_secret_key)"
+        exec minio server /data --console-address ":9001"
+    secrets:
+      - minio_access_key
+      - minio_secret_key
+    expose:
+      - "9000"
+      - "9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+    volumes:
+      - minio_data:/data
+    security_opt:
+      - no-new-privileges:true
+
   ingress:
     image: nginx:1.27-alpine
     ports:
       - "${INGRESS_BIND_ADDRESS:-127.0.0.1}:${INGRESS_PORT:-8080}:8080"
     depends_on:
       api:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     volumes:
       - ../nginx/nginx.conf:/etc/nginx/nginx.conf:ro
@@ -90,6 +118,8 @@ services:
       WECHAT_PAY_API_V3_KEY_FILE: /run/secrets/wechat_pay_api_v3_key
       WECHAT_PAY_PLATFORM_CERTIFICATE_FILE: /run/secrets/wechat_platform_certificate
       REDIS_URL: redis://redis:6379/0
+      MINIO_ACCESS_KEY_FILE: /run/secrets/minio_access_key
+      MINIO_SECRET_KEY_FILE: /run/secrets/minio_secret_key
     secrets:
       - postgres_password
       - session_signing_key
@@ -97,12 +127,16 @@ services:
       - wechat_mch_private_key
       - wechat_pay_api_v3_key
       - wechat_platform_certificate
+      - minio_access_key
+      - minio_secret_key
     expose:
       - "8000"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     command:
       - sh
@@ -146,7 +180,12 @@ secrets:
     file: ${RUNTIME_SECRETS_DIR:-../secrets}/wechat_pay_api_v3_key
   wechat_platform_certificate:
     file: ${RUNTIME_SECRETS_DIR:-../secrets}/wechat_platform_certificate
+  minio_access_key:
+    file: ${RUNTIME_SECRETS_DIR:-../secrets}/minio_access_key
+  minio_secret_key:
+    file: ${RUNTIME_SECRETS_DIR:-../secrets}/minio_secret_key
 
 volumes:
   postgres_data:
   redis_data:
+  minio_data:

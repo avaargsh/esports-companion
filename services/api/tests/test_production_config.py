@@ -23,6 +23,7 @@ def _production_settings(**overrides):
         "wechat_pay_api_v3_key": "0123456789abcdef0123456789abcdef",
         "wechat_pay_platform_cert_serial": "platform-serial",
         "wechat_pay_platform_certificate": "platform-cert",
+        "minio_public_url": "https://api.example.com",
     }
     values.update(overrides)
     return Settings(_env_file=None, **values)
@@ -49,6 +50,11 @@ def test_production_config_accepts_explicit_wechat_configuration():
             "cors_allowed_origins",
             "http://localhost:5173",
             "CORS_ORIGIN_MUST_BE_PUBLIC_HTTPS",
+        ),
+        (
+            "minio_public_url",
+            "http://localhost:9000",
+            "MINIO_PUBLIC_URL_MUST_BE_PUBLIC_HTTPS",
         ),
     ],
 )
@@ -81,3 +87,21 @@ def test_staging_rejects_mock_providers():
         match="STAGING_CONFIG_INVALID:AUTH_PROVIDER_MUST_BE_WECHAT",
     ):
         _production_settings(app_env="staging", auth_provider="mock")
+
+
+def test_minio_secret_files_override_environment_values(tmp_path):
+    access_key = tmp_path / "minio_access_key"
+    secret_key = tmp_path / "minio_secret_key"
+    access_key.write_text("prod-minio-access", encoding="utf-8")
+    secret_key.write_text("prod-minio-secret", encoding="utf-8")
+
+    settings = Settings(
+        _env_file=None,
+        minio_access_key="ignored",
+        minio_secret_key="ignored",
+        minio_access_key_file=str(access_key),
+        minio_secret_key_file=str(secret_key),
+    )
+
+    assert settings.minio_access_key == "prod-minio-access"
+    assert settings.minio_secret_key == "prod-minio-secret"
