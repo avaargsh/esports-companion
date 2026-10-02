@@ -2,7 +2,7 @@
 import { computed } from "vue"
 import TActionSheet from "@tdesign/uniapp/action-sheet/action-sheet.vue"
 
-export type UiActionSheetItem = {
+type UiActionSheetItem = {
   label: string
   description?: string
   disabled?: boolean
