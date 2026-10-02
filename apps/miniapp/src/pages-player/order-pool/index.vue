@@ -4,7 +4,7 @@ import { onPullDownRefresh, onShow } from "@dcloudio/uni-app"
 import EmptyState from "../../components/EmptyState.vue"
 import SampleJourney from "../../components/SampleJourney.vue"
 import { usePlayerOrderPool } from "../../features/player-workbench/usePlayerOrderPool"
-import { navigation } from "../../platform/navigation"
+import { navigation } from "../../platform/navigation"\nimport { stopPullDownRefresh } from "../../platform/page"
 import type { Order } from "../../types/domain"
 
 const {
@@ -42,7 +42,7 @@ onShow(() => {
 
 onPullDownRefresh(async () => {
   await refresh()
-  uni.stopPullDownRefresh()
+  stopPullDownRefresh()
 })
 </script>
 
