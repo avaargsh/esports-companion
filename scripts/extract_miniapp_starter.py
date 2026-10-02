@@ -90,6 +90,7 @@ def write_scaffold(destination_root: Path) -> None:
     )
 
     (src / "main.ts").write_text(
+        'import "@tdesign/uniapp/theme.css"\n'
         'import { createSSRApp } from "vue"\n'
         'import App from "./App.vue"\n\n'
         "export function createApp() {\n"
