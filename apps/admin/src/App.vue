@@ -8,66 +8,25 @@ import {
   isAdminSessionReady
 } from "./api"
 import AdminSessionPanel from "./components/AdminSessionPanel.vue"
-import AftercarePanel from "./components/AftercarePanel.vue"
 import CatalogPanel from "./components/CatalogPanel.vue"
-import OperationsQueuePanel from "./components/OperationsQueuePanel.vue"
 import OrderEvidencePanel from "./components/OrderEvidencePanel.vue"
-import WithdrawalsPanel from "./components/WithdrawalsPanel.vue"
+import {
+  ADMIN_NAV,
+  type AdminSection
+} from "./navigation"
+import type {
+  Order,
+  Player,
+  PlayerSkillReview,
+  ReviewAction,
+  Settlement
+} from "./types/admin"
+import DashboardWorkspace from "./workspaces/DashboardWorkspace.vue"
+import FinanceWorkspace from "./workspaces/FinanceWorkspace.vue"
+import OrdersWorkspace from "./workspaces/OrdersWorkspace.vue"
+import PlayersWorkspace from "./workspaces/PlayersWorkspace.vue"
 
-type Player = {
-  id: string
-  userId: string
-  displayName: string
-  verificationStatus: string
-  serviceStatus: string
-  rating: number
-  orderCount: number
-}
-
-type Order = {
-  id: string
-  orderNo: string
-  userId: string
-  status: string
-  totalAmount: number
-  version: number
-  createdAt: string
-}
-
-type PlayerSkillReview = {
-  id: string
-  playerId: string
-  playerName: string
-  gameId: string
-  gameName: string
-  rank: string | null
-  description: string
-  evidenceUrl: string | null
-  verificationStatus: string
-  reviewNote: string
-  updatedAt: string
-}
-
-type Settlement = {
-  id: string
-  orderId: string
-  playerId: string
-  grossAmount: number
-  playerAmount: number
-  platformFee: number
-  status: string
-}
-
-type Tab = "dashboard" | "orders" | "players" | "finance" | "config"
-type OrderView = "orders" | "aftercare"
-type PlayerView = "players" | "skills"
-type FinanceView = "withdrawals" | "settlements"
-
-const tab = ref<Tab>("dashboard")
-const orderView = ref<OrderView>("orders")
-const playerView = ref<PlayerView>("players")
-const financeView = ref<FinanceView>("withdrawals")
-
+const tab = ref<AdminSection>("dashboard")
 const authMode = getAdminAuthMode()
 const authReady = ref(isAdminSessionReady())
 const loading = ref(authReady.value)
@@ -78,36 +37,21 @@ const settlements = ref<Settlement[]>([])
 const skills = ref<PlayerSkillReview[]>([])
 const evidenceOrderId = ref("")
 
-const nav = [
-  { key: "dashboard" as const, label: "概览", icon: "◫" },
-  { key: "orders" as const, label: "订单", icon: "单" },
-  { key: "players" as const, label: "陪玩", icon: "人" },
-  { key: "finance" as const, label: "资金", icon: "¥" },
-  { key: "config" as const, label: "配置", icon: "设" }
-]
-
-const pendingPlayers = computed(() =>
-  players.value.filter((item) => item.verificationStatus === "PENDING")
-)
-
-const gmv = computed(() =>
-  orders.value.reduce((sum, item) => sum + item.totalAmount, 0)
-)
-
-const platformRevenue = computed(() =>
-  settlements.value.reduce((sum, item) => sum + item.platformFee, 0)
+const currentNav = computed(
+  () => ADMIN_NAV.find(item => item.key === tab.value) ?? ADMIN_NAV[0]
 )
 
 async function load() {
   loading.value = true
   error.value = ""
   try {
-    const [nextPlayers, nextSkills, nextOrders, nextSettlements] = await Promise.all([
-      adminRequest<Player[]>("/admin/players"),
-      adminRequest<PlayerSkillReview[]>("/admin/player-skills"),
-      adminRequest<Order[]>("/admin/orders"),
-      adminRequest<Settlement[]>("/admin/settlements")
-    ])
+    const [nextPlayers, nextSkills, nextOrders, nextSettlements] =
+      await Promise.all([
+        adminRequest<Player[]>("/admin/players"),
+        adminRequest<PlayerSkillReview[]>("/admin/player-skills"),
+        adminRequest<Order[]>("/admin/orders"),
+        adminRequest<Settlement[]>("/admin/settlements")
+      ])
     players.value = nextPlayers
     skills.value = nextSkills
     orders.value = nextOrders
@@ -119,7 +63,10 @@ async function load() {
   }
 }
 
-async function reviewPlayer(player: Player, action: "approve" | "reject") {
+async function reviewPlayer(
+  player: Player,
+  action: ReviewAction
+) {
   try {
     await adminRequest(`/admin/players/${player.id}/${action}`, {
       method: "POST"
@@ -130,7 +77,10 @@ async function reviewPlayer(player: Player, action: "approve" | "reject") {
   }
 }
 
-async function reviewSkill(skill: PlayerSkillReview, action: "approve" | "reject") {
+async function reviewSkill(
+  skill: PlayerSkillReview,
+  action: ReviewAction
+) {
   try {
     await adminRequest(`/admin/player-skills/${skill.id}/${action}`, {
       method: "POST"
@@ -172,7 +122,7 @@ onMounted(() => {
 
       <nav>
         <button
-          v-for="item in nav"
+          v-for="item in ADMIN_NAV"
           :key="item.key"
           :class="{ active: tab === item.key }"
           @click="tab = item.key"
@@ -185,7 +135,13 @@ onMounted(() => {
       <div class="sidebar-foot">
         <span class="dot"></span>
         {{ authMode === "demo" ? "Demo Mode" : "Bearer Operator" }}
-        <button v-if="authMode === 'bearer' && authReady" class="logout" @click="logoutAdmin">退出</button>
+        <button
+          v-if="authMode === 'bearer' && authReady"
+          class="logout"
+          @click="logoutAdmin"
+        >
+          退出
+        </button>
       </div>
     </aside>
 
@@ -193,194 +149,48 @@ onMounted(() => {
       <header>
         <div>
           <p class="eyebrow">ESPORTS COMPANION</p>
-          <h1>{{ nav.find((item) => item.key === tab)?.label }}</h1>
+          <h1>{{ currentNav.label }}</h1>
+          <p class="section-description">{{ currentNav.description }}</p>
         </div>
         <button class="refresh" @click="load">刷新数据</button>
       </header>
 
-      <AdminSessionPanel v-if="!authReady" @ready="onAdminSessionReady" />
+      <AdminSessionPanel
+        v-if="!authReady"
+        @ready="onAdminSessionReady"
+      />
 
       <template v-else>
         <div v-if="error" class="alert">{{ error }}</div>
-        <div v-if="loading" class="loading">正在同步 Marketplace 状态...</div>
+        <div v-if="loading" class="loading">
+          正在同步 Marketplace 状态...
+        </div>
 
-        <template v-else-if="tab === 'dashboard'">
-          <section class="metric-grid">
-            <article class="metric">
-              <span>订单总数</span>
-              <strong>{{ orders.length }}</strong>
-              <small>当前数据集</small>
-            </article>
-            <article class="metric">
-              <span>GMV</span>
-              <strong>¥{{ (gmv / 100).toFixed(2) }}</strong>
-              <small>订单累计金额</small>
-            </article>
-            <article class="metric">
-              <span>待审核陪玩</span>
-              <strong>{{ pendingPlayers.length }}</strong>
-              <small>需要运营处理</small>
-            </article>
-            <article class="metric accent">
-              <span>平台服务费</span>
-              <strong>¥{{ (platformRevenue / 100).toFixed(2) }}</strong>
-              <small>已结算订单</small>
-            </article>
-          </section>
+        <DashboardWorkspace
+          v-else-if="tab === 'dashboard'"
+          :orders="orders"
+          :players="players"
+          :settlements="settlements"
+        />
 
-          <OperationsQueuePanel />
-        </template>
+        <OrdersWorkspace
+          v-else-if="tab === 'orders'"
+          :orders="orders"
+          @open-evidence="evidenceOrderId = $event"
+        />
 
-        <template v-else-if="tab === 'orders'">
-          <div class="subnav">
-            <button :class="{ active: orderView === 'orders' }" @click="orderView = 'orders'">订单列表</button>
-            <button :class="{ active: orderView === 'aftercare' }" @click="orderView = 'aftercare'">售后 / 退款</button>
-          </div>
+        <PlayersWorkspace
+          v-else-if="tab === 'players'"
+          :players="players"
+          :skills="skills"
+          @review-player="reviewPlayer"
+          @review-skill="reviewSkill"
+        />
 
-          <section v-if="orderView === 'orders'" class="panel">
-            <div class="panel-head">
-              <div>
-                <h2>订单</h2>
-                <p>订单状态、聊天与审计事实统一从订单进入。</p>
-              </div>
-              <span class="count">{{ orders.length }} 单</span>
-            </div>
-            <div class="table orders">
-              <div class="tr th">
-                <span>订单号</span><span>状态</span><span>金额</span><span>版本</span><span>创建时间</span>
-              </div>
-              <div v-for="order in orders" :key="order.id" class="tr">
-                <span class="identity"><b>{{ order.orderNo }}</b><small>{{ order.id.slice(0, 8) }}</small></span>
-                <span><em class="badge purple">{{ order.status }}</em></span>
-                <span>¥{{ (order.totalAmount / 100).toFixed(2) }}</span>
-                <span>v{{ order.version }}</span>
-                <span class="order-actions">
-                  <small>{{ new Date(order.createdAt).toLocaleString() }}</small>
-                  <button class="evidence-button" @click="evidenceOrderId = order.id">查看详情</button>
-                </span>
-              </div>
-            </div>
-          </section>
-
-          <AftercarePanel v-else />
-        </template>
-
-        <template v-else-if="tab === 'players'">
-          <div class="subnav">
-            <button :class="{ active: playerView === 'players' }" @click="playerView = 'players'">陪玩审核</button>
-            <button :class="{ active: playerView === 'skills' }" @click="playerView = 'skills'">技能认证</button>
-          </div>
-
-          <section v-if="playerView === 'players'" class="panel">
-            <div class="panel-head">
-              <div>
-                <h2>陪玩审核</h2>
-                <p>审核通过后才能进入接单市场。</p>
-              </div>
-              <span class="count">{{ players.length }} 人</span>
-            </div>
-
-            <div class="table">
-              <div class="tr th">
-                <span>陪玩</span><span>审核状态</span><span>接单状态</span><span>评分</span><span>操作</span>
-              </div>
-              <div v-for="player in players" :key="player.id" class="tr">
-                <span class="identity">
-                  <b>{{ player.displayName }}</b>
-                  <small>{{ player.id.slice(0, 8) }}</small>
-                </span>
-                <span><em class="badge">{{ player.verificationStatus }}</em></span>
-                <span>{{ player.serviceStatus }}</span>
-                <span>{{ player.rating.toFixed(2) }}</span>
-                <span class="actions">
-                  <button
-                    v-if="player.verificationStatus === 'PENDING'"
-                    class="approve"
-                    @click="reviewPlayer(player, 'approve')"
-                  >通过</button>
-                  <button
-                    v-if="player.verificationStatus === 'PENDING'"
-                    class="reject"
-                    @click="reviewPlayer(player, 'reject')"
-                  >拒绝</button>
-                  <small v-else>已处理</small>
-                </span>
-              </div>
-            </div>
-          </section>
-
-          <section v-else class="panel">
-            <div class="panel-head">
-              <div>
-                <h2>技能认证</h2>
-                <p>公开主页只展示已通过认证的游戏技能。</p>
-              </div>
-              <span class="count">{{ skills.filter(item => item.verificationStatus === "PENDING").length }} 待处理</span>
-            </div>
-
-            <div class="table">
-              <div class="tr th">
-                <span>陪玩 / 游戏</span><span>段位</span><span>证明</span><span>状态</span><span>操作</span>
-              </div>
-              <div v-for="skill in skills" :key="skill.id" class="tr">
-                <span class="identity">
-                  <b>{{ skill.playerName }}</b>
-                  <small>{{ skill.gameName }}</small>
-                </span>
-                <span>{{ skill.rank || "-" }}</span>
-                <span>
-                  <a v-if="skill.evidenceUrl" :href="skill.evidenceUrl" target="_blank" rel="noreferrer">查看证明</a>
-                  <small v-else>无</small>
-                </span>
-                <span><em class="badge">{{ skill.verificationStatus }}</em></span>
-                <span class="actions">
-                  <button
-                    v-if="skill.verificationStatus === 'PENDING'"
-                    class="approve"
-                    @click="reviewSkill(skill, 'approve')"
-                  >通过</button>
-                  <button
-                    v-if="skill.verificationStatus === 'PENDING'"
-                    class="reject"
-                    @click="reviewSkill(skill, 'reject')"
-                  >拒绝</button>
-                  <small v-else>{{ skill.reviewNote || "已处理" }}</small>
-                </span>
-              </div>
-            </div>
-          </section>
-        </template>
-
-        <template v-else-if="tab === 'finance'">
-          <div class="subnav">
-            <button :class="{ active: financeView === 'withdrawals' }" @click="financeView = 'withdrawals'">提现</button>
-            <button :class="{ active: financeView === 'settlements' }" @click="financeView = 'settlements'">结算</button>
-          </div>
-
-          <WithdrawalsPanel v-if="financeView === 'withdrawals'" />
-
-          <section v-else class="panel">
-            <div class="panel-head">
-              <div>
-                <h2>结算</h2>
-                <p>Settlement 与 Ledger 保留为资金审计事实，不再作为独立产品入口。</p>
-              </div>
-              <span class="count">{{ settlements.length }} 笔</span>
-            </div>
-            <div class="table settlements">
-              <div class="tr th">
-                <span>结算 ID</span><span>状态</span><span>订单金额</span><span>陪玩收入</span><span>平台服务费</span>
-              </div>
-              <div v-for="item in settlements" :key="item.id" class="tr">
-                <span class="identity"><b>{{ item.id.slice(0, 12) }}</b><small>{{ item.orderId.slice(0, 8) }}</small></span>
-                <span><em class="badge green">{{ item.status }}</em></span>
-                <span>¥{{ (item.grossAmount / 100).toFixed(2) }}</span>
-                <span>¥{{ (item.playerAmount / 100).toFixed(2) }}</span>
-                <span>¥{{ (item.platformFee / 100).toFixed(2) }}</span>
-              </div>
-            </div>
-          </section>
-        </template>
+        <FinanceWorkspace
+          v-else-if="tab === 'finance'"
+          :settlements="settlements"
+        />
 
         <CatalogPanel v-else-if="tab === 'config'" />
       </template>
@@ -424,6 +234,7 @@ main { padding: 42px 50px 70px; }
 header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 32px; }
 .eyebrow { margin: 0 0 8px; color: #6c5ce7; font-size: 11px; font-weight: 800; letter-spacing: 2px; }
 h1 { margin: 0; font-size: 34px; letter-spacing: -1px; }
+.section-description { margin:8px 0 0;color:#92929d;font-size:12px; }
 .refresh { border: 1px solid #e4e3eb; padding: 10px 16px; border-radius: 12px; background: white; color: #585864; cursor: pointer; }
 .subnav { display:flex; gap:8px; margin-bottom:20px; padding:5px; width:max-content; border:1px solid #e8e7ee; border-radius:13px; background:#fff; }
 .subnav button { border:0; padding:9px 14px; border-radius:9px; background:transparent; color:#82828d; cursor:pointer; font-size:12px; }
