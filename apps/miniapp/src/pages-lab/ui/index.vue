@@ -1,16 +1,14 @@
 <script setup lang="ts">
 import { ref } from "vue"
 import EmptyState from "../../components/EmptyState.vue"
-import UiActionSheet, {
-  type UiActionSheetItem
-} from "../../components/ui/UiActionSheet.vue"
+import UiActionSheet from "../../components/ui/UiActionSheet.vue"
 import UiBadge from "../../components/ui/UiBadge.vue"
 import UiButton from "../../components/ui/UiButton.vue"
 import UiCell from "../../components/ui/UiCell.vue"
 import { confirmAction, showMessage, showSuccess } from "../../ui/feedback"
 
 const sheetVisible = ref(false)
-const sheetItems: UiActionSheetItem[] = [
+const sheetItems = [
   {
     label: "申请退款",
     description: "服务未开始或符合退款条件时使用"
