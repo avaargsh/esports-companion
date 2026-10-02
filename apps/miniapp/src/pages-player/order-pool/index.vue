@@ -64,10 +64,10 @@ async function loadPool({
   silent = false
 }: {
   silent?: boolean
-} = {}) {
+} = {}): Promise<boolean> {
   if (!gameId.value || !playerUserId.value) {
     orders.value = []
-    return
+    return true
   }
 
   poolLoading.value = true
@@ -76,12 +76,14 @@ async function loadPool({
       playerUserId.value,
       gameId.value
     )
+    return true
   } catch (error) {
     if (!silent) {
       showMessage(
         claimErrorMessage(error instanceof Error ? error.message : "")
       )
     }
+    return false
   } finally {
     poolLoading.value = false
   }
@@ -112,7 +114,10 @@ async function bootstrap() {
       gameId.value = games.value[0]?.id ?? ""
     }
 
-    await loadPool({ silent: true })
+    const poolLoaded = await loadPool({ silent: true })
+    if (!poolLoaded) {
+      throw new Error("订单池加载失败")
+    }
     finishLoad({ empty: games.value.length === 0 })
   } catch (error) {
     failLoad(
