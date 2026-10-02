@@ -104,3 +104,46 @@ For a page that reads remote data:
 - [ ] transaction actions remain derived from server-authoritative state;
 - [ ] ordinary actions reuse shared UI primitives;
 - [ ] type-check and mp-weixin builds remain green.
+
+
+## Transaction action authority
+
+Customer mutation affordances come from the server-side `available_actions`
+contract whenever the action changes durable order state.
+
+Examples:
+
+- `PAY`
+- `CANCEL`
+- `CONFIRM_FINISH`
+- `REQUEST_REFUND`
+- `OPEN_DISPUTE`
+
+The client may derive local navigation actions such as "order again", but it
+must not recreate backend authorization by checking order status alone.
+
+The order detail endpoint emits actions for the current viewer role. A player
+or platform viewer must not inherit customer mutation affordances merely
+because they can read the order.
+
+## Order-detail boundary
+
+The customer order detail flow is split deliberately:
+
+```text
+page
+  -> features/order-detail/useCustomerOrderDetail
+       -> domain/order/api
+       -> domain/order/presenter
+       -> domain/order/realtime
+       -> platform/navigation
+```
+
+- the page owns Mini Program lifecycle hooks and rendering;
+- the feature composable owns orchestration and transient interaction state;
+- domain API modules own endpoint paths and request shapes;
+- presenter functions are pure state-to-view decisions;
+- realtime owns SocketTask protocol details and event-id deduplication.
+
+Do not move endpoint strings, SocketTask callbacks, auth-mode branching or
+transaction action derivation back into the page.
