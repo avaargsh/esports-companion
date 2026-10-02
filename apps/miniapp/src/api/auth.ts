@@ -6,6 +6,7 @@ import {
   createSingleFlight,
   isSessionFresh
 } from "../platform/session"
+import { requestWeChatLoginCode } from "../platform/wechat"
 
 const STORAGE_KEY = "esports-companion.auth.v1"
 const ACCESS_REFRESH_SKEW_MS = 30_000
@@ -82,23 +83,8 @@ async function rawPost<T>(
   }
 }
 
-function wechatLoginCode(): Promise<string> {
-  return new Promise((resolve, reject) => {
-    uni.login({
-      provider: "weixin",
-      success(result) {
-        if (result.code) resolve(result.code)
-        else reject(new Error("WECHAT_LOGIN_CODE_MISSING"))
-      },
-      fail() {
-        reject(new Error("WECHAT_LOGIN_FAILED"))
-      }
-    })
-  })
-}
-
 async function loginWithWeChat(): Promise<AuthSession> {
-  const code = await wechatLoginCode()
+  const code = await requestWeChatLoginCode()
   const payload = await rawPost<AuthResponse>("/auth/wechat/login", { code })
   return persistSession(payload)
 }
