@@ -26,6 +26,15 @@ router = APIRouter(prefix="/api/v1/orders", tags=["orders"])
 
 
 def _available_actions(order: Order, *, viewer_role: str) -> list[str]:
+    if viewer_role == "PLAYER":
+        if order.status == OrderStatus.ACCEPTED.value:
+            return ["START_SERVICE", "OPEN_DISPUTE"]
+        if order.status == OrderStatus.IN_SERVICE.value:
+            return ["REQUEST_FINISH", "OPEN_DISPUTE"]
+        if order.status == OrderStatus.FINISH_REQUESTED.value:
+            return ["OPEN_DISPUTE"]
+        return []
+
     if viewer_role != "USER":
         return []
     if order.status == OrderStatus.WAITING_PAYMENT.value:
