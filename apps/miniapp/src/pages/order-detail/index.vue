@@ -87,7 +87,7 @@ onUnload(() => {
           <text class="dot"></text>
           <text>自动更新暂时中断，可手动刷新</text>
         </view>
-        <text class="refresh" @click="reload">刷新</text>
+        <text class="refresh" @click="refresh">刷新</text>
       </view>
 
       <view class="status-card">
