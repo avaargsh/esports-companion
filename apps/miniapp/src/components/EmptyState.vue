@@ -6,22 +6,24 @@ withDefaults(defineProps<{
   description?: string
   symbol?: string
   action?: string
+  inverse?: boolean
 }>(), {
   description: "",
   symbol: "·",
-  action: ""
+  action: "",
+  inverse: false
 })
 
 defineEmits<{ action: [] }>()
 </script>
 
 <template>
-  <view class="empty">
+  <view class="empty" :class="{ inverse }">
     <view class="symbol">{{ symbol }}</view>
     <text class="title">{{ title }}</text>
     <text v-if="description" class="description">{{ description }}</text>
     <view v-if="action" class="action-wrap">
-      <UiButton size="sm" variant="secondary" @click="$emit('action')">
+      <UiButton size="sm" variant="secondary" :inverse="inverse" @click="$emit('action')">
         {{ action }}
       </UiButton>
     </view>
@@ -71,5 +73,24 @@ defineEmits<{ action: [] }>()
 
 .action-wrap {
   margin-top: 24rpx;
+}
+
+.empty.inverse {
+  border-color: rgba(255, 255, 255, 0.05);
+  background: var(--inverse-surface);
+  box-shadow: none;
+}
+
+.inverse .symbol {
+  background: var(--inverse-control-strong);
+  color: var(--brand-on-inverse);
+}
+
+.inverse .title {
+  color: #fff;
+}
+
+.inverse .description {
+  color: var(--inverse-muted);
 }
 </style>
