@@ -1,35 +1,19 @@
 <script setup lang="ts">
 import { computed, watch, ref } from "vue"
 
-import { request } from "../../api/client"
-
-type Game = {
-  id: string
-  name: string
-}
-
-type Sku = {
-  id: string
-  game_id: string
-  name: string
-  duration_minutes: number
-  price: number
-}
-
-type Offering = {
-  id: string
-  player_id: string
-  sku_id: string
-  price_override: number | null
-  description: string
-  status: string
-}
+import { listGames, listGameSkus } from "../../domain/catalog/api"
+import {
+  listPlayerOfferings,
+  updatePlayerOffering,
+  type PlayerOffering
+} from "../../domain/player/api"
+import type { Game, ServiceSku } from "../../types/domain"
 
 const props = defineProps<{ userId: string }>()
 
 const games = ref<Game[]>([])
-const skus = ref<Sku[]>([])
-const offerings = ref<Offering[]>([])
+const skus = ref<ServiceSku[]>([])
+const offerings = ref<PlayerOffering[]>([])
 const busySku = ref("")
 const error = ref("")
 
@@ -40,7 +24,7 @@ const gameNames = computed(() => {
 })
 
 const offeringBySku = computed(() => {
-  const map = new Map<string, Offering>()
+  const map = new Map<string, PlayerOffering>()
   for (const offering of offerings.value) map.set(offering.sku_id, offering)
   return map
 })
@@ -49,35 +33,27 @@ async function load() {
   if (!props.userId) return
   error.value = ""
   try {
-    games.value = await request<Game[]>("/games")
+    games.value = await listGames()
     const groups = await Promise.all(
-      games.value.map((game) =>
-        request<Sku[]>(`/games/${game.id}/skus`)
-      )
+      games.value.map(game => listGameSkus(game.id))
     )
     skus.value = groups.flat()
-    offerings.value = await request<Offering[]>("/player/offerings", {
-      userId: props.userId
-    })
+    offerings.value = await listPlayerOfferings(props.userId)
   } catch (reason) {
     error.value = reason instanceof Error ? reason.message : "OFFERING_LOAD_FAILED"
   }
 }
 
-async function toggle(sku: Sku) {
+async function toggle(sku: ServiceSku) {
   if (busySku.value) return
   busySku.value = sku.id
   const existing = offeringBySku.value.get(sku.id)
   const nextStatus = existing?.status === "ACTIVE" ? "INACTIVE" : "ACTIVE"
   try {
-    await request<Offering>(`/player/offerings/${sku.id}`, {
-      method: "PUT",
-      userId: props.userId,
-      data: {
-        price_override: existing?.price_override ?? null,
-        description: existing?.description ?? "",
-        status: nextStatus
-      }
+    await updatePlayerOffering(props.userId, sku.id, {
+      priceOverride: existing?.price_override ?? null,
+      description: existing?.description ?? "",
+      status: nextStatus
     })
     await load()
   } catch (reason) {
