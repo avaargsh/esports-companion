@@ -22,7 +22,7 @@ const {
   start: startLoad,
   succeed: finishLoad,
   fail: failLoad
-} = useAsyncStatus()
+} = useAsyncStatus("loading")
 
 const activeCount = computed(() =>
   orders.value.filter(item => isActiveOrder(item.status)).length
