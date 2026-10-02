@@ -10,6 +10,12 @@ from app.services.resource_authorization_policy import ResourceAuthorizationPoli
 router = APIRouter(prefix="/api/v1/wallet", tags=["wallet"])
 
 
+def _wallet_actions(principal: Principal, available_balance: int) -> list[str]:
+    if "PLAYER" in principal.roles and available_balance > 0:
+        return ["REQUEST_WITHDRAWAL"]
+    return []
+
+
 def _authorize_wallet(principal: Principal, action: str) -> None:
     ResourceAuthorizationPolicy.require_owner(
         actor_user_id=principal.user_id,
@@ -30,12 +36,20 @@ def get_wallet(
     _authorize_wallet(principal, "WALLET_READ")
     wallet = db.scalar(select(Wallet).where(Wallet.user_id == principal.user_id))
     if not wallet:
-        return {"availableBalance": 0, "frozenBalance": 0}
+        return {
+            "availableBalance": 0,
+            "frozenBalance": 0,
+            "availableActions": [],
+        }
     return {
         "id": str(wallet.id),
         "availableBalance": wallet.available_balance,
         "frozenBalance": wallet.frozen_balance,
         "version": wallet.version,
+        "availableActions": _wallet_actions(
+            principal,
+            wallet.available_balance,
+        ),
     }
 
 
