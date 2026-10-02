@@ -45,7 +45,7 @@ async function load() {
 
   try {
     const principal = await getCustomerPrincipal()
-    orders.value = await listCustomerOrders(principal)
+    orders.value = await listCustomerOrders(principal.userId)
     finishLoad({ empty: orders.value.length === 0 })
   } catch (error) {
     if (hasContent) {
