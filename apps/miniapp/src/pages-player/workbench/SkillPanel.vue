@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue"
 
-import { request } from "../../api/client"
+import { listGames } from "../../domain/catalog/api"
+import {
+  listPlayerSkills,
+  upsertPlayerSkill
+} from "../../domain/player/api"
 import type { Game, PlayerSkill } from "../../types/domain"
 import { showSuccess } from "../../ui/feedback"
 
@@ -27,8 +31,8 @@ async function load() {
   error.value = ""
   try {
     const [gameRows, skillRows] = await Promise.all([
-      request<Game[]>("/games"),
-      request<PlayerSkill[]>("/player/skills", { userId: props.userId })
+      listGames(),
+      listPlayerSkills(props.userId)
     ])
     games.value = gameRows
     skills.value = skillRows
@@ -43,14 +47,10 @@ async function submit() {
   busy.value = true
   error.value = ""
   try {
-    await request<PlayerSkill>(`/player/skills/${gameId.value}`, {
-      method: "PUT",
-      userId: props.userId,
-      data: {
-        rank: rank.value.trim(),
-        description: description.value.trim(),
-        evidence_url: evidenceUrl.value.trim()
-      }
+    await upsertPlayerSkill(props.userId, gameId.value, {
+      rank: rank.value.trim(),
+      description: description.value.trim(),
+      evidenceUrl: evidenceUrl.value.trim()
     })
     rank.value = ""
     evidenceUrl.value = ""
