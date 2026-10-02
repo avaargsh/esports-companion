@@ -1,77 +1,105 @@
 <script setup lang="ts">
 import { ref } from "vue"
 import { onShow } from "@dcloudio/uni-app"
-import { request } from "../../api/client"
-import { getDemoIdentities } from "../../api/demo"
+
 import { isWeChatAuthMode } from "../../api/config"
-import { showSuccess, showMessage } from "../../ui/feedback"
-import { navigation } from "../../platform/navigation"
 import SampleJourney from "../../components/SampleJourney.vue"
+import {
+  applyPlayer as submitPlayerApplication,
+  getPlayerProfile,
+  type PlayerProfile
+} from "../../domain/player/api"
+import { navigation } from "../../platform/navigation"
+import {
+  getCustomerPrincipal,
+  getPlayerPrincipal
+} from "../../product/principal"
+import { showMessage, showSuccess } from "../../ui/feedback"
 
-type PlayerProfile={
-  id:string
-  user_id:string
-  display_name:string
-  bio:string
-  verification_status:"PENDING"|"APPROVED"|"REJECTED"|string
-  service_status:string
-}
-const wechatMode=isWeChatAuthMode()
-const nickname=ref(wechatMode?"微信用户":"Demo Customer")
-const userId=ref("")
-const playerName=ref("")
-const playerProfile=ref<PlayerProfile|null>(null)
-const playerChecked=ref(!wechatMode)
-const applyOpen=ref(false)
-const applyName=ref("")
-const applyBio=ref("")
-const applying=ref(false)
+const wechatMode = isWeChatAuthMode()
+const nickname = ref(wechatMode ? "微信用户" : "Demo Customer")
+const userId = ref("")
+const playerName = ref("")
+const playerProfile = ref<PlayerProfile | null>(null)
+const playerChecked = ref(!wechatMode)
+const applyOpen = ref(false)
+const applyName = ref("")
+const applyBio = ref("")
+const applying = ref(false)
 
-async function loadIdentity(){
-  try{
-    const identities=await getDemoIdentities()
-    userId.value=identities.customer.userId
-    nickname.value=identities.customer.nickname||(wechatMode?"微信用户":"Demo Customer")
-    if(!wechatMode){
-      playerName.value=identities.players[0]?.displayName??""
-      playerChecked.value=true
+async function loadIdentity() {
+  try {
+    const customer = await getCustomerPrincipal()
+    userId.value = customer.userId
+    nickname.value =
+      customer.nickname || (wechatMode ? "微信用户" : "Demo Customer")
+
+    if (!wechatMode) {
+      const player = await getPlayerPrincipal()
+      playerName.value = player?.displayName ?? ""
+      playerChecked.value = true
       return
     }
-    try{
-      playerProfile.value=await request<PlayerProfile>("/player/profile",{userId:userId.value})
-      playerName.value=playerProfile.value.display_name
-    }catch(error){
-      const message=error instanceof Error?error.message:""
-      if(message!=="PLAYER_PROFILE_NOT_FOUND")throw error
-      playerProfile.value=null
-      playerName.value=""
-    }finally{playerChecked.value=true}
-  }catch(error){
-    showMessage(error instanceof Error?error.message:"账户加载失败")
+
+    try {
+      playerProfile.value = await getPlayerProfile(customer.userId)
+      playerName.value = playerProfile.value.display_name
+    } catch (error) {
+      const message = error instanceof Error ? error.message : ""
+      if (message !== "PLAYER_PROFILE_NOT_FOUND") throw error
+      playerProfile.value = null
+      playerName.value = ""
+    } finally {
+      playerChecked.value = true
+    }
+  } catch (error) {
+    showMessage(error instanceof Error ? error.message : "账户加载失败")
   }
 }
-onShow(()=>{void loadIdentity()})
-function openPlayerWorkspace(){
-  if(wechatMode&&playerProfile.value?.verification_status!=="APPROVED")return
+
+function openPlayerWorkspace() {
+  if (
+    wechatMode &&
+    playerProfile.value?.verification_status !== "APPROVED"
+  ) {
+    return
+  }
   navigation.push("/pages-player/workbench/index")
 }
-function openOrders(){navigation.tab("/pages/orders/index")}
-async function applyPlayer(){
-  if(!wechatMode||!userId.value||applying.value)return
-  const displayName=applyName.value.trim()
-  if(!displayName){showMessage("请填写陪玩昵称");return}
-  applying.value=true
-  try{
-    playerProfile.value=await request<PlayerProfile>("/player/apply",{
-      method:"POST",userId:userId.value,data:{display_name:displayName,bio:applyBio.value.trim()}
-    })
-    playerName.value=playerProfile.value.display_name
-    applyOpen.value=false
-    showSuccess("申请已提交")
-  }catch(error){
-    showMessage(error instanceof Error?error.message:"申请提交失败")
-  }finally{applying.value=false}
+
+function openOrders() {
+  navigation.tab("/pages/orders/index")
 }
+
+async function applyPlayer() {
+  if (!wechatMode || !userId.value || applying.value) return
+
+  const displayName = applyName.value.trim()
+  if (!displayName) {
+    showMessage("请填写陪玩昵称")
+    return
+  }
+
+  applying.value = true
+  try {
+    playerProfile.value = await submitPlayerApplication(
+      userId.value,
+      displayName,
+      applyBio.value.trim()
+    )
+    playerName.value = playerProfile.value.display_name
+    applyOpen.value = false
+    showSuccess("申请已提交")
+  } catch (error) {
+    showMessage(error instanceof Error ? error.message : "申请提交失败")
+  } finally {
+    applying.value = false
+  }
+}
+
+onShow(() => {
+  void loadIdentity()
+})
 </script>
 
 <template>
