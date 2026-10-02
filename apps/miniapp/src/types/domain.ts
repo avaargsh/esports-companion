@@ -1,4 +1,5 @@
 export type OrderAction =
+  | "CLAIM_ORDER"
   | "PAY"
   | "CANCEL"
   | "CONFIRM_FINISH"
