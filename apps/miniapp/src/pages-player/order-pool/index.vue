@@ -102,7 +102,7 @@ onPullDownRefresh(async () => {
       <view class="empty-icon">⌁</view>
       <text class="empty-title">现在没有可接订单</text>
       <text class="empty-desc">只展示与你已启用服务匹配的订单，下拉即可刷新。</text>
-      <button class="ghost" @click="loadPool">刷新订单</button>
+      <button class="ghost" @click="() => loadPool()">刷新订单</button>
     </view>
 
     <view v-else class="list">
