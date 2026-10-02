@@ -147,3 +147,110 @@ page
 
 Do not move endpoint strings, SocketTask callbacks, auth-mode branching or
 transaction action derivation back into the page.
+
+
+## Ecosystem adoption rules
+
+This project follows external projects as design references, not as dependency
+bundles.
+
+### WeChat official capabilities
+
+Use the official Mini Program capability model as the source of truth for
+platform-specific behavior:
+
+- login/session and privacy authorization;
+- payment;
+- subscription messages;
+- native navigation and page handoff;
+- customer-service / platform APIs when introduced.
+
+Platform-specific calls belong under `platform/*` or a focused adapter. Product
+pages must not scatter raw `wx.*` / `uni.*` capability orchestration.
+
+The official `wechat-miniprogram/miniprogram-demo` is the reference baseline
+for capability behavior and lifecycle.
+
+### TDesign UniApp
+
+TDesign UniApp is the preferred candidate for complex interaction primitives
+that are expensive to maintain correctly, such as:
+
+- Popup / Drawer;
+- ActionSheet;
+- Picker;
+- Form and validation;
+- Upload;
+- Dialog;
+- more advanced chat/markdown primitives if the product later needs them.
+
+Adoption rules:
+
+1. keep simple semantic primitives such as `UiButton`, `StatusTag` and
+   `PrimaryActionBar` local;
+2. wrap TDesign components behind local `shared/ui` adapters;
+3. business pages do not import `@tdesign/uniapp` directly;
+4. measure mp-weixin package size and secure-build compatibility before
+   broadening usage.
+
+### Transaction and aftercare organization
+
+Borrow the product organization, not the implementation stack, from mature
+commerce projects such as litemall:
+
+```text
+Order
+  -> payment
+  -> fulfillment
+  -> communication / evidence
+  -> completion
+  -> aftercare / dispute / refund
+  -> settlement / review
+```
+
+Aftercare stays attached to the order aggregate. It is not a parallel product
+tree with duplicated order state.
+
+Both customer and player surfaces derive durable mutation affordances from the
+server-side `available_actions` contract.
+
+### Admin information architecture
+
+Use the CRMEB-style operational-domain split as a reference, while keeping this
+admin much smaller:
+
+```text
+Overview
+Orders
+  - Order list
+  - Aftercare / disputes / refunds
+Players
+  - Player review
+  - Skill review
+Finance
+  - Withdrawals
+  - Settlements
+Configuration
+  - Games
+  - Service SKUs / offerings
+System (only when needed)
+  - operator / audit / platform settings
+```
+
+Do not expose internal tables such as Ledger or Assignment as top-level product
+navigation merely because they exist in the backend.
+
+### Small but complete boundary
+
+Follow the same principle visible in small complete Mini Program projects such
+as jiezhang:
+
+- one obvious API boundary;
+- reusable components;
+- explicit route/navigation ownership;
+- local feature state first;
+- global store only for genuinely cross-page state;
+- utilities remain small and domain-neutral.
+
+A new abstraction must remove repeated ownership or make a platform boundary
+explicit. Do not create layers only to make the tree look more enterprise.

@@ -26,6 +26,26 @@ export function listOrderEvents(
   return request<OrderEvent[]>(`/orders/${orderId}/events`, { userId })
 }
 
+export function startPlayerOrder(
+  userId: string,
+  orderId: string
+): Promise<Order> {
+  return request<Order>(`/player/orders/${orderId}/start`, {
+    method: "POST",
+    userId
+  })
+}
+
+export function finishPlayerOrder(
+  userId: string,
+  orderId: string
+): Promise<Order> {
+  return request<Order>(`/player/orders/${orderId}/finish`, {
+    method: "POST",
+    userId
+  })
+}
+
 export function confirmCustomerOrder(
   userId: string,
   orderId: string
@@ -55,7 +75,7 @@ export function createOrderAftercare(
   return request(`/orders/${orderId}/disputes`, {
     method: "POST",
     userId,
-    headers: { "Idempotency-Key": `miniapp-dispute-${orderId}` },
+    headers: { "Idempotency-Key": `miniapp-${kind}-${orderId}-${userId}` },
     data: {
       reason_code:
         kind === "refund" ? "CANCEL_BEFORE_SERVICE" : "SERVICE_ISSUE",

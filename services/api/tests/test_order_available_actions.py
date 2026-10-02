@@ -56,7 +56,10 @@ def test_order_available_actions_follow_customer_state_and_viewer_role():
             headers={"X-User-Id": player_user_id},
         )
         assert player_view.status_code == 200
-        assert player_view.json()["available_actions"] == []
+        assert player_view.json()["available_actions"] == [
+            "START_SERVICE",
+            "OPEN_DISPUTE",
+        ]
 
         accepted = client.get(
             f"/api/v1/orders/{order_id}",
@@ -74,6 +77,15 @@ def test_order_available_actions_follow_customer_state_and_viewer_role():
         assert started.status_code == 200
         assert started.json()["status"] == "IN_SERVICE"
 
+        player_in_service = client.get(
+            f"/api/v1/orders/{order_id}",
+            headers={"X-User-Id": player_user_id},
+        )
+        assert player_in_service.json()["available_actions"] == [
+            "REQUEST_FINISH",
+            "OPEN_DISPUTE",
+        ]
+
         in_service = client.get(
             f"/api/v1/orders/{order_id}",
             headers={"X-User-Id": customer_id},
@@ -86,6 +98,12 @@ def test_order_available_actions_follow_customer_state_and_viewer_role():
         )
         assert finished.status_code == 200
         assert finished.json()["status"] == "FINISH_REQUESTED"
+
+        player_waiting = client.get(
+            f"/api/v1/orders/{order_id}",
+            headers={"X-User-Id": player_user_id},
+        )
+        assert player_waiting.json()["available_actions"] == ["OPEN_DISPUTE"]
 
         awaiting_confirmation = client.get(
             f"/api/v1/orders/{order_id}",
