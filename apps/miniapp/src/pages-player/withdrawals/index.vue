@@ -1,127 +1,46 @@
 <script setup lang="ts">
-import { computed, ref } from "vue"
 import { onShow } from "@dcloudio/uni-app"
 
-import { request } from "../../api/client"
-import { getDemoIdentities } from "../../api/demo"
-import type { Wallet, Withdrawal } from "../../types/domain"
-import { confirmAction, showMessage, showSuccess } from "../../ui/feedback"
+import EmptyState from "../../components/EmptyState.vue"
+import { usePlayerWithdrawals } from "../../features/wallet/usePlayerWithdrawals"
 
-const userId = ref("")
-const wallet = ref<Wallet>({ availableBalance: 0, frozenBalance: 0 })
-const items = ref<Withdrawal[]>([])
-const amountYuan = ref("")
-const loading = ref(true)
-const busy = ref(false)
-const pendingIdempotencyKey = ref("")
+const {
+  wallet,
+  items,
+  amountYuan,
+  busy,
+  loadStatus,
+  loadMessage,
+  amountCents,
+  requestEnabled,
+  canSubmit,
+  pendingAmount,
+  load,
+  submit,
+  withdrawAll,
+  copyValue,
+  statusLabel,
+  formatTime
+} = usePlayerWithdrawals()
 
-const amountCents = computed(() => {
-  const value = Number(amountYuan.value)
-  if (!Number.isFinite(value) || value <= 0) return 0
-  return Math.round(value * 100)
+onShow(() => {
+  void load()
 })
-
-const canSubmit = computed(() =>
-  amountCents.value > 0 &&
-  amountCents.value <= wallet.value.availableBalance &&
-  !busy.value
-)
-
-const pendingAmount = computed(() =>
-  items.value
-    .filter(item => item.status === "PENDING")
-    .reduce((sum,item)=>sum+item.amount,0)
-)
-
-function statusLabel(status: string) {
-  const labels: Record<string,string> = {
-    PENDING: "审核 / 打款中",
-    COMPLETED: "已到账",
-    REJECTED: "已退回"
-  }
-  return labels[status] || status
-}
-
-function copyValue(value: string, label: string) {
-  uni.setClipboardData({
-    data: value,
-    success() {
-      showMessage(`${label}已复制`)
-    }
-  })
-}
-
-function formatTime(value: string) {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ""
-  return date.toLocaleString()
-}
-
-async function load() {
-  loading.value = true
-  try {
-    const identities = await getDemoIdentities()
-    userId.value = identities.players[0]?.userId ?? ""
-    if (!userId.value) throw new Error("PLAYER_REQUIRED")
-
-    const [nextWallet, nextItems] = await Promise.all([
-      request<Wallet>("/wallet", { userId: userId.value }),
-      request<Withdrawal[]>("/withdrawals", { userId: userId.value })
-    ])
-    wallet.value = nextWallet
-    items.value = nextItems
-  } catch (error) {
-    showMessage(error instanceof Error ? error.message : "提现信息加载失败")
-  } finally {
-    loading.value = false
-  }
-}
-
-async function submit() {
-  if (!canSubmit.value || !userId.value) return
-
-  const amountText = (amountCents.value / 100).toFixed(2)
-  const confirmed = await confirmAction({
-    title: `确认提现 ¥${amountText}？`,
-    content: "提交后该金额会从可用余额转入冻结，等待平台审核和打款。",
-    confirmText: "确认提现"
-  })
-  if (!confirmed) return
-
-  if (!pendingIdempotencyKey.value) {
-    pendingIdempotencyKey.value = `miniapp-withdraw-${Date.now()}-${amountCents.value}`
-  }
-
-  busy.value = true
-  try {
-    const created = await request<Withdrawal>("/withdrawals", {
-      method: "POST",
-      userId: userId.value,
-      headers: { "Idempotency-Key": pendingIdempotencyKey.value },
-      data: { amount: amountCents.value }
-    })
-    amountYuan.value = ""
-    pendingIdempotencyKey.value = ""
-    showSuccess(`提现申请已提交 ${created.id.slice(0,8)}`)
-    await load()
-  } catch (error) {
-    showMessage(error instanceof Error ? error.message : "提交失败，可直接重试")
-  } finally {
-    busy.value = false
-  }
-}
-
-function withdrawAll() {
-  amountYuan.value = (wallet.value.availableBalance / 100).toFixed(2)
-  pendingIdempotencyKey.value = ""
-}
-
-onShow(() => { void load() })
 </script>
 
 <template>
   <view class="page">
-    <view class="balance-card">
+    <EmptyState
+      v-if="loadStatus === 'error'"
+      title="收益账户暂时没加载出来"
+      :description="loadMessage"
+      action="重新加载"
+      symbol="↻"
+      inverse
+      @action="load"
+    />
+
+    <view v-if="loadStatus !== 'error'" class="balance-card">
       <view class="eyebrow">收益账户</view>
       <view class="balance-label">可提现余额</view>
       <view class="balance">¥{{ (wallet.availableBalance / 100).toFixed(2) }}</view>
@@ -131,13 +50,13 @@ onShow(() => { void load() })
       </view>
     </view>
 
-    <view class="form-card">
+    <view v-if="loadStatus !== 'error'" class="form-card">
       <view class="form-head">
         <view>
           <view class="title">申请提现</view>
           <view class="hint">提交后由平台审核并打款，处理中金额会暂时冻结。</view>
         </view>
-        <text class="all" @click="withdrawAll">全部提现</text>
+        <text v-if="requestEnabled" class="all" @click="withdrawAll">全部提现</text>
       </view>
 
       <view class="amount-input">
@@ -146,7 +65,6 @@ onShow(() => { void load() })
           v-model="amountYuan"
           type="digit"
           placeholder="0.00"
-          @input="pendingIdempotencyKey = ''"
         />
       </view>
       <view v-if="amountCents > wallet.availableBalance" class="error">超过当前可提现余额</view>
@@ -165,13 +83,13 @@ onShow(() => { void load() })
       </view>
     </view>
 
-    <view class="history">
+    <view v-if="loadStatus !== 'error'" class="history">
       <view class="history-head">
         <view class="title">提现记录</view>
         <text>{{ items.length }} 笔</text>
       </view>
 
-      <view v-if="loading" class="empty">正在同步钱包…</view>
+      <view v-if="loadStatus === 'loading'" class="empty">正在同步钱包…</view>
       <view v-else-if="!items.length" class="empty">暂无提现记录</view>
 
       <view v-for="item in items" :key="item.id" class="item">
