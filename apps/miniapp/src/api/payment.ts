@@ -6,12 +6,7 @@ import {
 } from "../platform/wechat"
 import type { Order } from "../types/domain"
 
-type WeChatClientPayload = WeChatPaymentPayload & {
-  timeStamp: string
-  nonceStr: string
-  package: string
-  signType: "RSA" | string
-}
+type WeChatClientPayload = WeChatPaymentPayload
 
 type PaymentPreparation = {
   order_id: string
