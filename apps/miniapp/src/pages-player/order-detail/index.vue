@@ -1,219 +1,74 @@
 <script setup lang="ts">
-import { computed, ref } from "vue"
 import { onLoad, onShow, onUnload } from "@dcloudio/uni-app"
 
-import { request } from "../../api/client"
-import { connectOrderRealtime } from "../../api/realtime"
-import { getDemoIdentities } from "../../api/demo"
-import { isWeChatAuthMode } from "../../api/config"
+import EmptyState from "../../components/EmptyState.vue"
 import OrderChat from "../../components/OrderChat.vue"
 import OrderProgress from "../../components/OrderProgress.vue"
 import PriceText from "../../components/PriceText.vue"
 import PrimaryActionBar from "../../components/PrimaryActionBar.vue"
-import StatusTag from "../../components/StatusTag.vue"
 import SampleJourney from "../../components/SampleJourney.vue"
-import type { Order, OrderEvent } from "../../types/domain"
-import { showMessage, showSuccess } from "../../ui/feedback"
-import {
-  orderStatusMeta,
-  playerActionErrorMessage
-} from "../../utils/order"
+import StatusTag from "../../components/StatusTag.vue"
+import UiButton from "../../components/ui/UiButton.vue"
+import { usePlayerOrderDetail } from "../../features/order-detail/usePlayerOrderDetail"
 
-const orderId = ref("")
-const order = ref<Order | null>(null)
-const events = ref<OrderEvent[]>([])
-const eventsExpanded = ref(false)
-const busy = ref(false)
-const loading = ref(true)
-const playerUserId = ref("")
-const chatRefreshKey = ref(0)
-const socketConnected = ref(false)
-const demoMode = !isWeChatAuthMode()
-let socket: UniApp.SocketTask | null = null
-
-const meta = computed(() =>
-  order.value ? orderStatusMeta(order.value.status, "PLAYER") : null
-)
-
-const incomeCaption = computed(() =>
-  order.value?.status === "SETTLED" ? "本单已结算收入" : "本单预计收入"
-)
-
-const demoJourney = computed(() => {
-  const status = order.value?.status
-  if (status === "ACCEPTED") {
-    return { step: 4, title: "开始履约", description: "点击「开始服务」，真实服务完成后再申请完成。" }
-  }
-  if (status === "IN_SERVICE") {
-    return { step: 4, title: "完成本次服务", description: "服务结束后点击「申请完成」，订单会等待用户确认。" }
-  }
-  if (status === "FINISH_REQUESTED") {
-    return { step: 5, title: "切回用户端确认", description: "回到用户订单详情确认服务完成；只有确认后收入才会结算。" }
-  }
-  if (status === "SETTLED") {
-    return { step: 6, title: "收入已经结算", description: "回工作台可看到可用收益；用户评价会继续回流到你的公开主页。" }
-  }
-  return null
-})
-
-const visibleEvents = computed(() =>
-  eventsExpanded.value || events.value.length <= 4
-    ? events.value
-    : events.value.slice(-4)
-)
-
-const chatVisible = computed(() =>
-  [
-    "ACCEPTED",
-    "IN_SERVICE",
-    "FINISH_REQUESTED",
-    "COMPLETED",
-    "SETTLED",
-    "DISPUTED",
-    "REFUNDING",
-    "REFUNDED"
-  ].includes(order.value?.status ?? "")
-)
-
-const chatWritable = computed(() =>
-  ["ACCEPTED", "IN_SERVICE", "FINISH_REQUESTED", "DISPUTED"].includes(
-    order.value?.status ?? ""
-  )
-)
-
-const nextAction = computed(() => {
-  if (order.value?.status === "ACCEPTED") {
-    return { label: "开始服务", endpoint: "start" } as const
-  }
-  if (order.value?.status === "IN_SERVICE") {
-    return { label: "申请完成", endpoint: "finish" } as const
-  }
-  return null
-})
-
-const eventLabels: Record<string, string> = {
-  ORDER_CREATED: "订单已创建",
-  PAYMENT_SUCCESS: "用户支付成功",
-  ORDER_ENTERED_MATCHING: "进入抢单大厅",
-  ORDER_CLAIMED: "你已接单",
-  ORDER_ASSIGNED: "已分配给你",
-  SERVICE_STARTED: "服务已开始",
-  FINISH_REQUESTED: "已申请完成",
-  USER_CONFIRMED_FINISH: "用户确认完成",
-  AUTO_CONFIRMED_FINISH: "超时自动确认",
-  ORDER_SETTLED: "订单已结算",
-  DISPUTE_OPENED: "订单进入售后",
-  REFUND_COMPLETED: "订单已退款"
-}
-
-function eventTitle(event: OrderEvent): string {
-  if (eventLabels[event.event_type]) return eventLabels[event.event_type]
-  if (event.to_status) return orderStatusMeta(event.to_status, "PLAYER").label
-  return event.event_type.replaceAll("_", " ")
-}
-
-function actorLabel(actor: string): string {
-  const labels: Record<string,string> = {
-    USER: "用户",
-    PLAYER: "你",
-    SYSTEM: "系统",
-    PAYMENT: "支付系统",
-    PLATFORM: "平台"
-  }
-  return labels[actor] || "系统"
-}
-
-function formatTime(value: string): string {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ""
-  const pad = (n: number) => String(n).padStart(2, "0")
-  return `${pad(date.getMonth()+1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
-}
-
-async function load() {
-  if (!orderId.value || !playerUserId.value) return
-  try {
-    const [orderResult, eventResult] = await Promise.all([
-      request<Order>(`/orders/${orderId.value}`, { userId: playerUserId.value }),
-      request<OrderEvent[]>(`/orders/${orderId.value}/events`, { userId: playerUserId.value })
-    ])
-    order.value = orderResult
-    events.value = eventResult
-  } catch (error) {
-    showMessage(playerActionErrorMessage(error instanceof Error ? error.message : ""))
-  } finally {
-    loading.value = false
-  }
-}
-
-async function connectRealtime() {
-  if (!orderId.value || !playerUserId.value) return
-  const task = await connectOrderRealtime({
-    orderId: orderId.value,
-    demoUserId: playerUserId.value
-  })
-
-  socket = task
-  task.onOpen(() => {
-    socketConnected.value = true
-    task.send({
-      data: JSON.stringify({
-        type: "subscribe",
-        channels: [`order:${orderId.value}`]
-      })
-    })
-  })
-  task.onClose(() => { socketConnected.value = false })
-  task.onError(() => { socketConnected.value = false })
-  task.onMessage(message => {
-    try {
-      const payload = JSON.parse(String(message.data))
-      if (payload.type === "order.status_changed") void load()
-      if (payload.type === "order.message_created") chatRefreshKey.value += 1
-    } catch {
-      // Ignore non-order realtime messages.
-    }
-  })
-}
-
-async function act() {
-  const current = order.value
-  const action = nextAction.value
-  if (!current || !action || busy.value) return
-  busy.value = true
-  try {
-    order.value = await request<Order>(
-      `/player/orders/${current.id}/${action.endpoint}`,
-      { method: "POST", userId: playerUserId.value }
-    )
-    showSuccess(action.endpoint === "start" ? "服务已开始" : "已申请完成")
-    await load()
-  } catch (error) {
-    showMessage(playerActionErrorMessage(error instanceof Error ? error.message : ""))
-    await load()
-  } finally {
-    busy.value = false
-  }
-}
+const {
+  order,
+  events,
+  eventsExpanded,
+  playerUserId,
+  socketConnected,
+  busy,
+  aftercareReason,
+  chatRefreshKey,
+  demoMode,
+  loadStatus,
+  loadMessage,
+  meta,
+  incomeCaption,
+  demoJourney,
+  visibleEvents,
+  chatVisible,
+  chatWritable,
+  primaryAction,
+  canOpenDispute,
+  init,
+  refresh,
+  retry,
+  dispose,
+  runPrimary,
+  openDispute,
+  eventTitle,
+  actorLabel,
+  formatTime
+} = usePlayerOrderDetail()
 
 onLoad(async query => {
-  orderId.value = String(query?.id || "")
-  const identities = await getDemoIdentities()
-  playerUserId.value = identities.players[0]?.userId ?? ""
-  await load()
-  await connectRealtime()
+  await init(String(query?.id ?? ""))
 })
 
-onUnload(() => socket?.close({}))
-
 onShow(() => {
-  if (orderId.value && playerUserId.value && !loading.value) void load()
+  void refresh()
+})
+
+onUnload(() => {
+  dispose()
 })
 </script>
 
 <template>
   <view class="page">
-    <view v-if="loading" class="loading">正在同步服务单…</view>
+    <view v-if="loadStatus === 'loading'" class="loading">
+      正在同步服务单…
+    </view>
+
+    <EmptyState
+      v-else-if="loadStatus === 'error'"
+      title="服务单暂时没加载出来"
+      :description="loadMessage"
+      action="重新加载"
+      symbol="↻"
+      @action="retry"
+    />
 
     <template v-else-if="order && meta">
       <SampleJourney
@@ -265,8 +120,11 @@ onShow(() => {
       </view>
 
       <view v-if="!socketConnected" class="realtime offline">
-        <text class="live-dot">●</text>
-        自动更新暂时中断，页面重新进入后会继续同步
+        <view>
+          <text class="live-dot">●</text>
+          自动更新暂时中断
+        </view>
+        <text class="refresh" @click="refresh">刷新</text>
       </view>
 
       <OrderChat
@@ -277,6 +135,28 @@ onShow(() => {
         :writable="chatWritable"
         dark
       />
+
+      <view v-if="canOpenDispute" class="card aftercare-card">
+        <view class="card-title">履约异常？</view>
+        <text class="aftercare-hint">
+          无法继续服务、用户失联或服务存在争议时，可申请平台介入。
+        </text>
+        <textarea
+          v-model="aftercareReason"
+          maxlength="500"
+          placeholder="简单说明情况，便于平台处理"
+        />
+        <view class="aftercare-action">
+          <UiButton
+            variant="secondary"
+            inverse
+            :disabled="busy"
+            @click="openDispute"
+          >
+            申请平台介入
+          </UiButton>
+        </view>
+      </view>
 
       <view v-if="order.status === 'FINISH_REQUESTED'" class="notice">
         已申请完成，正在等待用户确认；超时后由后端自动确认流程处理。
@@ -290,11 +170,11 @@ onShow(() => {
 
       <view class="bottom-spacer"></view>
       <PrimaryActionBar
-        v-if="nextAction"
-        :primary-text="nextAction.label"
+        v-if="primaryAction"
+        :primary-text="primaryAction.label"
         :loading="busy"
         dark
-        @primary="act"
+        @primary="runPrimary"
       />
     </template>
   </view>
@@ -325,8 +205,10 @@ onShow(() => {
 .event-head>text:first-child { color:#c8c8d0; font-size:20rpx; }
 .time { flex:none; color:#62626e !important; font-size:17rpx !important; }
 .actor { display:block; margin-top:5rpx; color:#646470 !important; font-size:17rpx !important; }
-.realtime { margin-top:18rpx; padding:14rpx 16rpx; border-radius:18rpx; background:rgba(211,148,38,.09); color:#b7955a; font-size:17rpx; }
+.realtime { display:flex;align-items:center;justify-content:space-between;gap:16rpx;margin-top:18rpx;padding:14rpx 16rpx;border-radius:18rpx;background:rgba(211,148,38,.09);color:#b7955a;font-size:17rpx; }
 .live-dot { margin-right:8rpx; color:currentColor; }
+.refresh { color:#a99df3;font-weight:750; }
+.aftercare-hint{display:block;color:#777784;font-size:18rpx;line-height:1.55}.aftercare-card textarea{width:100%;height:125rpx;margin-top:16rpx;padding:17rpx;border-radius:19rpx;background:#23232b;color:#fff;font-size:20rpx}.aftercare-action{display:flex!important;justify-content:flex-end!important;border-bottom:0!important;padding-bottom:0!important}
 .notice { margin-top:22rpx; padding:26rpx; border-radius:26rpx; background:#221f31; color:#b3accf; font-size:21rpx; line-height:1.6; }
 .notice.success { background:rgba(34,197,94,.10); color:#64cf8e; }
 .notice.danger { background:rgba(239,68,68,.10); color:var(--danger-on-inverse); }
