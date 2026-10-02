@@ -156,7 +156,9 @@ That keeps existing product imports stable while the reusable ownership lives in
    `platform/wechat.ts`.
 5. runtime `VITE_*` access is centralized in `platform/env.ts`.
 6. the product API client must continue composing the generic platform HTTP client;
-7. the product auth adapter must continue composing the generic platform session kernel.
+7. product/domain/page code cannot import TDesign directly; complex components
+   enter through local `components/ui` adapters.
+8. the product auth adapter must continue composing the generic platform session kernel.
 
 Together with:
 
