@@ -105,7 +105,7 @@ async function toggleStatus() {
   busy.value = true
   try {
     profile.value = await updatePlayerServiceStatus(
-      principal.value,
+      principal.value.userId,
       online.value ? "OFFLINE" : "AVAILABLE"
     )
   } catch (error) {
