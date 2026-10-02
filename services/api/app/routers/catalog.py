@@ -21,7 +21,7 @@ def list_skus(game_id: uuid.UUID, db: Session = Depends(get_db)):
     game = db.get(Game, game_id)
     if not game or game.status != "ACTIVE":
         raise HTTPException(404, "GAME_NOT_FOUND")
-    return list(
+    items = list(
         db.scalars(
             select(ServiceSKU).where(
                 ServiceSKU.game_id == game_id,
@@ -29,3 +29,10 @@ def list_skus(game_id: uuid.UUID, db: Session = Depends(get_db)):
             )
         )
     )
+    return [
+        {
+            **SKUOut.model_validate(item).model_dump(),
+            "available_actions": ["CREATE_ORDER"],
+        }
+        for item in items
+    ]
