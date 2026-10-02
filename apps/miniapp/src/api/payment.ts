@@ -1,14 +1,12 @@
 import { request } from "./client"
 import { isWeChatAuthMode } from "./config"
+import {
+  requestWeChatPayment,
+  type WeChatPaymentPayload
+} from "../platform/wechat"
 import type { Order } from "../types/domain"
 
-type WeChatClientPayload = {
-  timeStamp: string
-  nonceStr: string
-  package: string
-  signType: "RSA" | string
-  paySign: string
-}
+type WeChatClientPayload = WeChatPaymentPayload
 
 type PaymentPreparation = {
   order_id: string
@@ -31,30 +29,6 @@ function asWeChatPayload(value: Record<string, unknown>): WeChatClientPayload {
     }
   }
   return payload as WeChatClientPayload
-}
-
-function requestWeChatPayment(payload: WeChatClientPayload): Promise<void> {
-  return new Promise((resolve, reject) => {
-    uni.requestPayment({
-      provider: "wxpay",
-      timeStamp: payload.timeStamp,
-      nonceStr: payload.nonceStr,
-      package: payload.package,
-      signType: payload.signType,
-      paySign: payload.paySign,
-      success() {
-        resolve()
-      },
-      fail(result) {
-        const message = String(result.errMsg || "")
-        if (message.toLowerCase().includes("cancel")) {
-          reject(new Error("PAYMENT_CANCELLED"))
-          return
-        }
-        reject(new Error("WECHAT_REQUEST_PAYMENT_FAILED"))
-      }
-    })
-  })
 }
 
 export async function startOrderPayment(

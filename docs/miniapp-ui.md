@@ -1,6 +1,6 @@
 # Mini Program UI Foundation
 
-The Mini Program ships a small built-in UI foundation for **WeChat-native interaction quality without coupling the Vue/uni-app application to a second component runtime**.
+The Mini Program ships a small built-in semantic UI foundation for **WeChat-native interaction quality**. Simple product primitives remain local; selected complex interaction components may use a third-party implementation only behind a local adapter.
 
 Reference direction:
 
@@ -12,9 +12,10 @@ The goal is not to clone every WeUI component. The starter keeps a small semanti
 
 ## Principles
 
-1. **Native controls first**
-   - Prefer Mini Program `button`, `input`, `textarea`, picker and system feedback APIs.
-   - Wrap them only when the wrapper adds a stable product contract: size, state, feedback or accessibility.
+1. **Native controls and semantic primitives first**
+   - Prefer Mini Program `button`, `input`, `textarea` and system feedback APIs for simple interactions.
+   - Keep stable semantic wrappers such as `UiButton`, `UiCell` and `StatusTag` local.
+   - For interaction-heavy primitives where overlay, focus, scroll-through, safe-area or validation behavior is costly to maintain, use an adapter over a mature component implementation rather than rebuilding it repeatedly.
 
 2. **One primary action per decision**
    - Primary buttons are reserved for the page's dominant next action.
@@ -143,6 +144,34 @@ Badges are for compact status or metadata. They are not buttons.
 
 Fixed bottom actions are built on `UiButton` and include bottom safe-area handling. Use this shared bar for the dominant page mutation instead of hand-building another fixed CTA layer.
 
+## Complex component adapters
+
+The first compatibility pilot is:
+
+`src/components/ui/UiActionSheet.vue`
+
+It wraps TDesign UniApp's ActionSheet while exposing a small local contract.
+Product pages must import `UiActionSheet`, not `@tdesign/uniapp` directly.
+
+Use this pattern only for interaction-heavy components such as:
+
+- ActionSheet / Popup / Drawer;
+- Picker / DateTimePicker;
+- Form validation;
+- Upload;
+- Dialog where native confirmation is not sufficient.
+
+Do **not** replace simple semantic primitives with TDesign merely for visual
+uniformity. Each new adapter should prove:
+
+- `vue-tsc` compatibility;
+- mp-weixin production and secure-mode builds;
+- standalone starter extraction/build;
+- acceptable package-size impact.
+
+The developer-only UI Lab is the proving ground before a complex adapter enters
+a product page.
+
 ## Interaction contract
 
 Mini Program page files must not call `uni.showToast`, `uni.showModal`, `uni.showLoading` or `uni.hideLoading` directly.
@@ -237,8 +266,9 @@ If dark mode becomes a product requirement, add it at the token layer first and 
 
 ## Performance / package size
 
-- Keep the shared UI layer dependency-free.
-- Prefer CSS + native controls over shipping a second full component framework.
+- Keep the semantic core UI primitives dependency-free.
+- Import complex third-party components on demand behind local adapters.
+- Prefer CSS + native controls when a mature complex primitive does not materially reduce interaction risk.
 - Keep provider-only flows in the existing subpackage.
 - Do not add large icon packs for a handful of icons; use curated local assets when visual polish requires them.
 - Measure before enabling heavy animation. Motion should never block task completion.

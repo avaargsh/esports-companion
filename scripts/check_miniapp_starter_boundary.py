@@ -67,6 +67,30 @@ def check_transport_ownership(violations: list[str]) -> None:
             )
 
 
+def check_wechat_native_ownership(violations: list[str]) -> None:
+    owner = SRC / "platform" / "wechat.ts"
+    forbidden = (
+        "uni.login(",
+        "uni.requestPayment(",
+        "uni.requestSubscribeMessage(",
+        "wx.login(",
+        "wx.requestPayment(",
+        "wx.requestSubscribeMessage(",
+    )
+    for path in sorted(SRC.rglob("*")):
+        if path.suffix not in {".ts", ".vue"} or path == owner:
+            continue
+        text = path.read_text(encoding="utf-8")
+        for marker in forbidden:
+            offset = text.find(marker)
+            if offset >= 0:
+                violations.append(
+                    f"{path.relative_to(ROOT)}:{line_number(text, offset)}: "
+                    f"direct WeChat capability {marker!r} is forbidden; "
+                    "use platform/wechat.ts"
+                )
+
+
 def check_environment_ownership(violations: list[str]) -> None:
     owner = SRC / "platform" / "env.ts"
     allowed = {owner, SRC / "env.d.ts"}
@@ -79,6 +103,26 @@ def check_environment_ownership(violations: list[str]) -> None:
             violations.append(
                 f"{path.relative_to(ROOT)}:{line_number(text, offset)}: "
                 "runtime env access is centralized in platform/env.ts"
+            )
+
+
+def check_component_library_ownership(violations: list[str]) -> None:
+    allowed_root = SRC / "components" / "ui"
+    allowed_files = {SRC / "main.ts"}
+    marker = "@tdesign/uniapp"
+
+    for path in sorted(SRC.rglob("*")):
+        if path.suffix not in {".ts", ".vue"}:
+            continue
+        if path in allowed_files or allowed_root in path.parents:
+            continue
+        text = path.read_text(encoding="utf-8")
+        offset = text.find(marker)
+        if offset >= 0:
+            violations.append(
+                f"{path.relative_to(ROOT)}:{line_number(text, offset)}: "
+                "business/product code must not import TDesign directly; "
+                "use a local components/ui adapter"
             )
 
 
@@ -107,7 +151,9 @@ def main() -> int:
     violations: list[str] = []
     check_platform_dependencies(violations)
     check_transport_ownership(violations)
+    check_wechat_native_ownership(violations)
     check_environment_ownership(violations)
+    check_component_library_ownership(violations)
     check_required_adapters(violations)
 
     if violations:
