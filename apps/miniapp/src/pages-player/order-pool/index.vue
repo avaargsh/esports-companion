@@ -129,6 +129,10 @@ async function bootstrap() {
   }
 }
 
+async function refreshPool() {
+  await loadPool()
+}
+
 async function selectGame(id: string) {
   if (gameId.value === id) return
 
@@ -278,7 +282,7 @@ onPullDownRefresh(async () => {
         <button
           v-if="games.length"
           class="ghost"
-          @click="loadPool"
+          @click="refreshPool"
         >
           刷新订单
         </button>
