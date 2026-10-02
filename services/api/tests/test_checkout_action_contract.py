@@ -42,3 +42,10 @@ def test_public_checkout_actions_follow_catalog_and_player_availability():
         player = client.get(f"/api/v1/players/{player_id}")
         assert player.status_code == 200
         assert player.json()["available_actions"] == []
+
+        restored = client.put(
+            "/api/v1/player/profile",
+            headers={"X-User-Id": player_user_id},
+            json={"service_status": "AVAILABLE"},
+        )
+        assert restored.status_code == 200
