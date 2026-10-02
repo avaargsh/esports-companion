@@ -1,10 +1,10 @@
 import { request } from "../../api/client"
-import type { Order } from "../../types/domain"
 
 export type PlayerProfile = {
   id: string
   user_id: string
   display_name: string
+  bio?: string
   verification_status: string
   service_status: string
 }
@@ -13,8 +13,19 @@ export function getPlayerProfile(userId: string): Promise<PlayerProfile> {
   return request<PlayerProfile>("/player/profile", { userId })
 }
 
-export function listPlayerOrders(userId: string): Promise<Order[]> {
-  return request<Order[]>("/player/orders", { userId })
+export function applyPlayer(
+  userId: string,
+  displayName: string,
+  bio: string
+): Promise<PlayerProfile> {
+  return request<PlayerProfile>("/player/apply", {
+    method: "POST",
+    userId,
+    data: {
+      display_name: displayName,
+      bio
+    }
+  })
 }
 
 export function updatePlayerServiceStatus(
