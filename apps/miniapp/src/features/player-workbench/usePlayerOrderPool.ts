@@ -35,6 +35,9 @@ export function usePlayerOrderPool() {
   const bestIncome = computed(() =>
     orders.value.reduce((max, item) => Math.max(max, item.player_amount), 0)
   )
+  const acceptingOrders = computed(() =>
+    profile.value?.available_actions.includes("GO_OFFLINE") ?? false
+  )
   const claimBlockReason = computed(() => {
     if (!profile.value) return "正在同步陪玩身份"
     if (profile.value.verification_status !== "APPROVED") {
@@ -172,6 +175,7 @@ export function usePlayerOrderPool() {
     loadStatus,
     loadMessage,
     bestIncome,
+    acceptingOrders,
     claimBlockReason,
     canClaim,
     bootstrap,
