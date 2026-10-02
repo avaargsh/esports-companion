@@ -65,7 +65,6 @@ onShow(() => {
           v-model="amountYuan"
           type="digit"
           placeholder="0.00"
-          @input="pendingIdempotencyKey = ''"
         />
       </view>
       <view v-if="amountCents > wallet.availableBalance" class="error">超过当前可提现余额</view>
