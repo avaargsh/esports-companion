@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { ref, watch } from "vue"
 
-import { request } from "../api/client"
+import {
+  listOrderMessages,
+  orderMessageError,
+  sendOrderMessage
+} from "../domain/order/messages"
 import type { OrderMessage } from "../types/domain"
 
 const props = withDefaults(
@@ -25,13 +29,6 @@ const loading = ref(false)
 const sending = ref(false)
 const error = ref("")
 
-function friendlyError(message: string): string {
-  if (message.includes("ORDER_MESSAGE_READ_ONLY")) return "订单已结束，当前会话仅可查看"
-  if (message.includes("FORBIDDEN") || message.includes("NOT_PARTICIPANT")) return "当前账号无法查看这笔订单的沟通记录"
-  if (message.includes("NETWORK") || message.includes("timeout")) return "网络不稳定，请稍后重试"
-  return "消息暂时不可用，请稍后重试"
-}
-
 function formatTime(value: string): string {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ""
@@ -44,12 +41,12 @@ async function load() {
   loading.value = true
   error.value = ""
   try {
-    messages.value = await request<OrderMessage[]>(
-      `/orders/${props.orderId}/messages?limit=100`,
-      { userId: props.userId }
+    messages.value = await listOrderMessages(
+      props.userId,
+      props.orderId
     )
   } catch (reason) {
-    error.value = friendlyError(reason instanceof Error ? reason.message : "")
+    error.value = orderMessageError(reason instanceof Error ? reason.message : "")
   } finally {
     loading.value = false
   }
@@ -64,14 +61,12 @@ async function send() {
   const clientMessageId =
     `miniapp-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
   try {
-    await request<OrderMessage>(`/orders/${props.orderId}/messages`, {
-      method: "POST",
-      userId: props.userId,
-      data: {
-        client_message_id: clientMessageId,
-        content: text
-      }
-    })
+    await sendOrderMessage(
+      props.userId,
+      props.orderId,
+      text,
+      clientMessageId
+    )
     content.value = ""
     await load()
   } catch (reason) {
