@@ -16,7 +16,13 @@ type Filter = "all" | "active" | "done"
 const orders = ref<Order[]>([])
 const filter = ref<Filter>("all")
 const refreshing = ref(false)
-const loadState = useAsyncStatus()
+const {
+  status: loadStatus,
+  message: loadMessage,
+  start: startLoad,
+  succeed: finishLoad,
+  fail: failLoad
+} = useAsyncStatus()
 
 const activeCount = computed(() =>
   orders.value.filter(item => isActiveOrder(item.status)).length
@@ -35,17 +41,17 @@ const visibleOrders = computed(() => {
 async function load() {
   const hasContent = orders.value.length > 0
   if (hasContent) refreshing.value = true
-  else loadState.start()
+  else startLoad()
 
   try {
     const principal = await getCustomerPrincipal()
     orders.value = await listCustomerOrders(principal)
-    loadState.succeed({ empty: orders.value.length === 0 })
+    finishLoad({ empty: orders.value.length === 0 })
   } catch (error) {
     if (hasContent) {
       showMessage(error instanceof Error ? error.message : "订单刷新失败")
     } else {
-      loadState.fail(error, "订单加载失败")
+      failLoad(error, "订单加载失败")
     }
   } finally {
     refreshing.value = false
@@ -87,14 +93,14 @@ function goHome() {
       </text>
     </view>
 
-    <view v-if="loadState.status.value === 'loading'" class="list">
+    <view v-if="loadStatus === 'loading'" class="list">
       <view v-for="n in 4" :key="n" class="skeleton order-skeleton"></view>
     </view>
 
     <EmptyState
-      v-else-if="loadState.status.value === 'error'"
+      v-else-if="loadStatus === 'error'"
       title="订单暂时没加载出来"
-      :description="loadState.message.value"
+      :description="loadMessage"
       action="重新加载"
       symbol="↻"
       @action="load"
