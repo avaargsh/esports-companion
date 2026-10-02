@@ -1,55 +1,47 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue"
-import { request } from "../../api/client"
-import { isWeChatAuthMode } from "../../api/config"
+import { onShow } from "@dcloudio/uni-app"
+
 import EmptyState from "../../components/EmptyState.vue"
 import PlayerCard from "../../components/PlayerCard.vue"
-import SectionHeader from "../../components/SectionHeader.vue"
 import SampleJourney from "../../components/SampleJourney.vue"
+import SectionHeader from "../../components/SectionHeader.vue"
+import { useHomeDiscovery } from "../../features/discovery/useHomeDiscovery"
+import { navigation } from "../../platform/navigation"
+import { scrollToSelector } from "../../platform/page"
 import type { Game, PublicPlayer } from "../../types/domain"
 import { showMessage } from "../../ui/feedback"
-import { navigation } from "../../platform/navigation"
 
-const games = ref<Game[]>([])
-const players = ref<PublicPlayer[]>([])
-const loading = ref(true)
-const failed = ref(false)
-const demoMode = !isWeChatAuthMode()
+const {
+  games,
+  players,
+  demoMode,
+  loadStatus,
+  loadMessage,
+  load
+} = useHomeDiscovery()
 
-async function loadHome() {
-  loading.value = true
-  failed.value = false
-  try {
-    const [gameItems, playerItems] = await Promise.all([
-      request<Game[]>("/games"),
-      request<PublicPlayer[]>("/players?limit=4")
-    ])
-    games.value = gameItems
-    players.value = playerItems
-  } catch {
-    failed.value = true
-  } finally {
-    loading.value = false
-  }
-}
-
-onMounted(() => { void loadHome() })
+onShow(() => {
+  void load()
+})
 
 function openGame(game: Game) {
   navigation.push("/pages/game/index", { id: game.id, name: game.name })
 }
+
 function openPlayer(player: PublicPlayer) {
   navigation.push("/pages/player/index", { id: player.id })
 }
+
 function openDiscover() {
   navigation.push("/pages/discover/index")
 }
+
 function quickOrder() {
   if (!games.value.length) {
     showMessage("暂无可用服务")
     return
   }
-  uni.pageScrollTo({ selector: "#game-list", duration: 260 })
+  scrollToSelector("#game-list")
 }
 </script>
 
@@ -92,13 +84,13 @@ function quickOrder() {
 
     <view id="game-list" class="section">
       <SectionHeader title="选游戏" description="先选游戏，再选你需要的服务" />
-      <view v-if="loading" class="game-grid">
+      <view v-if="loadStatus === 'loading'" class="game-grid">
         <view v-for="n in 4" :key="n" class="game-skeleton skeleton"></view>
       </view>
       <EmptyState
-        v-else-if="failed"
+        v-else-if="loadStatus === 'error'"
         title="服务暂时没加载出来"
-        description="网络恢复后再试一次"
+        :description="loadMessage"
         action="重新加载"
         symbol="↻"
         @action="loadHome"
@@ -134,11 +126,11 @@ function quickOrder() {
         action="查看全部 ›"
         @action="openDiscover"
       />
-      <view v-if="loading" class="player-list">
+      <view v-if="loadStatus === 'loading'" class="player-list">
         <view v-for="n in 3" :key="n" class="player-skeleton skeleton"></view>
       </view>
       <EmptyState
-        v-else-if="!players.length"
+        v-else-if="loadStatus !== 'error' && !players.length"
         title="暂时没有在线大神"
         description="你可以先按服务下单，系统会自动匹配"
         symbol="⌁"
