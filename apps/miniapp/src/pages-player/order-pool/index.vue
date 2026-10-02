@@ -131,8 +131,16 @@ async function bootstrap() {
 
 async function selectGame(id: string) {
   if (gameId.value === id) return
+
+  const previousGameId = gameId.value
+  const previousOrders = orders.value
   gameId.value = id
-  await loadPool()
+
+  const loaded = await loadPool()
+  if (!loaded) {
+    gameId.value = previousGameId
+    orders.value = previousOrders
+  }
 }
 
 function backToWorkbench() {
