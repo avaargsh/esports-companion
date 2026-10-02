@@ -77,11 +77,14 @@ export type Order = {
   available_actions?: OrderAction[]
 }
 
+export type WalletAction = "REQUEST_WITHDRAWAL"
+
 export type Wallet = {
   id?: string
   availableBalance: number
   frozenBalance: number
   version?: number
+  availableActions?: WalletAction[]
 }
 
 
