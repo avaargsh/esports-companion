@@ -27,12 +27,11 @@ export const ADMIN_NAV = [
   {
     key: "orders" as const,
     label: "订单管理",
-    description: "全部订单、售后退款仲裁与调配日志",
+    description: "全部订单与售后退款仲裁",
     iconUrl: "https://img.icons8.com/fluency/96/purchase-order.png",
     children: [
       { label: "全部订单列表", target: "orders" as const },
-      { label: "售后/退款仲裁", target: "orders" as const },
-      { label: "调配与改派日志", target: "orders" as const }
+      { label: "售后/退款仲裁", target: "orders" as const }
     ]
   },
   {
@@ -60,12 +59,11 @@ export const ADMIN_NAV = [
   {
     key: "config" as const,
     label: "服务配置",
-    description: "游戏分类、套餐定价与 Banner 管理",
+    description: "游戏分类与套餐定价",
     iconUrl: "https://img.icons8.com/fluency/96/services.png",
     children: [
       { label: "游戏分类配置", target: "config" as const },
-      { label: "服务套餐定价", target: "config" as const },
-      { label: "首页 Banner 管理", target: "config" as const }
+      { label: "服务套餐定价", target: "config" as const }
     ]
   },
   {
