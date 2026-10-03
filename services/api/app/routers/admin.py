@@ -27,6 +27,7 @@ from app.security import Principal, require_platform
 from app.services.authorization_audit import AuthorizationAudit
 from app.services.operations_queue_service import build_operations_queue
 from app.services.resource_authorization_policy import ResourceAuthorizationPolicy
+from app.services.session_service import SessionService
 from app.services.withdrawal_service import WithdrawalService
 from app.status_labels import (
     COMMON_STATUS_TEXT,
@@ -48,6 +49,11 @@ class UserStatusBody(BaseModel):
     reason: str | None = Field(default=None, max_length=500)
 
 
+class UserRoleBody(BaseModel):
+    role: str = Field(max_length=32)
+    reason: str | None = Field(default=None, max_length=500)
+
+
 class AnnouncementCreate(BaseModel):
     title: str = Field(min_length=1, max_length=120)
     content: str = Field(default="", max_length=5000)
@@ -59,6 +65,12 @@ USER_STATUS_TEXT = {
     "ACTIVE": "启用",
     "BLOCKED": "已拉黑",
     "INACTIVE": "停用",
+}
+
+USER_ROLE_TEXT = {
+    "USER": "普通用户",
+    "PLATFORM": "平台管理员",
+    "ADMIN": "平台管理员",
 }
 
 ANNOUNCEMENT_STATUS_TEXT = {
@@ -175,6 +187,8 @@ def _user_payload(db: Session, user: User) -> dict:
         "avatarUrl": user.avatar_url,
         "phone": user.phone,
         "role": user.role,
+        "roleText": status_text(user.role, USER_ROLE_TEXT),
+        "effectiveRoles": list(SessionService.roles_for_user(db, user)),
         "status": status_text(user.status, USER_STATUS_TEXT),
         "statusCode": user.status,
         "orderCount": int(totals[0] or 0),
@@ -222,6 +236,71 @@ def list_users(
             | (User.openid.ilike(pattern))
         )
     return [_user_payload(db, user) for user in db.scalars(stmt)]
+
+
+def _active_platform_admin_count(db: Session) -> int:
+    return int(
+        db.scalar(
+            select(func.count(User.id)).where(
+                User.status == "ACTIVE",
+                User.role.in_(["PLATFORM", "ADMIN"]),
+            )
+        )
+        or 0
+    )
+
+
+@router.patch("/users/{user_id}/role")
+def update_user_role(
+    user_id: uuid.UUID,
+    body: UserRoleBody,
+    request: Request,
+    principal: Principal = Depends(require_platform),
+    db: Session = Depends(get_db),
+):
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(404, "USER_NOT_FOUND")
+
+    next_role = body.role.upper()
+    if next_role not in {"USER", "PLATFORM"}:
+        raise HTTPException(409, "INVALID_USER_ROLE")
+
+    previous = user.role
+    if previous in {"PLATFORM", "ADMIN"} and next_role == "USER":
+        if user.id == principal.user_id:
+            raise HTTPException(409, "SELF_PLATFORM_ROLE_REVOKE_DENIED")
+        if _active_platform_admin_count(db) <= 1:
+            raise HTTPException(409, "LAST_PLATFORM_ADMIN_REQUIRED")
+
+    decision = _platform_decision(
+        principal,
+        request,
+        action="USER_ROLE_UPDATE",
+        resource_type="USER",
+        resource_id=str(user.id),
+    )
+    user.role = next_role
+    AuthorizationAudit.record(db, decision=decision)
+    audit = OutboxEvent(
+        aggregate_type="AUDIT",
+        aggregate_id=f"USER:{user.id}",
+        event_type="USER_ROLE_UPDATE",
+        payload_json={
+            "actorUserId": str(principal.user_id),
+            "action": "USER_ROLE_UPDATE",
+            "resourceType": "USER",
+            "resourceId": str(user.id),
+            "fromRole": previous,
+            "toRole": next_role,
+            "reason": (body.reason or "").strip(),
+            "decision": "ALLOW",
+        },
+    )
+    db.add(audit)
+    db.commit()
+    db.refresh(user)
+    return _user_payload(db, user)
 
 
 @router.patch("/users/{user_id}/status")
@@ -329,6 +408,10 @@ def operation_logs(
             "resourceId": str(payload.get("resourceId") or item.aggregate_id),
             "decision": str(payload.get("decision") or item.status),
             "reason": str(payload.get("reason") or ""),
+            "fromRole": str(payload.get("fromRole") or ""),
+            "toRole": str(payload.get("toRole") or ""),
+            "fromStatus": str(payload.get("fromStatus") or ""),
+            "toStatus": str(payload.get("toStatus") or ""),
             "createdAt": item.created_at,
         })
 
@@ -349,6 +432,10 @@ def operation_logs(
             "resourceId": str(item.skill_id),
             "decision": "ALLOW",
             "reason": item.reason,
+            "fromRole": "",
+            "toRole": "",
+            "fromStatus": "",
+            "toStatus": "",
             "createdAt": item.created_at,
         })
 

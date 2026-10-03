@@ -112,6 +112,55 @@ def test_admin_can_blacklist_user_and_audit_is_append_only():
         assert deleted.status_code in {404, 405}
 
 
+def test_admin_can_grant_and_revoke_platform_role_with_audit_log():
+    admin_id, user_id, _order_no = _admin_and_user()
+    headers = {"X-Admin-Id": admin_id}
+
+    with TestClient(app) as client:
+        promoted = client.patch(
+            f"/api/v1/admin/users/{user_id}/role",
+            headers=headers,
+            json={"role": "PLATFORM", "reason": "升级为后台管理员"},
+        )
+        assert promoted.status_code == 200
+        assert promoted.json()["role"] == "PLATFORM"
+        assert promoted.json()["roleText"] == "平台管理员"
+        assert "PLATFORM" in promoted.json()["effectiveRoles"]
+
+        demoted = client.patch(
+            f"/api/v1/admin/users/{user_id}/role",
+            headers=headers,
+            json={"role": "USER", "reason": "撤销后台管理员权限"},
+        )
+        assert demoted.status_code == 200
+        assert demoted.json()["role"] == "USER"
+        assert demoted.json()["roleText"] == "普通用户"
+        assert "PLATFORM" not in demoted.json()["effectiveRoles"]
+
+        logs = client.get("/api/v1/admin/operation-logs", headers=headers)
+        assert logs.status_code == 200
+        role_logs = [
+            item
+            for item in logs.json()
+            if item["action"] == "USER_ROLE_UPDATE" and item["resourceId"] == user_id
+        ]
+        assert {item["toRole"] for item in role_logs} >= {"PLATFORM", "USER"}
+
+
+def test_admin_cannot_revoke_own_platform_role():
+    admin_id, _user_id, _order_no = _admin_and_user()
+    headers = {"X-Admin-Id": admin_id}
+
+    with TestClient(app) as client:
+        demoted = client.patch(
+            f"/api/v1/admin/users/{admin_id}/role",
+            headers=headers,
+            json={"role": "USER", "reason": "测试撤销最后管理员"},
+        )
+        assert demoted.status_code == 409
+        assert demoted.json()["detail"] == "SELF_PLATFORM_ROLE_REVOKE_DENIED"
+
+
 def test_admin_can_create_and_publish_announcement():
     admin_id, _user_id, _order_no = _admin_and_user()
     headers = {"X-Admin-Id": admin_id}

@@ -60,6 +60,8 @@ export type AdminUser = {
   avatarUrl: string | null
   phone: string | null
   role: string
+  roleText: string
+  effectiveRoles: string[]
   status: string
   statusCode: "ACTIVE" | "BLOCKED" | "INACTIVE"
   orderCount: number
@@ -92,6 +94,10 @@ export type OperationLog = {
   resourceId: string
   decision: string
   reason: string
+  fromRole?: string
+  toRole?: string
+  fromStatus?: string
+  toStatus?: string
   createdAt: string
 }
 
