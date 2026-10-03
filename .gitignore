@@ -5,6 +5,7 @@ __pycache__/
 .ruff_cache/
 *.pyc
 .DS_Store
+.idea/
 node_modules/
 dist/
 
@@ -22,4 +23,6 @@ dist/
 .env.staging
 
 # Mini Program secure build environment
+/apps/miniapp/.env.development
 /apps/miniapp/.env.staging
+/apps/miniapp/project.private.config.json

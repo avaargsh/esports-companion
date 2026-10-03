@@ -8,7 +8,7 @@ import { orderStatusMeta, type OrderRole } from "../utils/order"
 type BadgeTone = "neutral" | "brand" | "success" | "warning" | "danger"
 
 const props = withDefaults(
-  defineProps<{ status: OrderStatus; role?: OrderRole }>(),
+  defineProps<{ status: OrderStatus|string; role?: OrderRole }>(),
   { role: "CUSTOMER" }
 )
 

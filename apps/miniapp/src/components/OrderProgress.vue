@@ -2,8 +2,11 @@
 import { computed } from "vue"
 import type { OrderStatus } from "../types/domain"
 import { orderStatusMeta,type OrderRole } from "../utils/order"
-const props=withDefaults(defineProps<{status:OrderStatus;role?:OrderRole;dark?:boolean}>(),{role:"CUSTOMER",dark:false})
-const labels=["下单","支付","接单","服务","完成"]
+const props=withDefaults(defineProps<{status:OrderStatus|string;role?:OrderRole;dark?:boolean}>(),{role:"CUSTOMER",dark:false})
+const normalLabels=["下单","支付","接单","服务","完成"]
+const refundLabels=["下单","支付","申请","处理","退款"]
+const refundStatuses:Array<OrderStatus|string>=["DISPUTED","REFUNDING","REFUNDED"]
+const labels=computed(()=>refundStatuses.includes(props.status)?refundLabels:normalLabels)
 const meta=computed(()=>orderStatusMeta(props.status,props.role))
 </script>
 <template>

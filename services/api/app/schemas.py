@@ -92,6 +92,7 @@ class PlayerOut(BaseModel):
     id: uuid.UUID
     user_id: uuid.UUID
     display_name: str
+    bio: str
     verification_status: str
     service_status: str
     available_actions: list[str] = Field(default_factory=list)
@@ -283,6 +284,7 @@ class DisputeOut(BaseModel):
     resolved_by_user_id: uuid.UUID | None
     resolved_at: object | None
     created_at: object
+    available_actions: list[str] = Field(default_factory=list)
     model_config = {"from_attributes": True}
 
 

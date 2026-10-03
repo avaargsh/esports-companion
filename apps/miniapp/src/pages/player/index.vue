@@ -183,7 +183,7 @@ async function createAndOpen() {
 .verified{flex:none;padding:5rpx 9rpx;border-radius:999rpx;background:rgba(139,121,245,.15);color:#bcb0ff;font-size:15rpx;font-weight:750}
 .rating{display:block;margin-top:9rpx;color:#b4b2bf;font-size:19rpx}
 .availability{display:inline-block;margin-top:10rpx;padding:6rpx 10rpx;border-radius:999rpx;background:rgba(52,199,124,.11);color:#62d99a;font-size:17rpx}
-.bio{position:relative;display:block;margin-top:23rpx;padding-top:20rpx;border-top:1rpx solid rgba(255,255,255,.07);color:#a6a4b2;font-size:20rpx;line-height:1.62}
+.bio{position:relative;display:block;margin-top:23rpx;padding-top:20rpx;border-top:1rpx solid rgba(0,0,0,.08);color:#a6a4b2;font-size:20rpx;line-height:1.62}
 .section{margin-top:34rpx}
 .section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:17rpx}
 .section-title{font-size:29rpx;font-weight:820}

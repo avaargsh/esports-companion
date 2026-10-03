@@ -11,6 +11,8 @@ wechat_app_secret
 wechat_mch_private_key
 wechat_pay_api_v3_key
 wechat_platform_certificate
+minio_access_key
+minio_secret_key
 ```
 
 Requirements:
@@ -21,6 +23,8 @@ Requirements:
 - `wechat_mch_private_key`: merchant RSA private key in PEM format.
 - `wechat_pay_api_v3_key`: exactly the configured WeChat Pay APIv3 key.
 - `wechat_platform_certificate`: WeChat Pay platform certificate PEM matching the serial configured in `.env.production`.
+- `minio_access_key`: MinIO root/access key used only by internal services.
+- `minio_secret_key`: strong MinIO root/secret key; do not expose it to browsers.
 
 Example:
 

@@ -6,7 +6,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.db import Base
-from app.providers.auth import MockAuthProvider, WeChatAuthProvider
+from app.providers.auth import MockAuthProvider, WeChatAuthProvider, WeChatWebAuthProvider
 from app.services.auth_service import AuthService
 
 
@@ -93,3 +93,57 @@ def test_wechat_auth_rejects_missing_session_fields():
 
     with pytest.raises(ValueError, match="WECHAT_CODE_EXCHANGE_INVALID_RESPONSE"):
         provider.exchange_code("code")
+
+
+def test_wechat_web_auth_builds_qr_authorize_url():
+    provider = WeChatWebAuthProvider(
+        app_id="web-app-id",
+        app_secret="web-secret",
+        redirect_uri="https://admin.example.com/wechat/callback",
+    )
+
+    url = provider.authorize_url("state-123")
+    parsed = urlparse(url)
+    query = parse_qs(parsed.query)
+
+    assert parsed.scheme == "https"
+    assert parsed.netloc == "open.weixin.qq.com"
+    assert parsed.path == "/connect/qrconnect"
+    assert query["appid"] == ["web-app-id"]
+    assert query["redirect_uri"] == ["https://admin.example.com/wechat/callback"]
+    assert query["response_type"] == ["code"]
+    assert query["scope"] == ["snsapi_login"]
+    assert query["state"] == ["state-123"]
+    assert url.endswith("#wechat_redirect")
+
+
+def test_wechat_web_auth_exchanges_code_for_union_identity():
+    captured = {}
+
+    def transport(url: str, timeout: float) -> dict:
+        captured["url"] = url
+        captured["timeout"] = timeout
+        return {
+            "openid": "web-openid-123",
+            "access_token": "web-access-token",
+            "refresh_token": "web-refresh-token",
+            "unionid": "union-789",
+        }
+
+    provider = WeChatWebAuthProvider(
+        app_id="web-app-id",
+        app_secret="web-secret",
+        redirect_uri="https://admin.example.com/wechat/callback",
+        transport=transport,
+    )
+    identity = provider.exchange_code("web-code")
+
+    query = parse_qs(urlparse(captured["url"]).query)
+    assert query["appid"] == ["web-app-id"]
+    assert query["secret"] == ["web-secret"]
+    assert query["code"] == ["web-code"]
+    assert query["grant_type"] == ["authorization_code"]
+    assert identity.provider == "WECHAT_WEB"
+    assert identity.subject == "web-openid-123"
+    assert identity.union_id == "union-789"
+    assert identity.provider_session_key == "web-access-token"

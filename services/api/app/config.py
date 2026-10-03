@@ -50,6 +50,10 @@ class Settings(BaseSettings):
     wechat_app_id: str = ""
     wechat_app_secret: str = ""
     wechat_app_secret_file: str = ""
+    wechat_web_app_id: str = ""
+    wechat_web_app_secret: str = ""
+    wechat_web_app_secret_file: str = ""
+    wechat_web_redirect_uri: str = ""
     wechat_mch_id: str = ""
     wechat_mch_cert_serial: str = ""
     wechat_mch_private_key: str = ""
@@ -62,6 +66,16 @@ class Settings(BaseSettings):
     wechat_pay_platform_cert_serial: str = ""
     wechat_pay_platform_certificate: str = ""
     wechat_pay_platform_certificate_file: str = ""
+
+    minio_endpoint: str = "localhost:9000"
+    minio_access_key: str = "minioadmin"
+    minio_access_key_file: str = ""
+    minio_secret_key: str = "minioadmin"
+    minio_secret_key_file: str = ""
+    minio_bucket_name: str = "esports-images"
+    minio_secure: bool = False
+    minio_public_url: str = "http://localhost:9000"
+    minio_presigned_expires_seconds: int = 900
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
@@ -87,6 +101,7 @@ class Settings(BaseSettings):
         self._load_secret_file("redis_url", "redis_url_file")
         self._load_secret_file("session_signing_key", "session_signing_key_file")
         self._load_secret_file("wechat_app_secret", "wechat_app_secret_file")
+        self._load_secret_file("wechat_web_app_secret", "wechat_web_app_secret_file")
         self._load_secret_file(
             "wechat_mch_private_key",
             "wechat_mch_private_key_file",
@@ -99,6 +114,8 @@ class Settings(BaseSettings):
             "wechat_pay_platform_certificate",
             "wechat_pay_platform_certificate_file",
         )
+        self._load_secret_file("minio_access_key", "minio_access_key_file")
+        self._load_secret_file("minio_secret_key", "minio_secret_key_file")
 
         if self.access_token_ttl_seconds <= 0:
             raise ValueError("ACCESS_TOKEN_TTL_MUST_BE_POSITIVE")
@@ -108,6 +125,10 @@ class Settings(BaseSettings):
             raise ValueError("OTEL_TRACE_SAMPLE_RATIO_OUT_OF_RANGE")
         if self.otel_export_timeout_seconds <= 0:
             raise ValueError("OTEL_EXPORT_TIMEOUT_MUST_BE_POSITIVE")
+        if self.minio_presigned_expires_seconds <= 0:
+            raise ValueError("MINIO_PRESIGNED_EXPIRES_SECONDS_MUST_BE_POSITIVE")
+        if not self.minio_bucket_name.strip():
+            raise ValueError("MINIO_BUCKET_NAME_REQUIRED")
         if self.otel_enabled:
             parsed_otel = urlparse(self.otel_exporter_otlp_traces_endpoint)
             if (
@@ -154,6 +175,9 @@ class Settings(BaseSettings):
         required = {
             "WECHAT_APP_ID": self.wechat_app_id,
             "WECHAT_APP_SECRET": self.wechat_app_secret,
+            "WECHAT_WEB_APP_ID": self.wechat_web_app_id,
+            "WECHAT_WEB_APP_SECRET": self.wechat_web_app_secret,
+            "WECHAT_WEB_REDIRECT_URI": self.wechat_web_redirect_uri,
             "WECHAT_MCH_ID": self.wechat_mch_id,
             "WECHAT_MCH_CERT_SERIAL": self.wechat_mch_cert_serial,
             "WECHAT_MCH_PRIVATE_KEY": self.wechat_mch_private_key,
@@ -169,11 +193,15 @@ class Settings(BaseSettings):
                 errors.append(f"{name}_REQUIRED")
 
         for name, value in {
+            "WECHAT_WEB_REDIRECT_URI": self.wechat_web_redirect_uri,
             "WECHAT_NOTIFY_URL": self.wechat_notify_url,
             "WECHAT_REFUND_NOTIFY_URL": self.wechat_refund_notify_url,
         }.items():
             if value and not self._is_public_https(value):
                 errors.append(f"{name}_MUST_BE_PUBLIC_HTTPS")
+
+        if not self._is_public_https(self.minio_public_url):
+            errors.append("MINIO_PUBLIC_URL_MUST_BE_PUBLIC_HTTPS")
 
         if not self.cors_origins:
             errors.append("CORS_ALLOWED_ORIGINS_REQUIRED")

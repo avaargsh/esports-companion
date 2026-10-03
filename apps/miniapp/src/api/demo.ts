@@ -30,17 +30,21 @@ export async function getDemoIdentities(): Promise<DemoIdentities> {
     })
 
     let players: DemoIdentities["players"] = []
-    if (me.roles.includes("PLAYER")) {
-      const profile = await request<PlayerIdentity>("/player/profile", {
-        userId: session.userId
-      })
-      players = [
-        {
-          userId: session.userId,
-          playerId: profile.id,
-          displayName: profile.display_name
-        }
-      ]
+    if (me.roles.includes("PLAYER") || me.roles.includes("PLATFORM")) {
+      try {
+        const profile = await request<PlayerIdentity>("/player/profile", {
+          userId: session.userId
+        })
+        players = [
+          {
+            userId: session.userId,
+            playerId: profile.id,
+            displayName: profile.display_name
+          }
+        ]
+      } catch (error) {
+        if (!me.roles.includes("PLATFORM")) throw error
+      }
     }
 
     return {

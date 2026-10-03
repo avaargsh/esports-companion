@@ -5,7 +5,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.domain.order_state_machine import OrderStatus
-from app.models import Order, OrderAssignment, PlayerProfile, ProviderOffering
+from app.models import Order, OrderAssignment, PlayerProfile, PlayerSkill, ProviderOffering
 from app.services.order_service import OrderService
 
 
@@ -55,6 +55,17 @@ class DispatchService:
         )
         if not offering:
             raise PlayerNotEligible("PLAYER_NOT_OFFERING_SKU")
+
+        approved_skill = db.scalar(
+            select(PlayerSkill.id).where(
+                PlayerSkill.player_id == player.id,
+                PlayerSkill.game_id == order.game_id,
+                PlayerSkill.status == "ACTIVE",
+                PlayerSkill.verification_status == "APPROVED",
+            )
+        )
+        if not approved_skill:
+            raise PlayerNotEligible("PLAYER_SKILL_REQUIRED")
 
         result = db.execute(
             update(Order)
