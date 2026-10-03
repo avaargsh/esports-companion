@@ -5,16 +5,23 @@ import {
   adminRequest,
   getAdminWechatQrConfig,
   loginAdminWithWechatQrCode,
+  loginAdminWithEmailCode,
+  requestAdminEmailCode,
   setAdminSession,
   type AdminWechatQrConfig
 } from "../api"
 
 const emit = defineEmits<{ ready: [] }>()
+const loginTab = ref<"wechat" | "email">("wechat")
+const email = ref("")
+const emailCode = ref("")
 const accessToken = ref("")
 const refreshToken = ref("")
 const error = ref("")
 const busy = ref(false)
 const tokenBusy = ref(false)
+const emailBusy = ref(false)
+const emailCodeBusy = ref(false)
 const loadingQr = ref(false)
 const showTokenFallback = ref(false)
 const qrConfig = ref<AdminWechatQrConfig | null>(null)
@@ -60,6 +67,35 @@ async function submitQrCallback(code: string, state: string) {
   }
 }
 
+async function sendEmailCode() {
+  if (emailCodeBusy.value) return
+  error.value = ""
+  emailCodeBusy.value = true
+  try {
+    const result = await requestAdminEmailCode(email.value)
+    email.value = result.email
+  } catch (reason) {
+    error.value = reason instanceof Error ? reason.message : "验证码发送失败"
+  } finally {
+    emailCodeBusy.value = false
+  }
+}
+
+async function submitEmailLogin() {
+  if (emailBusy.value) return
+  error.value = ""
+  emailBusy.value = true
+  try {
+    await loginAdminWithEmailCode(email.value, emailCode.value)
+    await enterAdmin()
+  } catch (reason) {
+    error.value = reason instanceof Error ? reason.message : "邮箱登录失败"
+  } finally {
+    emailBusy.value = false
+  }
+}
+
+
 async function submitToken() {
   if (tokenBusy.value) return
   error.value = ""
@@ -92,30 +128,56 @@ onMounted(async () => {
       <img src="https://img.icons8.com/fluency/96/weixing.png" alt="微信" />
       <div>
         <div class="auth-badge">SECURE OPERATOR SESSION</div>
-        <h2>微信扫码登录</h2>
-        <p>请使用已绑定 PLATFORM 权限的真实微信账号扫码，普通用户无法进入管理后台。</p>
+        <h2>管理员登录</h2>
+        <p>支持微信扫码或已绑定微信账号的邮箱验证码登录，普通用户无法进入管理后台。</p>
       </div>
     </div>
 
-    <div class="qr-shell">
-      <div v-if="busy" class="qr-state">正在校验微信授权...</div>
-      <div v-else-if="loadingQr" class="qr-state">正在生成登录二维码...</div>
-      <iframe
-        v-else-if="qrConfig"
-        class="qr-frame"
-        :src="qrConfig.authorizeUrl"
-        title="微信扫码登录"
-      ></iframe>
-      <div v-else class="qr-state">二维码暂不可用</div>
+    <div class="login-tabs">
+      <button :class="{ active: loginTab === 'wechat' }" type="button" @click="loginTab = 'wechat'">微信扫码</button>
+      <button :class="{ active: loginTab === 'email' }" type="button" @click="loginTab = 'email'">邮箱登录</button>
     </div>
 
-    <div class="qr-actions">
-      <button class="ghost small" type="button" :disabled="loadingQr || busy" @click="loadQr">
-        刷新二维码
+    <template v-if="loginTab === 'wechat'">
+      <div class="qr-shell">
+        <div v-if="busy" class="qr-state">正在校验微信授权...</div>
+        <div v-else-if="loadingQr" class="qr-state">正在生成登录二维码...</div>
+        <iframe
+          v-else-if="qrConfig"
+          class="qr-frame"
+          :src="qrConfig.authorizeUrl"
+          title="微信扫码登录"
+        ></iframe>
+        <div v-else class="qr-state">二维码暂不可用</div>
+      </div>
+
+      <div class="qr-actions">
+        <button class="ghost small" type="button" :disabled="loadingQr || busy" @click="loadQr">
+          刷新二维码
+        </button>
+        <a v-if="qrConfig" class="open-link" :href="qrConfig.authorizeUrl" target="_blank" rel="noreferrer">
+          新窗口打开
+        </a>
+      </div>
+    </template>
+
+    <div v-else class="email-login">
+      <label>
+        管理员邮箱
+        <input v-model="email" type="email" autocomplete="email" placeholder="请输入已绑定微信账号的邮箱" />
+      </label>
+      <label>
+        邮箱验证码
+        <div class="code-row">
+          <input v-model="emailCode" inputmode="numeric" autocomplete="one-time-code" placeholder="6 位验证码" />
+          <button class="ghost small" type="button" :disabled="!email.trim() || emailCodeBusy" @click="sendEmailCode">
+            {{ emailCodeBusy ? "发送中" : "发送验证码" }}
+          </button>
+        </div>
+      </label>
+      <button class="secondary" type="button" :disabled="!email.trim() || !emailCode.trim() || emailBusy" @click="submitEmailLogin">
+        {{ emailBusy ? "正在登录..." : "邮箱登录" }}
       </button>
-      <a v-if="qrConfig" class="open-link" :href="qrConfig.authorizeUrl" target="_blank" rel="noreferrer">
-        新窗口打开
-      </a>
     </div>
 
     <div v-if="error" class="auth-error">{{ error }}</div>
@@ -161,7 +223,10 @@ onMounted(async () => {
 .auth-badge { color:#111827; font-size:11px; font-weight:900; letter-spacing:1.6px; }
 h2 { margin:10px 0 8px; font-size:28px; color:#111827; }
 p { margin:0; color:#6b7280; font-size:13px; line-height:1.7; }
-.qr-shell { margin-top:24px; overflow:hidden; height:390px; border:1px solid #e5e7eb; border-radius:18px; background:#f7f7f8; }
+.login-tabs { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:24px; padding:5px; border:1px solid #e5e7eb; border-radius:14px; background:#f7f7f8; }
+.login-tabs button { margin:0; border:0; background:transparent; color:#6b7280; }
+.login-tabs button.active { background:#111827; color:#fff; box-shadow:0 10px 20px rgba(0,0,0,.10); }
+.qr-shell { margin-top:18px; overflow:hidden; height:390px; border:1px solid #e5e7eb; border-radius:18px; background:#f7f7f8; }
 .qr-frame { width:100%; height:100%; border:0; background:#fff; }
 .qr-state { height:100%; display:grid; place-items:center; color:#6b7280; font-size:14px; }
 .qr-actions { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:14px; }
@@ -177,6 +242,9 @@ button:disabled { opacity:.45; cursor:not-allowed; }
 .ghost { border:1px solid #d1d5db; background:#fff; color:#111827; }
 .ghost.small { width:auto; margin-top:0; padding:9px 12px; font-size:12px; }
 .fallback { margin-top:18px; padding-top:2px; }
+.email-login { margin-top:18px; }
+.code-row { display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center; }
+.code-row .small { white-space:nowrap; }
 .auth-error { margin-top:16px; padding:11px 13px; border:1px solid rgba(239,68,68,.18); border-radius:10px; background:#fff0f0; color:#c63d3d; font-size:12px; }
 .security-note { display:block; margin-top:16px; color:#6b7280; font-size:11px; line-height:1.7; }
 </style>

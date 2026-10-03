@@ -176,6 +176,45 @@ def test_current_user_profile_can_be_read_and_updated():
         clear_overrides()
 
 
+def test_current_user_can_bind_email_with_verification_code(monkeypatch):
+    sent_codes: list[tuple[str, str]] = []
+
+    def fake_send_email_code(email: str, code: str, *, purpose: str):
+        sent_codes.append((email, code))
+
+    monkeypatch.setattr(user_wechat.email_code_service, "send_email_code", fake_send_email_code)
+    override_wechat_client()
+    try:
+        with TestClient(app) as client:
+            login = client.post(
+                "/api/user/wx-login",
+                json={"code": "wx-code"},
+            ).json()["data"]
+            headers = {"Authorization": f"Bearer {login['token']}"}
+
+            requested = client.post(
+                "/api/user/email-code",
+                headers=headers,
+                json={"email": "admin@example.com"},
+            )
+            assert requested.status_code == 200
+            assert requested.json()["data"] == {"sent": True, "email": "admin@example.com"}
+            assert sent_codes and sent_codes[-1][0] == "admin@example.com"
+
+            bound = client.post(
+                "/api/user/bind-email",
+                headers=headers,
+                json={"email": "admin@example.com", "code": sent_codes[-1][1]},
+            )
+            assert bound.status_code == 200
+            assert bound.json()["data"]["email"] == "admin@example.com"
+
+            current = client.get("/api/user/me", headers=headers)
+            assert current.json()["data"]["email"] == "admin@example.com"
+    finally:
+        clear_overrides()
+
+
 def test_user_avatar_upload_stores_image_and_returns_url(monkeypatch):
     class StubStorage:
         def upload_image_bytes(self, *, filename, content, content_type):

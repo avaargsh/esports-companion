@@ -19,6 +19,7 @@ from app.security import Principal, current_principal, require_session
 from app.models import User
 from app.services.auth_service import AuthService
 from app.services.session_service import SessionService
+from app.services import email_code_service
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -37,6 +38,20 @@ class AdminQrResponse(BaseModel):
 class AdminQrLoginRequest(BaseModel):
     code: str = Field(min_length=1, max_length=512)
     state: str = Field(min_length=16, max_length=512)
+
+
+class EmailCodeRequest(BaseModel):
+    email: str = Field(min_length=5, max_length=255)
+
+
+class EmailAdminLoginRequest(BaseModel):
+    email: str = Field(min_length=5, max_length=255)
+    code: str = Field(min_length=4, max_length=12)
+
+
+class EmailCodeResponse(BaseModel):
+    sent: bool
+    email: str
 
 
 class RefreshRequest(BaseModel):
@@ -268,6 +283,50 @@ def wechat_admin_qr_login(
         user=user,
         provider=provider.name,
         provider_session_key=identity.provider_session_key,
+    )
+
+
+@router.post("/email/admin-code", response_model=EmailCodeResponse)
+def email_admin_code(
+    body: EmailCodeRequest,
+    db: Session = Depends(get_db),
+):
+    email = email_code_service.normalize_email(body.email)
+    code = email_code_service.create_email_code(
+        db,
+        email=email,
+        purpose="ADMIN_LOGIN",
+    )
+    try:
+        email_code_service.send_email_code(email, code, purpose="ADMIN_LOGIN")
+    except ValueError as exc:
+        raise HTTPException(503, str(exc)) from exc
+    return EmailCodeResponse(sent=True, email=email)
+
+
+@router.post("/email/admin-login", response_model=LoginResponse)
+def email_admin_login(
+    body: EmailAdminLoginRequest,
+    db: Session = Depends(get_db),
+):
+    email = email_code_service.normalize_email(body.email)
+    try:
+        email_code_service.consume_email_code(
+            db,
+            email=email,
+            purpose="ADMIN_LOGIN",
+            code=body.code,
+        )
+    except ValueError as exc:
+        raise HTTPException(401, str(exc)) from exc
+    user = db.scalar(select(User).where(User.email == email))
+    if not user or user.status != "ACTIVE":
+        raise HTTPException(403, "PLATFORM_REQUIRED")
+    return _issue_platform_session(
+        db,
+        user=user,
+        provider="EMAIL",
+        provider_session_key=None,
     )
 
 

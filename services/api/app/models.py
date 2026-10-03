@@ -49,8 +49,20 @@ class User(Base, TimestampMixin):
     nickname: Mapped[str] = mapped_column(String(80), default="")
     avatar_url: Mapped[str | None] = mapped_column(String(512))
     phone: Mapped[str | None] = mapped_column(String(32))
+    email: Mapped[str | None] = mapped_column(String(255), unique=True, index=True)
     role: Mapped[str] = mapped_column(String(32), default="USER")
     status: Mapped[str] = mapped_column(String(32), default="ACTIVE")
+
+
+class EmailVerificationCode(Base):
+    __tablename__ = "email_verification_codes"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    email: Mapped[str] = mapped_column(String(255), index=True)
+    purpose: Mapped[str] = mapped_column(String(32), index=True)
+    code_hash: Mapped[str] = mapped_column(String(64), index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class AuthSession(Base):

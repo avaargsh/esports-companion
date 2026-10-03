@@ -20,6 +20,7 @@ from app.providers.wechat_user import (
 )
 from app.security import Principal, require_session
 from app.services.session_service import SessionService
+from app.services import email_code_service
 from app.status_labels import COMMON_STATUS_TEXT, status_text
 
 
@@ -39,6 +40,15 @@ class BindPhoneRequest(BaseModel):
 class UserProfileUpdateRequest(BaseModel):
     nickname: str | None = Field(default=None, min_length=1, max_length=80)
     avatarUrl: str | None = Field(default=None, max_length=512)
+
+
+class EmailCodeRequest(BaseModel):
+    email: str = Field(min_length=5, max_length=255)
+
+
+class BindEmailRequest(BaseModel):
+    email: str = Field(min_length=5, max_length=255)
+    code: str = Field(min_length=4, max_length=12)
 
 
 class UserAvatarUploadRequest(BaseModel):
@@ -82,6 +92,7 @@ def _user_payload(user: User) -> dict[str, Any]:
         "nickname": user.nickname or "微信用户",
         "avatarUrl": user.avatar_url,
         "phone": user.phone,
+        "email": user.email,
         "role": user.role,
         "status": status_text(user.status, COMMON_STATUS_TEXT),
         "statusCode": user.status,
@@ -157,6 +168,7 @@ def wx_login(
                 "nickname": user.nickname or "微信用户",
                 "avatarUrl": user.avatar_url,
                 "phone": user.phone,
+                "email": user.email,
             }
         )
     except ValueError as exc:
@@ -201,6 +213,60 @@ def bind_phone(
         return fail(400, str(exc))
     except Exception:
         return fail(500, "WECHAT_PHONE_BIND_FAILED")
+
+
+@router.post("/email-code", response_model=StandardResponse)
+def request_bind_email_code(
+    body: EmailCodeRequest,
+    principal: Principal = Depends(require_session),
+    db: Session = Depends(get_db),
+):
+    try:
+        email = email_code_service.normalize_email(body.email)
+        existing = db.scalar(select(User).where(User.email == email, User.id != principal.user_id))
+        if existing:
+            return fail(409, "EMAIL_ALREADY_BOUND")
+        code = email_code_service.create_email_code(db, email=email, purpose="BIND_EMAIL")
+        email_code_service.send_email_code(email, code, purpose="BIND_EMAIL")
+        return ok({"sent": True, "email": email})
+    except ValueError as exc:
+        status = 503 if str(exc) == "MAIL_CONFIG_MISSING" else 400
+        return fail(status, str(exc))
+    except Exception:
+        return fail(500, "EMAIL_CODE_SEND_FAILED")
+
+
+@router.post("/bind-email", response_model=StandardResponse)
+def bind_email(
+    body: BindEmailRequest,
+    principal: Principal = Depends(require_session),
+    db: Session = Depends(get_db),
+):
+    try:
+        email = email_code_service.normalize_email(body.email)
+        existing = db.scalar(select(User).where(User.email == email, User.id != principal.user_id))
+        if existing:
+            return fail(409, "EMAIL_ALREADY_BOUND")
+        email_code_service.consume_email_code(
+            db,
+            email=email,
+            purpose="BIND_EMAIL",
+            code=body.code,
+        )
+        user = db.get(User, principal.user_id)
+        if not user:
+            return fail(401, "USER_NOT_FOUND")
+        user.email = email
+        db.commit()
+        db.refresh(user)
+        return ok(_user_payload(user))
+    except ValueError as exc:
+        return fail(400, str(exc))
+    except IntegrityError:
+        db.rollback()
+        return fail(409, "EMAIL_ALREADY_BOUND")
+    except Exception:
+        return fail(500, "EMAIL_BIND_FAILED")
 
 
 @router.get("/me", response_model=StandardResponse)

@@ -77,6 +77,17 @@ class Settings(BaseSettings):
     minio_public_url: str = "http://localhost:9000"
     minio_presigned_expires_seconds: int = 900
 
+    mail_host: str = ""
+    mail_port: int = 465
+    mail_username: str = ""
+    mail_password: str = ""
+    mail_password_file: str = ""
+    mail_default_encoding: str = "UTF-8"
+    mail_smtp_auth: bool = True
+    mail_smtp_ssl_enable: bool = True
+    mail_debug: bool = False
+    email_code_ttl_seconds: int = 600
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     @property
@@ -116,6 +127,7 @@ class Settings(BaseSettings):
         )
         self._load_secret_file("minio_access_key", "minio_access_key_file")
         self._load_secret_file("minio_secret_key", "minio_secret_key_file")
+        self._load_secret_file("mail_password", "mail_password_file")
 
         if self.access_token_ttl_seconds <= 0:
             raise ValueError("ACCESS_TOKEN_TTL_MUST_BE_POSITIVE")
@@ -127,6 +139,8 @@ class Settings(BaseSettings):
             raise ValueError("OTEL_EXPORT_TIMEOUT_MUST_BE_POSITIVE")
         if self.minio_presigned_expires_seconds <= 0:
             raise ValueError("MINIO_PRESIGNED_EXPIRES_SECONDS_MUST_BE_POSITIVE")
+        if self.email_code_ttl_seconds <= 0:
+            raise ValueError("EMAIL_CODE_TTL_MUST_BE_POSITIVE")
         if not self.minio_bucket_name.strip():
             raise ValueError("MINIO_BUCKET_NAME_REQUIRED")
         if self.otel_enabled:
@@ -185,6 +199,9 @@ class Settings(BaseSettings):
             "WECHAT_PAY_API_V3_KEY": self.wechat_pay_api_v3_key,
             "WECHAT_PAY_PLATFORM_CERT_SERIAL": self.wechat_pay_platform_cert_serial,
             "WECHAT_PAY_PLATFORM_CERTIFICATE": self.wechat_pay_platform_certificate,
+            "MAIL_HOST": self.mail_host,
+            "MAIL_USERNAME": self.mail_username,
+            "MAIL_PASSWORD": self.mail_password,
         }
         if self.refund_provider.strip().lower() == "wechat":
             required["WECHAT_REFUND_NOTIFY_URL"] = self.wechat_refund_notify_url

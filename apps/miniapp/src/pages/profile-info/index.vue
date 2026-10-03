@@ -4,7 +4,9 @@ import { onShow } from "@dcloudio/uni-app"
 
 import { getStoredSession } from "../../api/auth"
 import {
+  bindEmail,
   getCurrentUserProfile,
+  requestBindEmailCode,
   updateCurrentUserProfile,
   uploadUserAvatar,
   type CurrentUserProfile
@@ -18,6 +20,10 @@ const avatarBusy = ref(false)
 const nickname = ref("")
 const avatarUrl = ref("")
 const phone = ref("")
+const email = ref("")
+const emailCode = ref("")
+const emailBusy = ref(false)
+const bindingEmail = ref(false)
 const userId = ref("")
 
 function applyProfile(profile: CurrentUserProfile) {
@@ -25,6 +31,7 @@ function applyProfile(profile: CurrentUserProfile) {
   nickname.value = profile.nickname || "微信用户"
   avatarUrl.value = profile.avatarUrl || ""
   phone.value = profile.phone || ""
+  email.value = profile.email || ""
 }
 
 async function loadProfile() {
@@ -91,6 +98,44 @@ async function onChooseAvatar(event: { detail: { avatarUrl?: string } }) {
   }
 }
 
+async function sendEmailCode() {
+  const nextEmail = email.value.trim()
+  if (!nextEmail) {
+    showMessage("请填写邮箱")
+    return
+  }
+  emailBusy.value = true
+  try {
+    const result = await requestBindEmailCode(nextEmail)
+    email.value = result.email
+    showSuccess("验证码已发送")
+  } catch (error) {
+    showMessage(error instanceof Error ? error.message : "验证码发送失败")
+  } finally {
+    emailBusy.value = false
+  }
+}
+
+async function submitBindEmail() {
+  const nextEmail = email.value.trim()
+  const nextCode = emailCode.value.trim()
+  if (!nextEmail || !nextCode) {
+    showMessage("请填写邮箱和验证码")
+    return
+  }
+  bindingEmail.value = true
+  try {
+    const profile = await bindEmail({ email: nextEmail, code: nextCode })
+    emailCode.value = ""
+    applyProfile(profile)
+    showSuccess("邮箱已绑定")
+  } catch (error) {
+    showMessage(error instanceof Error ? error.message : "邮箱绑定失败")
+  } finally {
+    bindingEmail.value = false
+  }
+}
+
 async function saveProfile() {
   const nextNickname = nickname.value.trim()
   if (!nextNickname) {
@@ -143,6 +188,18 @@ onShow(() => { void loadProfile() })
         <text class="readonly-value">{{ phone || "未绑定" }}</text>
       </view>
 
+      <view class="email-box">
+        <view class="field">
+          <text class="label">邮箱</text>
+          <input v-model="email" type="text" maxlength="255" placeholder="绑定邮箱后可用于后台登录" />
+        </view>
+        <view class="email-code-row">
+          <input v-model="emailCode" type="number" maxlength="6" placeholder="邮箱验证码" />
+          <button :loading="emailBusy" @click="sendEmailCode">发送验证码</button>
+        </view>
+        <button class="bind-email-button" :loading="bindingEmail" @click="submitBindEmail">绑定邮箱</button>
+      </view>
+
       <view class="field readonly">
         <text class="label">用户 ID</text>
         <text class="readonly-value mono">{{ userId.slice(0, 8) || "-" }}</text>
@@ -154,5 +211,5 @@ onShow(() => { void loadProfile() })
 </template>
 
 <style scoped>
-.info-page{padding-top:24rpx}.heading{padding:8rpx 3rpx 24rpx}.title{display:block;font-size:39rpx;font-weight:850;letter-spacing:0}.subtitle{display:block;margin-top:8rpx;color:var(--muted);font-size:20rpx;line-height:1.5}.panel{padding:26rpx;border-radius:32rpx;background:#fff;box-shadow:var(--shadow-card)}.loading{text-align:center;color:var(--muted)}.avatar-row{display:flex;align-items:center;gap:22rpx;padding-bottom:24rpx;border-bottom:1rpx solid #f0eff4}.avatar-image,.avatar-fallback{width:112rpx;height:112rpx;flex:none;border-radius:32rpx}.avatar-image{display:block;background:#f2f1f7}.avatar-fallback{display:flex;align-items:center;justify-content:center;background:linear-gradient(145deg,var(--brand),#8977f3);color:#fff;font-size:38rpx;font-weight:850}.avatar-button{flex:1;height:76rpx;line-height:76rpx;margin:0;border-radius:22rpx;background:var(--brand-soft);color:var(--brand);font-size:21rpx;font-weight:780}.field{margin-top:24rpx}.label{display:block;margin-bottom:10rpx;color:#77727f;font-size:19rpx;font-weight:760}.field input{height:78rpx;padding:0 20rpx;border-radius:22rpx;background:#f7f6fb;color:var(--ink);font-size:22rpx}.readonly{display:flex;align-items:center;justify-content:space-between;gap:20rpx;padding:20rpx;border-radius:22rpx;background:#f7f6fb}.readonly .label{margin:0}.readonly-value{color:var(--ink);font-size:20rpx;font-weight:750}.mono{font-family:monospace}.save-button{height:82rpx;line-height:82rpx;margin:28rpx 0 0;border-radius:24rpx;background:var(--ink);color:#fff;font-size:23rpx;font-weight:820}
+.info-page{padding-top:24rpx}.heading{padding:8rpx 3rpx 24rpx}.title{display:block;font-size:39rpx;font-weight:850;letter-spacing:0}.subtitle{display:block;margin-top:8rpx;color:var(--muted);font-size:20rpx;line-height:1.5}.panel{padding:26rpx;border-radius:32rpx;background:#fff;box-shadow:var(--shadow-card)}.loading{text-align:center;color:var(--muted)}.avatar-row{display:flex;align-items:center;gap:22rpx;padding-bottom:24rpx;border-bottom:1rpx solid #f0eff4}.avatar-image,.avatar-fallback{width:112rpx;height:112rpx;flex:none;border-radius:32rpx}.avatar-image{display:block;background:#f2f1f7}.avatar-fallback{display:flex;align-items:center;justify-content:center;background:linear-gradient(145deg,var(--brand),#8977f3);color:#fff;font-size:38rpx;font-weight:850}.avatar-button{flex:1;height:76rpx;line-height:76rpx;margin:0;border-radius:22rpx;background:var(--brand-soft);color:var(--brand);font-size:21rpx;font-weight:780}.field{margin-top:24rpx}.label{display:block;margin-bottom:10rpx;color:#77727f;font-size:19rpx;font-weight:760}.field input{height:78rpx;padding:0 20rpx;border-radius:22rpx;background:#f7f6fb;color:var(--ink);font-size:22rpx}.readonly{display:flex;align-items:center;justify-content:space-between;gap:20rpx;padding:20rpx;border-radius:22rpx;background:#f7f6fb}.readonly .label{margin:0}.readonly-value{color:var(--ink);font-size:20rpx;font-weight:750}.mono{font-family:monospace}.email-box{margin-top:24rpx;padding:20rpx;border-radius:24rpx;background:#f7f6fb}.email-box .field{margin-top:0}.email-code-row{display:grid;grid-template-columns:1fr 180rpx;gap:12rpx;margin-top:14rpx}.email-code-row input{height:76rpx;padding:0 20rpx;border-radius:20rpx;background:#fff;color:var(--ink);font-size:21rpx}.email-code-row button,.bind-email-button{height:76rpx;line-height:76rpx;margin:0;border-radius:20rpx;font-size:20rpx;font-weight:820}.email-code-row button{background:#fff;color:var(--ink);border:1rpx solid #e5e7eb}.bind-email-button{margin-top:14rpx;background:#111827;color:#fff}.save-button{height:82rpx;line-height:82rpx;margin:28rpx 0 0;border-radius:24rpx;background:var(--ink);color:#fff;font-size:23rpx;font-weight:820}
 </style>

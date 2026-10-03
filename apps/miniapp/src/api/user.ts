@@ -34,6 +34,7 @@ export type CurrentUserProfile = {
   nickname: string
   avatarUrl?: string | null
   phone?: string | null
+  email?: string | null
   role: string
   status: string
 }
@@ -42,6 +43,8 @@ export type AvatarUploadData = {
   key: string
   url: string
 }
+
+export type BindEmailData = CurrentUserProfile
 
 const userHttp = createHttpClient({ baseUrl: API_ORIGIN })
 const STORAGE_KEY = "esports-companion.auth.v1"
@@ -183,5 +186,19 @@ export async function bindPhoneNumber(detail: {
           encryptedData: detail.encryptedData,
           iv: detail.iv
         }
+  })
+}
+
+export async function requestBindEmailCode(email: string): Promise<{ sent: boolean; email: string }> {
+  return requestWithAuth<{ sent: boolean; email: string }>("/api/user/email-code", {
+    method: "POST",
+    data: { email }
+  })
+}
+
+export async function bindEmail(data: { email: string; code: string }): Promise<BindEmailData> {
+  return requestWithAuth<BindEmailData>("/api/user/bind-email", {
+    method: "POST",
+    data
   })
 }

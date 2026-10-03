@@ -273,6 +273,93 @@ def test_admin_wechat_login_issues_platform_session():
     assert body["refreshToken"]
 
 
+def test_admin_email_login_issues_platform_session(monkeypatch):
+    from app.routers import auth as auth_router
+
+    sent_codes: list[tuple[str, str]] = []
+
+    def fake_send_email_code(email: str, code: str, *, purpose: str):
+        sent_codes.append((email, code))
+
+    monkeypatch.setattr(auth_router.email_code_service, "send_email_code", fake_send_email_code)
+    with SessionLocal() as db:
+        user = db.scalar(select(User).where(User.email == "platform@example.com"))
+        if user is None:
+            user = User(
+                openid="email-platform-openid",
+                nickname="Email Platform",
+                email="platform@example.com",
+                role="PLATFORM",
+                status="ACTIVE",
+            )
+            db.add(user)
+        else:
+            user.role = "PLATFORM"
+            user.status = "ACTIVE"
+        db.commit()
+
+    with TestClient(app) as client:
+        requested = client.post(
+            "/api/v1/auth/email/admin-code",
+            json={"email": "platform@example.com"},
+        )
+        assert requested.status_code == 200
+        assert requested.json() == {"sent": True, "email": "platform@example.com"}
+        assert sent_codes and sent_codes[-1][0] == "platform@example.com"
+
+        logged_in = client.post(
+            "/api/v1/auth/email/admin-login",
+            json={"email": "platform@example.com", "code": sent_codes[-1][1]},
+        )
+
+    assert logged_in.status_code == 200
+    body = logged_in.json()
+    assert body["provider"] == "EMAIL"
+    assert "PLATFORM" in body["roles"]
+    assert body["accessToken"]
+    assert body["refreshToken"]
+
+
+def test_admin_email_login_requires_platform_role(monkeypatch):
+    from app.routers import auth as auth_router
+
+    sent_codes: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        auth_router.email_code_service,
+        "send_email_code",
+        lambda email, code, *, purpose: sent_codes.append((email, code)),
+    )
+    with SessionLocal() as db:
+        user = db.scalar(select(User).where(User.email == "normal@example.com"))
+        if user is None:
+            user = User(
+                openid="email-normal-openid",
+                nickname="Email Normal",
+                email="normal@example.com",
+                role="USER",
+                status="ACTIVE",
+            )
+            db.add(user)
+        else:
+            user.role = "USER"
+            user.status = "ACTIVE"
+        db.commit()
+
+    with TestClient(app) as client:
+        requested = client.post(
+            "/api/v1/auth/email/admin-code",
+            json={"email": "normal@example.com"},
+        )
+        assert requested.status_code == 200
+        denied = client.post(
+            "/api/v1/auth/email/admin-login",
+            json={"email": "normal@example.com", "code": sent_codes[-1][1]},
+        )
+
+    assert denied.status_code == 403
+    assert denied.json()["detail"] == "PLATFORM_REQUIRED"
+
+
 def test_admin_wechat_qr_config_returns_authorize_url(monkeypatch):
     monkeypatch.setattr(settings, "wechat_web_app_id", "web-app-id", raising=False)
     monkeypatch.setattr(settings, "wechat_web_app_secret", "web-secret", raising=False)

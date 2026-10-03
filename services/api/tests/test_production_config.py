@@ -27,6 +27,9 @@ def _production_settings(**overrides):
         "wechat_pay_platform_cert_serial": "platform-serial",
         "wechat_pay_platform_certificate": "platform-cert",
         "minio_public_url": "https://api.example.com",
+        "mail_host": "smtp.qq.com",
+        "mail_username": "admin@example.com",
+        "mail_password": "mail-secret",
     }
     values.update(overrides)
     return Settings(_env_file=None, **values)
@@ -59,6 +62,7 @@ def test_production_config_accepts_explicit_wechat_configuration():
             "http://localhost:9000",
             "MINIO_PUBLIC_URL_MUST_BE_PUBLIC_HTTPS",
         ),
+        ("mail_password", "", "MAIL_PASSWORD_REQUIRED"),
     ],
 )
 def test_production_config_fails_closed(field, value, error):
