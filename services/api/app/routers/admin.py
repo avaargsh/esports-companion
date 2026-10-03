@@ -44,6 +44,10 @@ class PlayerSkillDecisionBody(BaseModel):
     reason: str | None = Field(default=None, max_length=500)
 
 
+class PlayerServiceStatusBody(BaseModel):
+    reason: str | None = Field(default=None, max_length=500)
+
+
 class UserStatusBody(BaseModel):
     status: str = Field(max_length=32)
     reason: str | None = Field(default=None, max_length=500)
@@ -100,6 +104,14 @@ def _skill_review_actions(status: str) -> list[str]:
     }.get(status, [])
 
 
+def _player_service_actions(player: PlayerProfile) -> list[str]:
+    if player.verification_status != "APPROVED":
+        return []
+    if player.service_status == "SUSPENDED":
+        return ["ACTIVATE"]
+    return ["SUSPEND"]
+
+
 def _player_payload(player: PlayerProfile, *, reason: str | None = None) -> dict:
     payload = {
         "id": str(player.id),
@@ -114,6 +126,7 @@ def _player_payload(player: PlayerProfile, *, reason: str | None = None) -> dict
         "rating": float(player.rating),
         "orderCount": player.order_count,
         "availableActions": _player_review_actions(player.verification_status),
+        "serviceActions": _player_service_actions(player),
     }
     if reason is not None:
         payload["reason"] = reason
@@ -654,6 +667,92 @@ def restore_player_qualification(
     return _player_payload(player)
 
 
+@router.post("/players/{player_id}/suspend")
+def suspend_player_service(
+    player_id: uuid.UUID,
+    request: Request,
+    body: PlayerServiceStatusBody | None = None,
+    principal: Principal = Depends(require_platform),
+    db: Session = Depends(get_db),
+):
+    player = db.get(PlayerProfile, player_id)
+    if not player:
+        raise HTTPException(404, "PLAYER_NOT_FOUND")
+    if player.verification_status != "APPROVED":
+        raise HTTPException(409, "PLAYER_NOT_APPROVED")
+    decision = _platform_decision(
+        principal,
+        request,
+        action="PLAYER_SUSPEND",
+        resource_type="PLAYER_PROFILE",
+        resource_id=str(player.id),
+    )
+    previous = player.service_status
+    player.service_status = "SUSPENDED"
+    AuthorizationAudit.record(db, decision=decision)
+    db.add(OutboxEvent(
+        aggregate_type="AUDIT",
+        aggregate_id=f"PLAYER_PROFILE:{player.id}",
+        event_type="PLAYER_SUSPEND",
+        payload_json={
+            "actorUserId": str(principal.user_id),
+            "action": "PLAYER_SUSPEND",
+            "resourceType": "PLAYER_PROFILE",
+            "resourceId": str(player.id),
+            "fromStatus": previous,
+            "toStatus": player.service_status,
+            "reason": ((body.reason if body else None) or "").strip(),
+            "decision": "ALLOW",
+        },
+    ))
+    db.commit()
+    db.refresh(player)
+    return _player_payload(player)
+
+
+@router.post("/players/{player_id}/activate")
+def activate_player_service(
+    player_id: uuid.UUID,
+    request: Request,
+    body: PlayerServiceStatusBody | None = None,
+    principal: Principal = Depends(require_platform),
+    db: Session = Depends(get_db),
+):
+    player = db.get(PlayerProfile, player_id)
+    if not player:
+        raise HTTPException(404, "PLAYER_NOT_FOUND")
+    if player.verification_status != "APPROVED":
+        raise HTTPException(409, "PLAYER_NOT_APPROVED")
+    decision = _platform_decision(
+        principal,
+        request,
+        action="PLAYER_ACTIVATE",
+        resource_type="PLAYER_PROFILE",
+        resource_id=str(player.id),
+    )
+    previous = player.service_status
+    player.service_status = "OFFLINE"
+    AuthorizationAudit.record(db, decision=decision)
+    db.add(OutboxEvent(
+        aggregate_type="AUDIT",
+        aggregate_id=f"PLAYER_PROFILE:{player.id}",
+        event_type="PLAYER_ACTIVATE",
+        payload_json={
+            "actorUserId": str(principal.user_id),
+            "action": "PLAYER_ACTIVATE",
+            "resourceType": "PLAYER_PROFILE",
+            "resourceId": str(player.id),
+            "fromStatus": previous,
+            "toStatus": player.service_status,
+            "reason": ((body.reason if body else None) or "").strip(),
+            "decision": "ALLOW",
+        },
+    ))
+    db.commit()
+    db.refresh(player)
+    return _player_payload(player)
+
+
 @router.get("/player-skills")
 def list_player_skills(
     status: str | None = Query(default=None),
@@ -898,6 +997,45 @@ def list_orders(
             "createdAt": order.created_at,
         }
         for order in orders
+    ]
+
+
+@router.get("/ledger")
+def list_finance_ledger(
+    user_id: uuid.UUID | None = Query(default=None),
+    biz_type: str | None = Query(default=None, max_length=64),
+    entry_type: str | None = Query(default=None, max_length=64),
+    limit: int = Query(default=200, ge=1, le=500),
+    principal: Principal = Depends(require_platform),
+    db: Session = Depends(get_db),
+):
+    stmt = (
+        select(LedgerEntry, Wallet, User)
+        .join(Wallet, Wallet.id == LedgerEntry.account_id)
+        .join(User, User.id == Wallet.user_id)
+        .order_by(LedgerEntry.created_at.desc(), LedgerEntry.id.desc())
+        .limit(limit)
+    )
+    if user_id:
+        stmt = stmt.where(Wallet.user_id == user_id)
+    if biz_type:
+        stmt = stmt.where(LedgerEntry.biz_type == biz_type.upper())
+    if entry_type:
+        stmt = stmt.where(LedgerEntry.entry_type == entry_type.upper())
+    return [
+        {
+            "id": str(entry.id),
+            "accountId": str(entry.account_id),
+            "userId": str(user.id),
+            "nickname": user.nickname,
+            "bizType": entry.biz_type,
+            "bizId": entry.biz_id,
+            "entryType": entry.entry_type,
+            "amount": entry.amount,
+            "balanceAfter": entry.balance_after,
+            "createdAt": entry.created_at,
+        }
+        for entry, wallet, user in db.execute(stmt)
     ]
 
 

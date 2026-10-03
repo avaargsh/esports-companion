@@ -18,6 +18,7 @@ import {
 import type {
   Order,
   Player,
+  PlayerServiceUpdateAction,
   PlayerSkillReview,
   ReviewAction,
   Settlement
@@ -88,6 +89,24 @@ async function reviewPlayer(
     await load()
   } catch (reason) {
     error.value = reason instanceof Error ? reason.message : "审核失败"
+  }
+}
+
+async function updatePlayerService(
+  player: Player,
+  action: PlayerServiceUpdateAction
+) {
+  const fallback = action === "suspend" ? "运营停用接单权限" : "恢复接单权限"
+  const reason = window.prompt("请输入处理原因", fallback)?.trim()
+  if (!reason) return
+  try {
+    await adminRequest(`/admin/players/${player.id}/${action}`, {
+      method: "POST",
+      body: { reason }
+    })
+    await load()
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : "接单权限更新失败"
   }
 }
 
@@ -195,6 +214,7 @@ onMounted(() => {
           :skills="skills"
           @review-player="reviewPlayer"
           @review-skill="reviewSkill"
+          @update-player-service="updatePlayerService"
         />
 
         <FinanceWorkspace

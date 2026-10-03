@@ -5,7 +5,7 @@ from sqlalchemy import select
 
 from app.db import SessionLocal
 from app.main import app
-from app.models import Game, Order, OutboxEvent, ServiceSKU, User
+from app.models import Game, LedgerEntry, Order, OutboxEvent, PlayerProfile, ServiceSKU, User, Wallet
 
 
 def _admin_and_user():
@@ -159,6 +159,85 @@ def test_admin_cannot_revoke_own_platform_role():
         )
         assert demoted.status_code == 409
         assert demoted.json()["detail"] == "SELF_PLATFORM_ROLE_REVOKE_DENIED"
+
+
+def test_admin_can_suspend_restore_player_and_read_finance_ledger():
+    admin_id, user_id, _order_no = _admin_and_user()
+    suffix = uuid.uuid4().hex[:8]
+    with SessionLocal() as db:
+        player_user = User(
+            openid=f"ops-player-{suffix}",
+            nickname=f"Ops Player {suffix}",
+            role="USER",
+            status="ACTIVE",
+        )
+        wallet_user = User(
+            openid=f"ops-wallet-{suffix}",
+            nickname=f"Ops Wallet {suffix}",
+            role="USER",
+            status="ACTIVE",
+        )
+        db.add_all([player_user, wallet_user])
+        db.flush()
+        player = PlayerProfile(
+            user_id=player_user.id,
+            display_name="Ops Provider",
+            bio="",
+            verification_status="APPROVED",
+            service_status="AVAILABLE",
+        )
+        wallet = Wallet(user_id=wallet_user.id, available_balance=5000, frozen_balance=0)
+        db.add_all([player, wallet])
+        db.flush()
+        ledger = LedgerEntry(
+            account_id=wallet.id,
+            biz_type="SETTLEMENT",
+            biz_id=f"settlement-{suffix}",
+            entry_type="PLAYER_INCOME",
+            amount=2400,
+            balance_after=5000,
+        )
+        db.add(ledger)
+        db.commit()
+        player_id = str(player.id)
+        wallet_user_id = str(wallet_user.id)
+        ledger_id = str(ledger.id)
+
+    headers = {"X-Admin-Id": admin_id}
+    with TestClient(app) as client:
+        suspended = client.post(
+            f"/api/v1/admin/players/{player_id}/suspend",
+            headers=headers,
+            json={"reason": "违规接单"},
+        )
+        assert suspended.status_code == 200
+        assert suspended.json()["serviceStatusCode"] == "SUSPENDED"
+        assert suspended.json()["serviceStatus"] == "已停用"
+
+        activated = client.post(
+            f"/api/v1/admin/players/{player_id}/activate",
+            headers=headers,
+            json={"reason": "申诉通过"},
+        )
+        assert activated.status_code == 200
+        assert activated.json()["serviceStatusCode"] == "OFFLINE"
+
+        ledger_rows = client.get(
+            f"/api/v1/admin/ledger?biz_type=SETTLEMENT&user_id={wallet_user_id}",
+            headers=headers,
+        )
+        assert ledger_rows.status_code == 200
+        row = next(item for item in ledger_rows.json() if item["id"] == ledger_id)
+        assert row["userId"] == wallet_user_id
+        assert row["bizType"] == "SETTLEMENT"
+        assert row["entryType"] == "PLAYER_INCOME"
+        assert row["amount"] == 2400
+        assert row["balanceAfter"] == 5000
+
+        logs = client.get("/api/v1/admin/operation-logs", headers=headers)
+        assert logs.status_code == 200
+        actions = {item["action"] for item in logs.json() if item["resourceId"] == player_id}
+        assert {"PLAYER_SUSPEND", "PLAYER_ACTIVATE"}.issubset(actions)
 
 
 def test_admin_can_create_and_publish_announcement():

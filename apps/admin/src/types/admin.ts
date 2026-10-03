@@ -7,6 +7,7 @@ export type Player = {
   serviceStatus: string
   serviceStatusCode: "AVAILABLE" | "OFFLINE" | "SUSPENDED"
   availableActions?: PlayerReviewAction[]
+  serviceActions?: PlayerServiceAction[]
   rating: number
   orderCount: number
 }
@@ -48,8 +49,36 @@ export type Settlement = {
 }
 
 export type PlayerReviewAction = "APPROVE" | "REJECT" | "CANCEL" | "RESTORE"
+export type PlayerServiceAction = "SUSPEND" | "ACTIVATE"
 export type SkillReviewAction = "APPROVE" | "REJECT" | "REVOKE"
 export type ReviewAction = "approve" | "reject" | "cancel" | "restore" | "revoke"
+export type PlayerServiceUpdateAction = "suspend" | "activate"
+
+export type FinanceLedgerEntry = {
+  id: string
+  accountId: string
+  userId: string
+  nickname: string
+  bizType: string
+  bizId: string
+  entryType: string
+  amount: number
+  balanceAfter: number
+  createdAt: string
+}
+
+export type CatalogSku = {
+  id: string
+  gameId: string
+  gameName: string
+  name: string
+  durationMinutes: number
+  price: number
+  platformFeeRate: number
+  status: string
+  statusCode: "ACTIVE" | "INACTIVE"
+  sortOrder: number
+}
 
 
 export type AdminUser = {
