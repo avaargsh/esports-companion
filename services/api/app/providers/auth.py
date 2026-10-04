@@ -2,7 +2,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Callable, Protocol
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 from urllib.request import urlopen
 
 
@@ -140,3 +140,76 @@ class WeChatAuthProvider:
         if not isinstance(payload, dict):
             raise ValueError("WECHAT_CODE_EXCHANGE_INVALID_RESPONSE")
         return payload
+
+
+class WeChatWebAuthProvider:
+    name = "WECHAT_WEB"
+    AUTHORIZE_URL = "https://open.weixin.qq.com/connect/qrconnect"
+    ACCESS_TOKEN_URL = "https://api.weixin.qq.com/sns/oauth2/access_token"
+
+    def __init__(
+        self,
+        *,
+        app_id: str,
+        app_secret: str,
+        redirect_uri: str,
+        timeout_seconds: float = 5.0,
+        transport: JsonTransport | None = None,
+    ):
+        if not app_id or not app_secret or not redirect_uri:
+            raise ValueError("WECHAT_WEB_AUTH_CREDENTIALS_MISSING")
+        self.app_id = app_id
+        self.app_secret = app_secret
+        self.redirect_uri = redirect_uri
+        self.timeout_seconds = timeout_seconds
+        self.transport = transport or self._fetch_json
+
+    def authorize_url(self, state: str) -> str:
+        query = urlencode(
+            {
+                "appid": self.app_id,
+                "redirect_uri": self.redirect_uri,
+                "response_type": "code",
+                "scope": "snsapi_login",
+                "state": state,
+            },
+            quote_via=quote,
+        )
+        return f"{self.AUTHORIZE_URL}?{query}#wechat_redirect"
+
+    def exchange_code(self, code: str) -> ExternalIdentity:
+        if not code.strip():
+            raise ValueError("WECHAT_LOGIN_CODE_REQUIRED")
+
+        query = urlencode(
+            {
+                "appid": self.app_id,
+                "secret": self.app_secret,
+                "code": code,
+                "grant_type": "authorization_code",
+            }
+        )
+        payload = self.transport(
+            f"{self.ACCESS_TOKEN_URL}?{query}",
+            self.timeout_seconds,
+        )
+
+        errcode = payload.get("errcode")
+        if errcode not in (None, 0):
+            raise ValueError(f"WECHAT_WEB_CODE_EXCHANGE_FAILED:{errcode}")
+
+        openid = payload.get("openid")
+        access_token = payload.get("access_token")
+        if not openid or not access_token:
+            raise ValueError("WECHAT_WEB_CODE_EXCHANGE_INVALID_RESPONSE")
+
+        return ExternalIdentity(
+            provider=self.name,
+            subject=str(openid),
+            union_id=str(payload["unionid"]) if payload.get("unionid") else None,
+            provider_session_key=str(access_token),
+        )
+
+    @staticmethod
+    def _fetch_json(url: str, timeout_seconds: float) -> dict:
+        return WeChatAuthProvider._fetch_json(url, timeout_seconds)

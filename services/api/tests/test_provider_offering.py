@@ -6,7 +6,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.db import Base
-from app.models import Game, PlayerProfile, ProviderOffering, ServiceSKU, User
+from app.models import Game, PlayerProfile, PlayerSkill, ProviderOffering, ServiceSKU, User
 from app.services.dispatch_service import DispatchService, PlayerNotEligible
 from app.services.order_service import OrderService
 from app.services.payment_service import MockPaymentService
@@ -71,13 +71,22 @@ def test_player_cannot_claim_without_active_offering():
 def test_active_offering_allows_claim():
     db, order, player, sku = _fixture()
     try:
-        db.add(
+        db.add_all([
+            PlayerSkill(
+                player_id=player.id,
+                game_id=sku.game_id,
+                rank="已认证",
+                description="测试技能",
+                evidence_url="https://example.com/proof.png",
+                verification_status="APPROVED",
+                status="ACTIVE",
+            ),
             ProviderOffering(
                 player_id=player.id,
                 sku_id=sku.id,
                 status="ACTIVE",
-            )
-        )
+            ),
+        ])
         db.commit()
 
         claimed = DispatchService.claim(

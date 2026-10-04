@@ -29,17 +29,33 @@ from app.security import Principal, current_user_id, require_player
 router = APIRouter(prefix="/api/v1/player", tags=["player"])
 
 
-def _player_available_actions(player: PlayerProfile) -> list[str]:
+def _has_approved_skill(db: Session, player_id: uuid.UUID, game_id: uuid.UUID | None = None) -> bool:
+    stmt = select(PlayerSkill.id).where(
+        PlayerSkill.player_id == player_id,
+        PlayerSkill.status == "ACTIVE",
+        PlayerSkill.verification_status == "APPROVED",
+    )
+    if game_id is not None:
+        stmt = stmt.where(PlayerSkill.game_id == game_id)
+    return db.scalar(stmt.limit(1)) is not None
+
+
+def _player_available_actions(player: PlayerProfile, *, has_approved_skill: bool) -> list[str]:
     if player.verification_status != "APPROVED":
         return []
     if player.service_status == "AVAILABLE":
         return ["GO_OFFLINE"]
+    if not has_approved_skill:
+        return []
     return ["GO_AVAILABLE"]
 
 
-def _player_out(player: PlayerProfile) -> dict:
+def _player_out(player: PlayerProfile, db: Session) -> dict:
     payload = PlayerOut.model_validate(player).model_dump()
-    payload["available_actions"] = _player_available_actions(player)
+    payload["available_actions"] = _player_available_actions(
+        player,
+        has_approved_skill=_has_approved_skill(db, player.id),
+    )
     return payload
 
 
@@ -64,7 +80,14 @@ def apply(
 ):
     existing = db.scalar(select(PlayerProfile).where(PlayerProfile.user_id == user_id))
     if existing:
-        return _player_out(existing)
+        if existing.verification_status in {"REJECTED", "CANCELLED"}:
+            existing.display_name = body.display_name
+            existing.bio = body.bio
+            existing.verification_status = "PENDING"
+            existing.service_status = "OFFLINE"
+            db.commit()
+            db.refresh(existing)
+        return _player_out(existing, db)
     player = PlayerProfile(
         user_id=user_id,
         display_name=body.display_name,
@@ -75,7 +98,7 @@ def apply(
     db.add(player)
     db.commit()
     db.refresh(player)
-    return _player_out(player)
+    return _player_out(player, db)
 
 
 @router.get("/profile", response_model=PlayerOut)
@@ -83,7 +106,7 @@ def profile(
     user_id: uuid.UUID = Depends(current_user_id),
     db: Session = Depends(get_db),
 ):
-    return _player_out(get_player(db, user_id))
+    return _player_out(get_player(db, user_id), db)
 
 
 @router.patch("/profile", response_model=PlayerOut)
@@ -101,12 +124,17 @@ def update_profile(
     if body.service_status is not None:
         if body.service_status not in {"OFFLINE", "AVAILABLE"}:
             raise HTTPException(409, "INVALID_SERVICE_STATUS")
-        if body.service_status == "AVAILABLE" and player.verification_status != "APPROVED":
-            raise HTTPException(409, "PLAYER_NOT_APPROVED")
+        if body.service_status == "AVAILABLE":
+            if player.verification_status != "APPROVED":
+                if player.verification_status == "CANCELLED":
+                    raise HTTPException(409, "PLAYER_QUALIFICATION_CANCELLED")
+                raise HTTPException(409, "PLAYER_NOT_APPROVED")
+            if not _has_approved_skill(db, player.id):
+                raise HTTPException(409, "PLAYER_SKILL_REQUIRED")
         player.service_status = body.service_status
     db.commit()
     db.refresh(player)
-    return _player_out(player)
+    return _player_out(player, db)
 
 
 @router.get("/skills", response_model=list[PlayerSkillOut])
@@ -223,6 +251,7 @@ def order_pool(
     can_claim = (
         player_profile.verification_status == "APPROVED"
         and player_profile.service_status == "AVAILABLE"
+        and _has_approved_skill(db, player_profile.id, game_id)
     )
     return [_pool_order_out(order, can_claim=can_claim) for order in result]
 

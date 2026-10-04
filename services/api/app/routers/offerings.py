@@ -6,12 +6,26 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import PlayerProfile, ProviderOffering, ServiceSKU
+from app.models import PlayerProfile, PlayerSkill, ProviderOffering, ServiceSKU
 from app.schemas import ProviderOfferingOut, ProviderOfferingUpsert
 from app.security import Principal, require_player
 
 router = APIRouter(prefix="/api/v1/player/offerings", tags=["player-offerings"])
 
+
+
+
+def _has_approved_skill(db: Session, player_id: uuid.UUID, game_id: uuid.UUID) -> bool:
+    return db.scalar(
+        select(PlayerSkill.id)
+        .where(
+            PlayerSkill.player_id == player_id,
+            PlayerSkill.game_id == game_id,
+            PlayerSkill.status == "ACTIVE",
+            PlayerSkill.verification_status == "APPROVED",
+        )
+        .limit(1)
+    ) is not None
 
 def _player(db: Session, user_id: uuid.UUID) -> PlayerProfile:
     player = db.scalar(
@@ -52,6 +66,13 @@ def upsert_offering(
     sku = db.get(ServiceSKU, sku_id)
     if not sku:
         raise HTTPException(404, "SKU_NOT_FOUND")
+    if status == "ACTIVE":
+        if player.verification_status != "APPROVED":
+            if player.verification_status == "CANCELLED":
+                raise HTTPException(409, "PLAYER_QUALIFICATION_CANCELLED")
+            raise HTTPException(409, "PLAYER_NOT_APPROVED")
+        if not _has_approved_skill(db, player.id, sku.game_id):
+            raise HTTPException(409, "PLAYER_SKILL_REQUIRED")
 
     offering = db.scalar(
         select(ProviderOffering).where(

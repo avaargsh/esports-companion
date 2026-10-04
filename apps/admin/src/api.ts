@@ -1,6 +1,6 @@
 const API_BASE = import.meta.env.VITE_API_BASE || "/api/v1"
 const AUTH_MODE =
-  String(import.meta.env.VITE_ADMIN_AUTH_MODE || "demo").toLowerCase() === "bearer"
+  String(import.meta.env.VITE_ADMIN_AUTH_MODE || "bearer").toLowerCase() === "bearer"
     ? "bearer"
     : "demo"
 
@@ -16,6 +16,21 @@ type AdminSession = {
 }
 
 type RefreshResponse = {
+  accessToken: string
+  refreshToken: string
+}
+
+export type AdminWechatQrConfig = {
+  appId: string
+  redirectUri: string
+  state: string
+  authorizeUrl: string
+}
+
+type AdminWechatLoginResponse = {
+  userId: string
+  roles: string[]
+  tokenType: string
   accessToken: string
   refreshToken: string
 }
@@ -65,6 +80,94 @@ export function setAdminSession(accessToken: string, refreshToken?: string) {
 
 export function clearAdminSession() {
   sessionStorage.removeItem(SESSION_KEY)
+}
+
+export async function getAdminWechatQrConfig() {
+  const response = await fetch(API_BASE + "/auth/wechat/admin-qr")
+  if (!response.ok) {
+    let detail = "ADMIN_WECHAT_QR_UNAVAILABLE"
+    try {
+      const payload = await response.json()
+      detail = String(payload.detail ?? detail)
+    } catch {
+      // Keep generic error.
+    }
+    throw new Error(detail)
+  }
+  return response.json() as Promise<AdminWechatQrConfig>
+}
+
+export async function requestAdminEmailCode(email: string) {
+  const response = await fetch(API_BASE + "/auth/email/admin-code", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: email.trim() })
+  })
+  if (!response.ok) {
+    let detail = "ADMIN_EMAIL_CODE_FAILED"
+    try {
+      const payload = await response.json()
+      detail = String(payload.detail ?? detail)
+    } catch {
+      // Keep generic error.
+    }
+    throw new Error(detail)
+  }
+  return response.json() as Promise<{ sent: boolean; email: string }>
+}
+
+export async function loginAdminWithEmailCode(email: string, code: string) {
+  const response = await fetch(API_BASE + "/auth/email/admin-login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: email.trim(), code: code.trim() })
+  })
+  if (!response.ok) {
+    let detail = "ADMIN_EMAIL_LOGIN_FAILED"
+    try {
+      const payload = await response.json()
+      detail = String(payload.detail ?? detail)
+    } catch {
+      // Keep generic error.
+    }
+    throw new Error(detail)
+  }
+  const payload = (await response.json()) as AdminWechatLoginResponse
+  if (!payload.roles.includes("PLATFORM")) throw new Error("PLATFORM_REQUIRED")
+  writeSession({
+    accessToken: payload.accessToken,
+    refreshToken: payload.refreshToken
+  })
+  return payload
+}
+
+export async function loginAdminWithWechatQrCode(code: string, state: string) {
+  const loginCode = code.trim()
+  const loginState = state.trim()
+  if (!loginCode) throw new Error("WECHAT_LOGIN_CODE_REQUIRED")
+  if (!loginState) throw new Error("WECHAT_QR_STATE_REQUIRED")
+  const response = await fetch(API_BASE + "/auth/wechat/admin-qr-login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code: loginCode, state: loginState })
+  })
+  if (!response.ok) {
+    let detail = "ADMIN_WECHAT_LOGIN_FAILED"
+    try {
+      const payload = await response.json()
+      detail = String(payload.detail ?? detail)
+    } catch {
+      // Keep generic error.
+    }
+    throw new Error(detail)
+  }
+  const payload = (await response.json()) as AdminWechatLoginResponse
+  if (!payload.roles.includes("PLATFORM")) throw new Error("PLATFORM_REQUIRED")
+  writeSession({
+    accessToken: payload.accessToken,
+    refreshToken: payload.refreshToken
+  })
+  return payload
 }
 
 async function resolveAdminId() {

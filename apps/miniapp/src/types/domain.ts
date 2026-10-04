@@ -31,6 +31,7 @@ export type Game = {
   code?: string
   name: string
   icon_url?: string | null
+  iconUrl?: string | null
 }
 
 export type ServiceSku = {
@@ -49,6 +50,7 @@ export type ServicePlayer = {
   avatar_url?: string | null
   rating: number
   service_status: string
+  service_status_code?: string
   binding: "ASSIGNED" | "DESIGNATED"
   assigned_by?: string | null
 }
@@ -71,7 +73,9 @@ export type Order = {
   game_id?: string
   sku_id?: string
   designated_player_id?: string | null
-  status: OrderStatus
+  status: OrderStatus | string
+  status_code?: OrderStatus
+  statusCode?: OrderStatus
   quantity?: number
   unit_price?: number
   total_amount: number
@@ -108,9 +112,11 @@ export type PlayerSkill = {
   rank?: string | null
   description: string
   evidence_url?: string | null
-  verification_status: "PENDING" | "APPROVED" | "REJECTED"
+  verification_status: string
+  verification_status_code?: "PENDING" | "APPROVED" | "REJECTED" | "REVOKED"
   review_note: string
   status: string
+  status_code?: string
 }
 
 export type PublicOffering = {
@@ -138,6 +144,7 @@ export type PublicPlayer = {
   bio: string
   gender?: string | null
   service_status: string
+  service_status_code?: string
   rating: number
   review_count: number
   order_count: number
@@ -163,7 +170,8 @@ export type Withdrawal = {
   user_id: string
   wallet_id: string
   amount: number
-  status: "PENDING" | "COMPLETED" | "REJECTED" | string
+  status: string
+  status_code?: "PENDING" | "COMPLETED" | "REJECTED" | string
   provider: string
   provider_txn_id?: string | null
   failure_reason?: string | null

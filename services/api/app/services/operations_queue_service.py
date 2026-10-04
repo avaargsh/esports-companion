@@ -5,12 +5,21 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models import Dispute, Order, OutboxEvent, Refund, Withdrawal
+from app.status_labels import COMMON_STATUS_TEXT, DISPUTE_STATUS_TEXT, ORDER_STATUS_TEXT, status_text
 
 
 OUTBOX_SLA_SECONDS = 60
 REFUND_SLA_SECONDS = 15 * 60
 WITHDRAWAL_SLA_SECONDS = 60 * 60
 DISPUTE_SLA_SECONDS = 24 * 60 * 60
+
+
+def _status_label(kind: str, value: str) -> str:
+    if kind == "DISPUTE":
+        return status_text(value, DISPUTE_STATUS_TEXT)
+    if kind == "FINISH_REQUESTED":
+        return status_text(value, ORDER_STATUS_TEXT)
+    return status_text(value, COMMON_STATUS_TEXT)
 
 
 def _as_utc(value: datetime | None) -> datetime | None:
@@ -206,7 +215,8 @@ def build_operations_queue(
                 "severity": severity,
                 "entityId": entity_id,
                 "orderId": order_id,
-                "status": status,
+                "status": _status_label(kind, status),
+                "statusCode": status,
                 "ageSeconds": _age_seconds(effective_now, timestamp),
                 "slaSeconds": sla_seconds,
                 "createdAt": timestamp,

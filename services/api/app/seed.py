@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from sqlalchemy import select
 
+from app.config import settings
 from app.db import SessionLocal
 from app.models import (
     Game,
@@ -71,67 +72,72 @@ SERVICE_TEMPLATES = [
 
 def main():
     with SessionLocal() as db:
-        platform = db.scalar(select(User).where(User.role == "PLATFORM"))
-        if not platform:
-            platform = User(
-                openid="mock:platform",
-                nickname="Platform",
-                role="PLATFORM",
-                status="ACTIVE",
-            )
-            db.add(platform)
-            db.flush()
-        elif not platform.openid:
-            platform.openid = "mock:platform"
-
-        customer = db.scalar(select(User).where(User.nickname == "Demo Customer"))
-        if not customer:
-            customer = User(
-                openid="mock:customer",
-                nickname="Demo Customer",
-                role="USER",
-                status="ACTIVE",
-            )
-            db.add(customer)
-            db.flush()
-        elif not customer.openid:
-            customer.openid = "mock:customer"
-
+        seed_demo_identities = settings.auth_provider.strip().lower() == "mock"
+        platform = None
+        customer = None
         demo_players = []
-        for index, demo in enumerate(DEMO_PLAYERS):
-            nickname = f"Demo Player {index + 1}"
-            user = db.scalar(select(User).where(User.nickname == nickname))
-            if not user:
-                user = User(
-                    openid=f"mock:player:{index + 1}",
-                    nickname=nickname,
+
+        if seed_demo_identities:
+            platform = db.scalar(select(User).where(User.role == "PLATFORM"))
+            if not platform:
+                platform = User(
+                    openid="mock:platform",
+                    nickname="Platform",
+                    role="PLATFORM",
+                    status="ACTIVE",
+                )
+                db.add(platform)
+                db.flush()
+            elif not platform.openid:
+                platform.openid = "mock:platform"
+
+            customer = db.scalar(select(User).where(User.nickname == "Demo Customer"))
+            if not customer:
+                customer = User(
+                    openid="mock:customer",
+                    nickname="Demo Customer",
                     role="USER",
                     status="ACTIVE",
                 )
-                db.add(user)
+                db.add(customer)
                 db.flush()
-            elif not user.openid:
-                user.openid = f"mock:player:{index + 1}"
+            elif not customer.openid:
+                customer.openid = "mock:customer"
 
-            profile = db.scalar(
-                select(PlayerProfile).where(PlayerProfile.user_id == user.id)
-            )
-            if not profile:
-                profile = PlayerProfile(
-                    user_id=user.id,
-                    display_name=demo["display_name"],
-                    bio=demo["bio"],
-                    verification_status="APPROVED",
-                    service_status="AVAILABLE",
+            for index, demo in enumerate(DEMO_PLAYERS):
+                nickname = f"Demo Player {index + 1}"
+                user = db.scalar(select(User).where(User.nickname == nickname))
+                if not user:
+                    user = User(
+                        openid=f"mock:player:{index + 1}",
+                        nickname=nickname,
+                        role="USER",
+                        status="ACTIVE",
+                    )
+                    db.add(user)
+                    db.flush()
+                elif not user.openid:
+                    user.openid = f"mock:player:{index + 1}"
+
+                profile = db.scalar(
+                    select(PlayerProfile).where(PlayerProfile.user_id == user.id)
                 )
-                db.add(profile)
-                db.flush()
-            else:
-                profile.display_name = demo["display_name"]
-                profile.bio = demo["bio"]
-                profile.verification_status = "APPROVED"
-                profile.service_status = "AVAILABLE"
-            demo_players.append((user, profile, demo))
+                if not profile:
+                    profile = PlayerProfile(
+                        user_id=user.id,
+                        display_name=demo["display_name"],
+                        bio=demo["bio"],
+                        verification_status="APPROVED",
+                        service_status="AVAILABLE",
+                    )
+                    db.add(profile)
+                    db.flush()
+                else:
+                    profile.display_name = demo["display_name"]
+                    profile.bio = demo["bio"]
+                    profile.verification_status = "APPROVED"
+                    profile.service_status = "AVAILABLE"
+                demo_players.append((user, profile, demo))
 
         games_by_code = {}
         for index, (code, name) in enumerate(GAMES):
@@ -225,11 +231,14 @@ def main():
                     existing.status = "ACTIVE"
 
         db.commit()
-        customer = db.scalar(select(User).where(User.nickname == "Demo Customer"))
-        print(f"demo_user_id={customer.id}")
-        print(f"demo_admin_id={platform.id}")
-        for user, profile, _demo in demo_players:
-            print(f"demo_player_user_id={user.id} player_profile_id={profile.id}")
+        if seed_demo_identities:
+            customer = db.scalar(select(User).where(User.nickname == "Demo Customer"))
+            print(f"demo_user_id={customer.id}")
+            print(f"demo_admin_id={platform.id}")
+            for user, profile, _demo in demo_players:
+                print(f"demo_player_user_id={user.id} player_profile_id={profile.id}")
+        else:
+            print("seed_catalog_only=true")
 
 
 if __name__ == "__main__":

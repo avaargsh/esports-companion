@@ -82,15 +82,15 @@ function goHome() {
     </view>
 
     <view class="tabs">
-      <text :class="{ active: filter === 'all' }" @click="filter = 'all'">
-        全部 {{ orders.length }}
-      </text>
-      <text :class="{ active: filter === 'active' }" @click="filter = 'active'">
-        进行中 {{ activeCount }}
-      </text>
-      <text :class="{ active: filter === 'done' }" @click="filter = 'done'">
-        已结束 {{ doneCount }}
-      </text>
+      <view :class="['tab', { active: filter === 'all' }]" @click="filter = 'all'">
+        <text>全部</text><b>{{ orders.length }}</b>
+      </view>
+      <view :class="['tab', { active: filter === 'active' }]" @click="filter = 'active'">
+        <text>进行中</text><b>{{ activeCount }}</b>
+      </view>
+      <view :class="['tab', { active: filter === 'done' }]" @click="filter = 'done'">
+        <text>已结束</text><b>{{ doneCount }}</b>
+      </view>
     </view>
 
     <view v-if="loadStatus === 'loading'" class="list">
@@ -103,6 +103,7 @@ function goHome() {
       :description="loadMessage"
       action="重新加载"
       symbol="↻"
+      inverse
       @action="load"
     />
 
@@ -112,6 +113,7 @@ function goHome() {
       :description="orders.length ? '切换分类查看其它订单' : '从首页选游戏，即可创建第一笔陪玩订单'"
       :action="orders.length ? '' : '去下单'"
       symbol="单"
+      inverse
       @action="goHome"
     />
 
@@ -127,21 +129,5 @@ function goHome() {
 </template>
 
 <style scoped>
-.heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 18rpx;
-  padding: 10rpx 3rpx 26rpx;
-}
-.title { display:block;font-size:39rpx;font-weight:850;letter-spacing:-1rpx; }
-.subtitle { display:block;margin-top:8rpx;color:var(--muted);font-size:20rpx; }
-.refreshing { padding-top:8rpx;color:var(--muted);font-size:17rpx;white-space:nowrap; }
-.tabs {
-  display:inline-flex;gap:4rpx;margin-bottom:22rpx;padding:5rpx;border-radius:19rpx;background:#ececf1;
-}
-.tabs text { min-width:118rpx;padding:12rpx 16rpx;border-radius:15rpx;color:#7d7d87;text-align:center;font-size:19rpx; }
-.tabs .active { background:#fff;color:var(--ink);font-weight:750;box-shadow:0 4rpx 14rpx rgba(20,20,30,.05); }
-.list { display:flex;flex-direction:column;gap:13rpx; }
-.order-skeleton { height:190rpx;border-radius:30rpx; }
+.orders-page{min-height:100vh;background:#f7f7f8;color:#111827}.heading{display:flex;align-items:flex-start;justify-content:space-between;gap:18rpx;padding:12rpx 3rpx 28rpx}.title{display:block;color:#111827;font-size:40rpx;font-weight:900}.subtitle{display:block;margin-top:8rpx;color:#6b7280;font-size:20rpx}.refreshing{padding:8rpx 13rpx;border:1rpx solid rgba(0,0,0,.10);border-radius:999rpx;background:rgba(0,0,0,.06);color:#111827;font-size:17rpx;white-space:nowrap}.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:7rpx;margin-bottom:24rpx;padding:7rpx;border:1rpx solid rgba(0,0,0,.10);border-radius:26rpx;background:#ffffff;box-shadow:0 10rpx 30rpx rgba(0,0,0,.12)}.tab{height:66rpx;display:flex;align-items:center;justify-content:center;gap:8rpx;border-radius:21rpx;color:#6b7280;font-size:19rpx;font-weight:780}.tab b{font-size:18rpx}.tab.active{background:linear-gradient(135deg,#111827,#000000);color:#fff;box-shadow:0 12rpx 28rpx rgba(0,0,0,.16)}.list{display:flex;flex-direction:column;gap:16rpx}.order-skeleton{height:240rpx;border-radius:32rpx;background:#ffffff;border:1rpx solid rgba(0,0,0,.08)}
 </style>

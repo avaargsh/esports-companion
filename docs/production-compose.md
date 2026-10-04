@@ -16,7 +16,8 @@ The production stack:
 - binds ingress to `127.0.0.1:8080` by default;
 - mounts sensitive application values through Docker secrets;
 - uses a read-only API root filesystem and drops Linux capabilities;
-- uses `/readyz` for container health.
+- uses `/readyz` for container health;
+- runs MinIO on the internal Compose network for image uploads, while Nginx exposes only read access for `/esports-images/...`.
 
 ## Prepare
 
@@ -27,7 +28,7 @@ mkdir -p deploy/secrets
 
 Populate the files documented in `deploy/secrets/README.md`. Then edit only
 the non-secret identifiers, callback URLs, public admin origin, and release SHA
-in `.env.production`.
+in `.env.production`. Set `MINIO_PUBLIC_URL` to the public HTTPS API/static domain that proxies `/esports-images/...`; keep `MINIO_ENDPOINT=minio:9000` for API-to-MinIO traffic.
 
 ## Start
 

@@ -8,6 +8,7 @@ type Withdrawal = {
   userId: string
   amount: number
   status: string
+  statusCode?: string
   provider: string
   providerTxnId?: string | null
   failureReason?: string | null
@@ -31,7 +32,7 @@ async function copyValue(value: string, label: string) {
   }
 }
 
-const pending = computed(() => items.value.filter(item => item.status === "PENDING"))
+const pending = computed(() => items.value.filter(item => (item.statusCode || item.status) === "PENDING"))
 const pendingAmount = computed(() => pending.value.reduce((sum,item)=>sum+item.amount,0))
 
 async function load() {
@@ -54,7 +55,7 @@ async function act(item: Withdrawal, action: "complete" | "reject") {
       error.value = "确认打款前必须填写真实外部流水号"
       return
     }
-    if (!window.confirm("确认外部打款已经成功？提交后资金会解除冻结并记为 COMPLETED。")) return
+    if (!window.confirm("确认外部打款已经成功？提交后资金会解除冻结并记为已完成。")) return
     body = { provider_txn_id: normalized }
   }
 
@@ -113,9 +114,9 @@ onMounted(load)
           </span>
           <span class="amount">¥{{ (item.amount/100).toFixed(2) }}</span>
           <span>{{ item.provider }}</span>
-          <span><em :class="{ pending:item.status==='PENDING' }">{{ item.status }}</em></span>
+          <span><em :class="{ pending:(item.statusCode || item.status)==='PENDING' }">{{ item.status }}</em></span>
           <span class="actions">
-            <template v-if="item.status === 'PENDING'">
+            <template v-if="(item.statusCode || item.status) === 'PENDING'">
               <button class="complete" :disabled="!!busyId" @click="act(item,'complete')">通过</button>
               <button class="reject" :disabled="!!busyId" @click="act(item,'reject')">拒绝</button>
             </template>
@@ -133,34 +134,5 @@ onMounted(load)
 </template>
 
 <style scoped>
-.withdrawals { display:grid; gap:22px; }
-.error { padding:12px 14px; border-radius:12px; background:#fff0f0; color:#c63d3d; font-size:12px; }
-.copied { padding:10px 14px; border-radius:12px; background:#eefaf3; color:#198754; font-size:12px; }
-.summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; }
-.summary article { padding:20px; border:1px solid #ecebf1; border-radius:18px; background:#fff; }
-.summary span { color:#92929d; font-size:11px; }
-.summary strong { display:block; margin-top:10px; font-size:26px; }
-.summary .manual { color:#6c5ce7; font-size:18px; }
-.panel { padding:24px; border:1px solid #ecebf1; border-radius:20px; background:#fff; }
-header { display:flex; justify-content:space-between; align-items:center; gap:20px; margin-bottom:18px; }
-h2 { margin:0; font-size:18px; }
-header p { margin:6px 0 0; color:#92929d; font-size:12px; }
-.ghost { border:1px solid #e5e4ec; background:#fff; color:#666672; }
-.empty { padding:34px; border-radius:14px; background:#fafafd; color:#9999a4; text-align:center; font-size:12px; }
-.row { display:grid; grid-template-columns:1.5fr .8fr .8fr .8fr 1.5fr; gap:12px; align-items:center; min-height:62px; border-top:1px solid #f0eff4; font-size:11px; }
-.row.head { min-height:36px; border:0; color:#9999a4; font-size:10px; font-weight:800; }
-.row b,.row small { display:block; }
-.identity { min-width:0; }
-.row small { margin-top:4px; color:#aaaab4; font-size:9px; }
-.amount { font-weight:800; }
-em { display:inline-block; padding:5px 8px; border-radius:999px; background:#f2f1f5; color:#777783; font-size:10px; font-style:normal; }
-em.pending { background:#fff2d8; color:#a56d00; }
-.actions { display:flex; gap:6px; align-items:center; }
-.reference { min-width:0; max-width:100%; }
-.reference span { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.copy-link { margin-top:5px; padding:0; background:transparent; color:#6c5ce7; font-size:9px; font-weight:700; }
-button { border:0; border-radius:9px; padding:7px 9px; cursor:pointer; font-size:10px; }
-button:disabled { opacity:.45; cursor:not-allowed; }
-.complete { background:#6c5ce7; color:#fff; }
-.reject { background:#f2f1f5; color:#686872; }
+.withdrawals{display:grid;gap:22px}.error{padding:12px 14px;border:1px solid rgba(239,68,68,.18);border-radius:12px;background:rgba(239,68,68,.1);color:#f87171;font-size:12px}.copied{padding:10px 14px;border:1px solid rgba(0,0,0,.10);border-radius:12px;background:rgba(0,0,0,.06);color:#111827;font-size:12px}.summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.summary article{padding:20px;border:1px solid rgba(0,0,0,.10);border-radius:16px;background:#ffffff;box-shadow:0 10px 30px -5px rgba(0,0,0,.35)}.summary span{color:#6b7280;font-size:11px}.summary strong{display:block;margin-top:10px;color:#111827;font-size:26px}.summary .manual{color:#111827;font-size:18px}.panel{padding:24px;border:1px solid rgba(0,0,0,.10);border-radius:16px;background:#ffffff;box-shadow:0 10px 30px -5px rgba(0,0,0,.12)}header{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:18px}h2{margin:0;color:#111827;font-size:18px}header p{margin:6px 0 0;color:#6b7280;font-size:12px}.ghost{border:1px solid rgba(0,0,0,.10);background:#f3f4f6;color:#111827}.empty{padding:34px;border:1px dashed rgba(0,0,0,.12);border-radius:14px;background:rgba(0,0,0,.04);color:#111827;text-align:center;font-size:12px}.row{display:grid;grid-template-columns:1.5fr .8fr .8fr .8fr 1.5fr;gap:12px;align-items:center;min-height:62px;border-top:1px solid rgba(0,0,0,.06);color:#111827;font-size:11px}.row.head{min-height:36px;border:0;border-radius:10px;background:#f3f4f6;color:#374151;font-size:10px;font-weight:800}.row b,.row small{display:block}.identity{min-width:0}.row small{margin-top:4px;color:#6b7280;font-size:9px}.amount{font-weight:800;color:#111827}em{display:inline-block;padding:5px 8px;border-radius:999px;background:#f3f4f6;color:#6b7280;font-size:10px;font-style:normal}em.pending{background:rgba(0,0,0,.06);color:#111827}.actions{display:flex;gap:6px;align-items:center}.reference{min-width:0;max-width:100%}.reference span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.copy-link{margin-top:5px;padding:0;background:transparent;color:#111827;font-size:9px;font-weight:700}button{border:0;border-radius:9px;padding:7px 9px;cursor:pointer;font-size:10px;font-weight:800}button:disabled{opacity:.45;cursor:not-allowed}.complete{background:rgba(0,0,0,.08);color:#111827}.reject{background:rgba(239,68,68,.12);color:#f87171}
 </style>

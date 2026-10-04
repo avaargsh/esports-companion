@@ -10,7 +10,6 @@ from app.schemas import GameOut, SKUOut
 
 router = APIRouter(prefix="/api/v1", tags=["catalog"])
 
-
 @router.get("/games", response_model=list[GameOut])
 def list_games(db: Session = Depends(get_db)):
     return list(db.scalars(select(Game).where(Game.status == "ACTIVE").order_by(Game.sort_order)))

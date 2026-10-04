@@ -38,7 +38,8 @@ Edit:
 - staging merchant identifiers;
 - callback domains;
 - admin origin;
-- release commit SHA.
+- release commit SHA;
+- `MINIO_PUBLIC_URL`, normally `https://api-staging.example.com` when using the bundled Nginx `/esports-images/...` proxy.
 
 Then run:
 

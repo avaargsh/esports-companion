@@ -3,7 +3,11 @@ export type Player = {
   userId: string
   displayName: string
   verificationStatus: string
+  verificationStatusCode: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED"
   serviceStatus: string
+  serviceStatusCode: "AVAILABLE" | "OFFLINE" | "SUSPENDED"
+  availableActions?: PlayerReviewAction[]
+  serviceActions?: PlayerServiceAction[]
   rating: number
   orderCount: number
 }
@@ -28,6 +32,8 @@ export type PlayerSkillReview = {
   description: string
   evidenceUrl: string | null
   verificationStatus: string
+  verificationStatusCode: "PENDING" | "APPROVED" | "REJECTED" | "REVOKED"
+  availableActions?: SkillReviewAction[]
   reviewNote: string
   updatedAt: string
 }
@@ -42,4 +48,99 @@ export type Settlement = {
   status: string
 }
 
-export type ReviewAction = "approve" | "reject"
+export type PlayerReviewAction = "APPROVE" | "REJECT" | "CANCEL" | "RESTORE"
+export type PlayerServiceAction = "SUSPEND" | "ACTIVATE"
+export type SkillReviewAction = "APPROVE" | "REJECT" | "REVOKE"
+export type ReviewAction = "approve" | "reject" | "cancel" | "restore" | "revoke"
+export type PlayerServiceUpdateAction = "suspend" | "activate"
+
+export type FinanceLedgerEntry = {
+  id: string
+  accountId: string
+  userId: string
+  nickname: string
+  bizType: string
+  bizId: string
+  entryType: string
+  amount: number
+  balanceAfter: number
+  createdAt: string
+}
+
+export type CatalogSku = {
+  id: string
+  gameId: string
+  gameName: string
+  name: string
+  durationMinutes: number
+  price: number
+  platformFeeRate: number
+  status: string
+  statusCode: "ACTIVE" | "INACTIVE"
+  sortOrder: number
+}
+
+
+export type AdminUser = {
+  id: string
+  openid: string | null
+  unionid: string | null
+  nickname: string
+  avatarUrl: string | null
+  phone: string | null
+  role: string
+  roleText: string
+  effectiveRoles: string[]
+  status: string
+  statusCode: "ACTIVE" | "BLOCKED" | "INACTIVE"
+  orderCount: number
+  totalSpent: number
+  availableBalance: number
+  frozenBalance: number
+  createdAt: string
+  updatedAt: string
+}
+
+export type ConsumptionRecord = {
+  id: string
+  orderNo: string
+  status: string
+  statusCode: string
+  amount: number
+  platformFee: number
+  playerAmount: number
+  createdAt: string
+  paidAt: string | null
+  settledAt: string | null
+}
+
+export type OperationLog = {
+  id: string
+  source: string
+  actorUserId: string
+  action: string
+  resourceType: string
+  resourceId: string
+  decision: string
+  reason: string
+  fromRole?: string
+  toRole?: string
+  fromStatus?: string
+  toStatus?: string
+  createdAt: string
+}
+
+export type Announcement = {
+  id: string
+  title: string
+  content: string
+  audience: string
+  noticeType: "NORMAL" | "SYSTEM"
+  noticeTypeText: string
+  status: string
+  statusCode: "DRAFT" | "PUBLISHED" | "OFFLINE"
+  operatorUserId: string
+  publishedAt: string | null
+  createdAt: string
+  updatedAt: string
+}

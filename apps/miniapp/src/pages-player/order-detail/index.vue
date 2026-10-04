@@ -188,9 +188,9 @@ onUnload(() => {
 .order-no { color:#747480; font-size:18rpx; }
 .income { margin-top:24rpx; }
 .caption { margin-top:7rpx; color:#777784; font-size:20rpx; }
-.state-desc { margin:26rpx 0 28rpx; padding-top:24rpx; border-top:1rpx solid rgba(255,255,255,.08); color:#c3c3cc; font-size:22rpx; line-height:1.55; }
+.state-desc { margin:26rpx 0 28rpx; padding-top:24rpx; border-top:1rpx solid rgba(0,0,0,.10); color:#c3c3cc; font-size:22rpx; line-height:1.55; }
 .card { margin-top:22rpx; padding:30rpx; border-radius:30rpx; background:#181820; color:#fff; }
-.card>view:not(.event) { display:flex; justify-content:space-between; align-items:center; gap:20rpx; padding:18rpx 0; font-size:22rpx; border-bottom:1rpx solid rgba(255,255,255,.06); }
+.card>view:not(.event) { display:flex; justify-content:space-between; align-items:center; gap:20rpx; padding:18rpx 0; font-size:22rpx; border-bottom:1rpx solid rgba(0,0,0,.08); }
 .card>view:last-child { border:0; }
 .card text { color:#777784; }
 .value { color:#d2d2da !important; font-weight:650; }

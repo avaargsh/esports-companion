@@ -100,6 +100,10 @@ export function getStoredSession(): AuthSession | null {
   return sessionStore.read()
 }
 
+export function clearStoredSession(): void {
+  sessionStore.clear()
+}
+
 export async function ensureSession(): Promise<AuthSession> {
   if (!isWeChatAuthMode()) {
     throw new Error("WECHAT_AUTH_MODE_REQUIRED")

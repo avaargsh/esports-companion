@@ -3,7 +3,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import User
-from app.providers.auth import AuthProvider
+from app.providers.auth import AuthProvider, ExternalIdentity
 
 
 class AuthService:
@@ -15,7 +15,14 @@ class AuthService:
         code: str,
     ) -> tuple[User, bool]:
         identity = provider.exchange_code(code)
+        return AuthService.login_with_identity(db, identity=identity)
 
+    @staticmethod
+    def login_with_identity(
+        db: Session,
+        *,
+        identity: ExternalIdentity,
+    ) -> tuple[User, bool]:
         user = db.scalar(
             select(User).where(User.openid == identity.subject)
         )

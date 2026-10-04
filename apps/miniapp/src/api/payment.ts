@@ -11,8 +11,10 @@ type WeChatClientPayload = WeChatPaymentPayload
 type PaymentPreparation = {
   order_id: string
   order_status: string
+  order_status_code?: string
   provider: string
   payment_status: string
+  payment_status_code?: string
   client_payload: Record<string, unknown>
   replayed: boolean
 }
@@ -55,11 +57,17 @@ export async function startOrderPayment(
     }
   )
 
+  const paymentStatus = preparation.payment_status_code || preparation.payment_status
+
   if (preparation.provider !== "WECHAT") {
-    throw new Error("WECHAT_PAYMENT_PROVIDER_REQUIRED")
+    if (paymentStatus === "SUCCESS") {
+      const order = await request<Order>(`/orders/${orderId}`, { userId })
+      return { mode: "mock", order }
+    }
+    throw new Error("PAYMENT_PROVIDER_UNSUPPORTED")
   }
 
-  if (preparation.payment_status === "SUCCESS") {
+  if (paymentStatus === "SUCCESS") {
     return { mode: "wechat", alreadyConfirmed: true }
   }
 

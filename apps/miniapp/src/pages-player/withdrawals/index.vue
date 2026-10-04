@@ -23,6 +23,16 @@ const {
   formatTime
 } = usePlayerWithdrawals()
 
+const quickAmounts = [10, 30, 50]
+const uiIcons = {
+  wallet: "https://img.icons8.com/fluency/96/wallet.png",
+  transfer: "https://img.icons8.com/fluency/96/weixing.png"
+}
+
+function setQuickAmount(value: number) {
+  amountYuan.value = value.toFixed(2)
+}
+
 onShow(() => {
   void load()
 })
@@ -41,7 +51,7 @@ onShow(() => {
     />
 
     <view v-if="loadStatus !== 'error'" class="balance-card">
-      <view class="eyebrow">收益账户</view>
+      <view class="account-head"><view class="account-icon"><image :src="uiIcons.wallet" mode="aspectFit" /></view><view class="eyebrow">收益账户</view></view>
       <view class="balance-label">可提现余额</view>
       <view class="balance">¥{{ (wallet.availableBalance / 100).toFixed(2) }}</view>
       <view class="balance-meta">
@@ -66,6 +76,15 @@ onShow(() => {
           type="digit"
           placeholder="0.00"
         />
+      </view>
+      <view class="quick-row">
+        <text
+          v-for="value in quickAmounts"
+          :key="value"
+          class="quick-chip"
+          @click="setQuickAmount(value)"
+        >¥{{ value }}</text>
+        <text v-if="requestEnabled" class="quick-chip all-chip" @click="withdrawAll">全部</text>
       </view>
       <view v-if="amountCents > wallet.availableBalance" class="error">超过当前可提现余额</view>
 
@@ -93,7 +112,8 @@ onShow(() => {
       <view v-else-if="!items.length" class="empty">暂无提现记录</view>
 
       <view v-for="item in items" :key="item.id" class="item">
-        <view>
+        <view class="transfer-icon"><image :src="uiIcons.transfer" mode="aspectFit" /></view>
+        <view class="item-main">
           <view class="item-amount">¥{{ (item.amount / 100).toFixed(2) }}</view>
           <view class="item-time">{{ formatTime(item.created_at) }}</view>
           <view class="reference-row" @click="copyValue(item.id, '申请号')">
@@ -113,6 +133,5 @@ onShow(() => {
 </template>
 
 <style scoped>
-.page{min-height:100vh;padding:28rpx;background:var(--inverse-bg);color:#fff}.balance-card{position:relative;overflow:hidden;padding:32rpx;border:1rpx solid rgba(255,255,255,.05);border-radius:34rpx;background:linear-gradient(145deg,#1b1a23,#2b263f)}.eyebrow{color:#77728d;font-size:15rpx;font-weight:800;letter-spacing:2.5rpx}.balance-label{margin-top:24rpx;color:#8d8a98;font-size:18rpx}.balance{margin-top:5rpx;font-size:55rpx;font-weight:850;letter-spacing:-1rpx}.balance-meta{display:flex;justify-content:space-between;gap:15rpx;margin-top:24rpx;padding-top:19rpx;border-top:1rpx solid rgba(255,255,255,.06);color:#777582;font-size:16rpx}
-.form-card,.history{margin-top:16rpx;padding:25rpx;border:1rpx solid rgba(255,255,255,.05);border-radius:28rpx;background:var(--inverse-surface)}.form-head,.history-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18rpx}.title{font-size:24rpx;font-weight:780}.hint{margin-top:6rpx;color:#777582;font-size:17rpx;line-height:1.5}.all{flex:none;color:var(--brand-on-inverse);font-size:18rpx;font-weight:700}.amount-input{display:flex;align-items:center;margin-top:22rpx;padding:17rpx 20rpx;border-radius:21rpx;background:var(--inverse-control)}.amount-input text{color:#aaa5ca;font-size:30rpx;font-weight:800}.amount-input input{flex:1;margin-left:11rpx;color:#fff;font-size:38rpx;font-weight:820}.error{margin-top:9rpx;color:var(--danger-on-inverse);font-size:16rpx}.submit{height:76rpx;margin:18rpx 0 0;line-height:76rpx;border-radius:22rpx;background:var(--brand);color:#fff;font-size:21rpx;font-weight:760}.submit[disabled]{background:#292832;color:#666471;opacity:1}.rules{display:grid;gap:6rpx;margin-top:19rpx;color:#696773;font-size:16rpx;line-height:1.5}.history-head text{color:#777582;font-size:17rpx}.item{display:flex;align-items:center;justify-content:space-between;gap:16rpx;padding:20rpx 0;border-top:1rpx solid rgba(255,255,255,.05)}.item:first-of-type{margin-top:13rpx}.item-amount{font-size:24rpx;font-weight:780}.item-time{margin-top:5rpx;color:#696773;font-size:15rpx}.reference-row{display:flex;align-items:center;gap:9rpx;max-width:500rpx;margin-top:7rpx;color:#898694;font-size:15rpx}.reference-row.payout{color:#9e96cd}.reference-value{max-width:390rpx;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.copy{flex:none;color:var(--brand-on-inverse);font-weight:700}.reason{margin-top:5rpx;color:#b56c70;font-size:15rpx}.status{flex:none;padding:7rpx 11rpx;border-radius:999rpx;background:#26252e;color:#9997a2;font-size:16rpx}.status.pending{background:rgba(211,148,38,.1);color:var(--warning-on-inverse)}.status.completed{background:rgba(39,187,111,.1);color:var(--success-on-inverse)}.status.rejected{background:rgba(239,68,68,.09);color:var(--danger-on-inverse)}.empty{padding:54rpx 0 24rpx;color:#6d6b77;text-align:center;font-size:18rpx}
+.page{min-height:100vh;padding:28rpx;background:#f7f7f8;color:#111827}.balance-card{position:relative;overflow:hidden;padding:32rpx;border:1rpx solid rgba(0,0,0,.10);border-radius:34rpx;background:linear-gradient(135deg,#111827 0%,#ffffff 58%,#f7f7f8);box-shadow:0 10rpx 30rpx rgba(0,0,0,.12)}.balance-card::after{content:"";position:absolute;right:-80rpx;top:-90rpx;width:240rpx;height:240rpx;border-radius:50%;background:rgba(0,0,0,.09);filter:blur(4rpx)}.account-head{position:relative;z-index:1;display:flex;align-items:center;gap:12rpx}.account-icon{width:54rpx;height:54rpx;display:flex;align-items:center;justify-content:center;border-radius:18rpx;background:rgba(0,0,0,.08)}.account-icon image{width:36rpx;height:36rpx}.eyebrow{color:#111827;font-size:15rpx;font-weight:800;letter-spacing:2.5rpx}.balance-label{position:relative;z-index:1;margin-top:24rpx;color:#374151;font-size:18rpx}.balance{position:relative;z-index:1;margin-top:5rpx;color:#111827;font-size:55rpx;font-weight:850}.balance-meta{position:relative;z-index:1;display:flex;justify-content:space-between;gap:15rpx;margin-top:24rpx;padding-top:19rpx;border-top:1rpx solid rgba(0,0,0,.08);color:#6b7280;font-size:16rpx}.form-card,.history{margin-top:16rpx;padding:25rpx;border:1rpx solid rgba(0,0,0,.08);border-radius:28rpx;background:#ffffff;box-shadow:0 12rpx 34rpx rgba(0,0,0,.08)}.form-head,.history-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18rpx}.title{color:#111827;font-size:24rpx;font-weight:780}.hint{margin-top:6rpx;color:#6b7280;font-size:17rpx;line-height:1.5}.all{flex:none;color:#111827;font-size:18rpx;font-weight:700}.amount-input{display:flex;align-items:center;margin-top:22rpx;padding:17rpx 20rpx;border:1rpx solid rgba(0,0,0,.08);border-radius:21rpx;background:#f3f4f6}.amount-input text{color:#111827;font-size:30rpx;font-weight:800}.amount-input input{flex:1;margin-left:11rpx;color:#111827;font-size:38rpx;font-weight:820}.quick-row{display:flex;gap:10rpx;flex-wrap:wrap;margin-top:14rpx}.quick-chip{padding:10rpx 17rpx;border:1rpx solid rgba(0,0,0,.09);border-radius:999rpx;background:rgba(0,0,0,.05);color:#111827;font-size:17rpx;font-weight:760}.all-chip{background:linear-gradient(135deg,#111827,#000000);color:#fff}.error{margin-top:9rpx;color:#fb7185;font-size:16rpx}.submit{height:76rpx;margin:18rpx 0 0;line-height:76rpx;border-radius:22rpx;background:linear-gradient(135deg,#111827,#000000);color:#fff;font-size:21rpx;font-weight:760;box-shadow:0 14rpx 30rpx rgba(0,0,0,.12)}.submit[disabled]{background:#f3f4f6;color:#6b7280;opacity:1;box-shadow:none}.rules{display:grid;gap:6rpx;margin-top:19rpx;color:#6b7280;font-size:16rpx;line-height:1.5}.history-head text{color:#6b7280;font-size:17rpx}.item{display:flex;align-items:center;justify-content:space-between;gap:16rpx;padding:20rpx 0;border-top:1rpx solid rgba(0,0,0,.06)}.item:first-of-type{margin-top:13rpx}.transfer-icon{width:52rpx;height:52rpx;flex:none;display:flex;align-items:center;justify-content:center;border-radius:18rpx;background:#f3f4f6}.transfer-icon image{width:34rpx;height:34rpx}.item-main{flex:1;min-width:0}.item-amount{color:#111827;font-size:24rpx;font-weight:780}.item-time{margin-top:5rpx;color:#6b7280;font-size:15rpx}.reference-row{display:flex;align-items:center;gap:9rpx;max-width:500rpx;margin-top:7rpx;color:#6b7280;font-size:15rpx}.reference-row.payout{color:#374151}.reference-value{max-width:390rpx;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.copy{flex:none;color:#111827;font-weight:700}.reason{margin-top:5rpx;color:#fb7185;font-size:15rpx}.status{flex:none;padding:7rpx 11rpx;border-radius:999rpx;background:#f3f4f6;color:#6b7280;font-size:16rpx}.status.pending{background:rgba(0,0,0,.06);color:#111827}.status.completed{background:rgba(0,0,0,.06);color:#111827}.status.rejected{background:rgba(239,68,68,.09);color:#fb7185}.empty{padding:54rpx 0 24rpx;color:#6b7280;text-align:center;font-size:18rpx}
 </style>

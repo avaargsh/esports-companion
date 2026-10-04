@@ -83,7 +83,7 @@ def current_user_id(
 def require_player(
     principal: Principal = Depends(current_principal),
 ) -> Principal:
-    if "PLAYER" not in principal.roles:
+    if "PLAYER" not in principal.roles and "PLATFORM" not in principal.roles:
         raise HTTPException(403, "PLAYER_REQUIRED")
     if settings.is_secure_deployment:
         return require_session(principal)

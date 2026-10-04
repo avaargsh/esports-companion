@@ -25,6 +25,7 @@ import { useAsyncStatus } from "../../shared/composables/useAsyncStatus"
 import type { Order, OrderEvent } from "../../types/domain"
 import { showMessage } from "../../ui/feedback"
 import {
+  orderStatusCode,
   orderStatusMeta,
   playerActionErrorMessage
 } from "../../utils/order"
@@ -50,16 +51,20 @@ export function usePlayerOrderDetail() {
 
   let realtime: OrderRealtimeSubscription | null = null
 
+  const orderStatus = computed(() =>
+    order.value ? order.value.status_code || orderStatusCode(order.value.status) : undefined
+  )
+
   const meta = computed(() =>
-    order.value ? orderStatusMeta(order.value.status, "PLAYER") : null
+    order.value ? orderStatusMeta(orderStatus.value || "WAITING_PAYMENT", "PLAYER") : null
   )
 
   const incomeCaption = computed(() =>
-    playerIncomeCaption(order.value?.status)
+    playerIncomeCaption(orderStatus.value)
   )
 
   const demoJourney = computed(() =>
-    playerDemoJourney(order.value?.status)
+    playerDemoJourney(orderStatus.value)
   )
 
   const visibleEvents = computed(() =>
@@ -69,11 +74,11 @@ export function usePlayerOrderDetail() {
   )
 
   const chatVisible = computed(() =>
-    isOrderChatVisible(order.value?.status)
+    isOrderChatVisible(orderStatus.value)
   )
 
   const chatWritable = computed(() =>
-    isOrderChatWritable(order.value?.status)
+    isOrderChatWritable(orderStatus.value)
   )
 
   const primaryAction = computed(() =>

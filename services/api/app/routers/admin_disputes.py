@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import Dispute, Refund
+from app.models import Dispute, OrderAssignment, Refund
 from app.schemas import DisputeOut, RefundComplete, RefundOut
 from app.providers.registry import get_refund_provider
 from app.security import Principal, require_platform
@@ -13,6 +13,23 @@ from app.services.dispute_service import DisputeService
 from app.services.refund_service import RefundService
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin-disputes"])
+
+
+def _dispute_out(db: Session, dispute: Dispute) -> dict:
+    payload = DisputeOut.model_validate(dispute).model_dump()
+    actions: list[str] = []
+    if dispute.status == "OPEN":
+        actions.append("REFUND_CUSTOMER")
+        has_active_provider = db.scalar(
+            select(OrderAssignment.id).where(
+                OrderAssignment.order_id == dispute.order_id,
+                OrderAssignment.status == "ACTIVE",
+            )
+        )
+        if has_active_provider:
+            actions.insert(0, "RELEASE_PROVIDER")
+    payload["available_actions"] = actions
+    return payload
 
 
 @router.get("/disputes", response_model=list[DisputeOut])
@@ -24,7 +41,7 @@ def list_disputes(
     stmt = select(Dispute).order_by(Dispute.created_at.desc()).limit(100)
     if status:
         stmt = stmt.where(Dispute.status == status.upper())
-    return list(db.scalars(stmt))
+    return [_dispute_out(db, item) for item in db.scalars(stmt)]
 
 
 @router.post("/disputes/{dispute_id}/release", response_model=DisputeOut)
@@ -34,11 +51,12 @@ def release_to_provider(
     db: Session = Depends(get_db),
 ):
     try:
-        return DisputeService.release_to_provider(
+        dispute = DisputeService.release_to_provider(
             db,
             dispute_id=dispute_id,
             admin_user_id=principal.user_id,
         )
+        return _dispute_out(db, dispute)
     except LookupError as exc:
         raise HTTPException(404, str(exc)) from exc
     except ValueError as exc:

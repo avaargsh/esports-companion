@@ -27,6 +27,9 @@ function errorMessage(data: unknown): string {
   if (typeof data === "object" && data && "detail" in data) {
     return String((data as { detail: unknown }).detail)
   }
+  if (typeof data === "object" && data && "message" in data) {
+    return String((data as { message: unknown }).message)
+  }
   return "REQUEST_FAILED"
 }
 
