@@ -200,9 +200,9 @@ func TestAuthorityPayloadDigestMatchesReturnedSnapshot(t *testing.T) {
 	}
 
 	authority := NewAuthorityEnvelope(AuthorityEnvelopeInput{
-		Authorization: decision,
-		ExpectedState: map[string]any{"status": "MATCHING"},
-		BoundedWrite:  map[string]any{"operation": "ORDER_READ"},
+		Authorization:   decision,
+		ExpectedState:   map[string]any{"status": "MATCHING"},
+		BoundedWrite:    map[string]any{"operation": "ORDER_READ"},
 		ResourceVersion: "order:00000000-0000-0000-0000-000000000201:v1",
 	})
 
