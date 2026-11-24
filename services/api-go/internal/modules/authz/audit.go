@@ -5,17 +5,25 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/avaargsh/esports-companion/services/api-go/internal/platform/idgen"
 )
 
-type AuditRepository struct {
-	db *pgxpool.Pool
+type auditExecer interface {
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
 }
 
-func NewAuditRepository(db *pgxpool.Pool) AuditRepository {
-	return AuditRepository{db: db}
+type AuditRepository struct {
+	tx auditExecer
+}
+
+// NewAuditRepository binds audit writes to the caller's transaction. Pass a
+// pgx.Tx so authorization evidence commits or rolls back with the protected
+// business mutation; do not pass a pool.
+func NewAuditRepository(tx pgx.Tx) AuditRepository {
+	return AuditRepository{tx: tx}
 }
 
 func (r AuditRepository) RecordDecision(
@@ -79,7 +87,7 @@ func (r AuditRepository) insert(
 	if err != nil {
 		return err
 	}
-	if _, err := r.db.Exec(ctx, `
+	if _, err := r.tx.Exec(ctx, `
 		INSERT INTO outbox_events (
 			id, aggregate_type, aggregate_id, event_type, payload_json, status
 		)
