@@ -3,6 +3,7 @@ package authz
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
@@ -22,8 +23,11 @@ type AuditRepository struct {
 // NewAuditRepository binds audit writes to the caller's transaction. Pass a
 // pgx.Tx so authorization evidence commits or rolls back with the protected
 // business mutation; do not pass a pool.
-func NewAuditRepository(tx pgx.Tx) AuditRepository {
-	return AuditRepository{tx: tx}
+func NewAuditRepository(tx pgx.Tx) (AuditRepository, error) {
+	if tx == nil {
+		return AuditRepository{}, errors.New("authorization audit requires caller transaction")
+	}
+	return AuditRepository{tx: tx}, nil
 }
 
 func (r AuditRepository) RecordDecision(
@@ -79,6 +83,9 @@ func (r AuditRepository) insert(
 	eventType string,
 	payload map[string]any,
 ) error {
+	if r.tx == nil {
+		return errors.New("authorization audit requires caller transaction")
+	}
 	id, err := idgen.UUIDv4()
 	if err != nil {
 		return err
