@@ -319,14 +319,14 @@ func TestAuthorityEnvelopeRejectsMissingRuntimeDefaults(t *testing.T) {
 
 func TestCanonicalJSONMatchesPythonUnicodeContract(t *testing.T) {
 	value := map[string]any{
-		literal: `\u2028`,
-		note:    "<ready>&\u2028中",
+		"literal": "\\\\u2028",
+		"note":    "<ready>&\u2028中",
 	}
 	encoded, err := canonicalJSON(value)
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := "{\"literal\":\"\\\\u2028\",\"note\":\"<ready>&" + "\u2028" + "中\"}"
+	expected := "{\"literal\":\"\\\\\\\\u2028\",\"note\":\"<ready>&" + "\u2028" + "中\"}"
 	if string(encoded) != expected {
 		t.Fatalf("canonical JSON mismatch: got %q want %q", string(encoded), expected)
 	}
@@ -366,13 +366,17 @@ func TestAuthorityDigestMatchesPythonUnicodeGoldenVector(t *testing.T) {
 func TestDiffMatchesPythonNumericAndMissingNullSemantics(t *testing.T) {
 	got := diff(
 		map[string]any{
-			walletVersion: 7,
-			optional:      nil,
-			nested:        map[string]any{"amount": int64(2500)},
+			"walletVersion": 7,
+			"optional":      nil,
+			"nested":        map[string]any{"amount": int64(2500)},
 		},
 		map[string]any{
-			walletVersion: float64(7),
-			nested:        map[string]any{"amount": json.Number("2500")},
+			"walletVersion":       float64(7),
+			"walletFrozenBalance": float64(2500),
+			"metadata": map[string]any{
+				"version": float64(7),
+				"counts":  []any{float64(2), float64(3)},
+			},
 		},
 	)
 	if len(got) != 0 {
