@@ -4,23 +4,7 @@ on:
   push:
     branches:
       - main
-    paths:
-      - "services/api-go/**"
-      - "scripts/go_read_parity.py"
-      - "scripts/go_auth_parity.py"
-      - "scripts/go_offering_parity.py"
-      - "docs/go-backend-migration.md"
-      - ".github/workflows/api-go.yml"
-      - "Makefile"
   pull_request:
-    paths:
-      - "services/api-go/**"
-      - "scripts/go_read_parity.py"
-      - "scripts/go_auth_parity.py"
-      - "scripts/go_offering_parity.py"
-      - "docs/go-backend-migration.md"
-      - ".github/workflows/api-go.yml"
-      - "Makefile"
   workflow_dispatch:
 
 permissions:

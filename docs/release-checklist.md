@@ -5,6 +5,7 @@ Use this before exposing a production deployment to real users or money.
 ## Product gate and change freeze
 
 - [ ] The automated **Release Checklist Gate** is green. It requires API, API Go, Mini Program, Admin, API image, HTTP product slice, backup/restore, ingress, metrics and staging configuration jobs to pass.
+- [ ] The separate **API Go** workflow's `test` and `parity` jobs are green for the candidate revision. These jobs run on every pull request and push to `main` (including FastAPI-only changes); require the relevant checks in branch protection. A green consolidated gate alone does not prove cross-runtime parity.
 - [ ] The HTTP product slice proves: login -> order -> payment -> public claim -> start -> finish -> customer confirm -> review.
 - [ ] Admin acceptance proves the dispute queue can resolve a real order path and the withdrawal queue can list, approve and reject requests.
 - [ ] Discovery acceptance proves only approved/available players with active Offerings are returned, and designated booking bypasses the public order pool.
