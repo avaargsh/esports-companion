@@ -6,24 +6,25 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/avaargsh/esports-companion/services/api-go/internal/platform/idgen"
 )
 
-type auditExecer interface {
+type auditTransaction interface {
 	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+	Commit(context.Context) error
+	Rollback(context.Context) error
 }
 
 type AuditRepository struct {
-	tx auditExecer
+	tx auditTransaction
 }
 
-// NewAuditRepository binds audit writes to the caller's transaction. Pass a
-// pgx.Tx so authorization evidence commits or rolls back with the protected
-// business mutation; do not pass a pool.
-func NewAuditRepository(tx pgx.Tx) (AuditRepository, error) {
+// NewAuditRepository binds audit writes to the caller's transaction. A pgx.Tx
+// satisfies this narrow interface; a pgxpool.Pool does not because it cannot
+// commit or roll back a caller-owned transaction.
+func NewAuditRepository(tx auditTransaction) (AuditRepository, error) {
 	if tx == nil {
 		return AuditRepository{}, errors.New("authorization audit requires caller transaction")
 	}

@@ -27,6 +27,16 @@ func (f *fakeAuditTx) Exec(_ context.Context, query string, args ...any) (pgconn
 	return pgconn.CommandTag{}, f.err
 }
 
+func (f *fakeAuditTx) Commit(context.Context) error {
+	return nil
+}
+
+func (f *fakeAuditTx) Rollback(context.Context) error {
+	return nil
+}
+
+var _ auditTransaction = (*fakeAuditTx)(nil)
+
 func TestRecordDecisionWritesAuditOutboxEvent(t *testing.T) {
 	tx := &fakeAuditTx{}
 	repository, err := NewAuditRepository(tx)
