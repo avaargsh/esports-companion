@@ -11,6 +11,7 @@ on:
       - "scripts/go_offering_parity.py"
       - "docs/go-backend-migration.md"
       - ".github/workflows/api-go.yml"
+      - "Makefile"
   pull_request:
     paths:
       - "services/api-go/**"
@@ -19,6 +20,7 @@ on:
       - "scripts/go_offering_parity.py"
       - "docs/go-backend-migration.md"
       - ".github/workflows/api-go.yml"
+      - "Makefile"
   workflow_dispatch:
 
 permissions:
