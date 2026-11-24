@@ -7,6 +7,7 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+	"time"
 )
 
 func referenceDecision() AuthorizationDecision {
@@ -272,4 +273,135 @@ func TestAuthorityAdmissionMatchesPythonNumericEquality(t *testing.T) {
 	if admission.Decision != "ADMIT" || len(admission.StateDiff) != 0 {
 		t.Fatalf("unexpected admission for equivalent JSON values: %#v", admission)
 	}
+}
+
+
+func TestRequireOwnerRejectsEmptyActorID(t *testing.T) {
+    _, err := RequireOwner(OwnerPolicyInput{
+        ActorUserID: "",
+        OwnerUserID: "",
+        Action: "WALLET_READ",
+        ResourceType: "WALLET",
+        ResourceID: "wallet-1",
+    })
+    var denied *ResourceAuthorizationDenied
+    if !errors.As(err, &denied) || denied.Decision.ReasonCode != "ACTOR_REQUIRED" {
+        t.Fatalf("expected fail-closed actor validation, got %v", err)
+    }
+}
+
+func TestRequirePlatformRejectsEmptyActorID(t *testing.T) {
+    _, err := RequirePlatform(PlatformPolicyInput{
+        ActorUserID: "",
+        ActorRoles: []string{"PLATFORM"},
+        Action: "PLAYER_APPROVE",
+        ResourceType: "PLAYER_PROFILE",
+        ResourceID: "player-1",
+    })
+    var denied *ResourceAuthorizationDenied
+    if !errors.As(err, &denied) || denied.Decision.ReasonCode != "ACTOR_REQUIRED" {
+        t.Fatalf("expected fail-closed actor validation, got %v", err)
+    }
+}
+
+func TestAuthorityEnvelopeRejectsMissingRuntimeDefaults(t *testing.T) {
+    authority := referenceAuthority()
+    authority.IssuedAt = ""
+    if _, err := authority.Digest(); err == nil {
+        t.Fatal("expected missing issuedAt to fail closed")
+    }
+
+    authority = referenceAuthority()
+    authority.Authorization.OccurredAt = ""
+    if _, err := authority.Payload(); err == nil {
+        t.Fatal("expected missing authorization occurredAt to fail closed")
+    }
+}
+
+func TestCanonicalJSONMatchesPythonUnicodeContract(t *testing.T) {
+    value := map[string]any{
+        "literal": `\u2028`,
+        "note": "<ready>&\u2028中",
+    }
+    encoded, err := canonicalJSON(value)
+    if err != nil {
+        t.Fatal(err)
+    }
+    expected := `{"literal":"\\u2028","note":"<ready>&` + "\u2028" + String.raw`中"}`
+    if string(encoded) != expected {
+        t.Fatalf("canonical JSON mismatch: got %q want %q", string(encoded), expected)
+    }
+}
+
+func TestAuthorityDigestMatchesPythonUnicodeGoldenVector(t *testing.T) {
+    authority := NewAuthorityEnvelope(AuthorityEnvelopeInput{
+        Authorization: AuthorizationDecision{
+            ActorUserID: "user-1",
+            ActorRoles: []string{"USER"},
+            Action: "ORDER_READ",
+            ResourceType: "ORDER",
+            ResourceID: "order-1",
+            Scope: "OWNER",
+            Decision: "ALLOW",
+            ReasonCode: "OWNER_MATCH",
+            PolicyVersion: PolicyVersion,
+            RequestID: "req-1",
+            BusinessEvidenceRef: "<order>&\u2028中",
+            OccurredAt: "2026-11-24T08:00:00+00:00",
+        },
+        ExpectedState: map[string]any{"note": "<ready>&\u2028中"},
+        BoundedWrite: map[string]any{"operation": "ORDER_READ"},
+        ResourceVersion: "order:1:v1",
+        IssuedAt: "2026-11-24T08:00:01+00:00",
+    })
+    digest, err := authority.Digest()
+    if err != nil {
+        t.Fatal(err)
+    }
+    const expected = "eb0c71e4b5f72a5c6a9adea249349d6ad402089f2a995500575d234b459b08ed"
+    if digest != expected {
+        t.Fatalf("Unicode/HTML digest mismatch: got %s want %s", digest, expected)
+    }
+}
+
+func TestDiffMatchesPythonNumericAndMissingNullSemantics(t *testing.T) {
+    got := diff(
+        map[string]any{
+            "walletVersion": 7,
+            "optional": nil,
+            "nested": map[string]any{"amount": int64(2500)},
+        },
+        map[string]any{
+            "walletVersion": float64(7),
+            "nested": map[string]any{"amount": json.Number("2500")},
+        },
+    )
+    if len(got) != 0 {
+        t.Fatalf("Python-equivalent state values should not drift: %#v", got)
+    }
+}
+
+func TestAuthorizationDecisionPayloadUsesEmptyRolesArray(t *testing.T) {
+    decision := AuthorizationDecision{
+        ActorUserID: "user-1",
+        Action: "ORDER_READ",
+        ResourceType: "ORDER",
+        ResourceID: "order-1",
+        Scope: "OWNER",
+        Decision: "ALLOW",
+        ReasonCode: "OWNER_MATCH",
+        OccurredAt: "2026-11-24T08:00:00+00:00",
+    }
+    roles, ok := decision.Payload()["actorRoles"].([]string)
+    if !ok || roles == nil || len(roles) != 0 {
+        t.Fatalf("expected an empty JSON array for actorRoles, got %#v", decision.Payload()["actorRoles"])
+    }
+}
+
+func TestUTCISOUsesPythonMicrosecondPrecision(t *testing.T) {
+    value := time.Date(2026, 11, 24, 8, 0, 0, 123456789, time.UTC)
+    const expected = "2026-11-24T08:00:00.123456+00:00"
+    if got := utcISO(value); got != expected {
+        t.Fatalf("timestamp precision mismatch: got %s want %s", got, expected)
+    }
 }
