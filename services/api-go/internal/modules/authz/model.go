@@ -646,4 +646,3 @@ func utcISO(value time.Time) string {
 	}
 	return value.Format("2006-01-02T15:04:05.000000+00:00")
 }
-}
