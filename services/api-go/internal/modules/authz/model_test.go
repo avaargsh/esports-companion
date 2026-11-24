@@ -185,7 +185,6 @@ func TestAuthorityAdmissionDeniesWriteMismatchFirst(t *testing.T) {
 	}
 }
 
-
 func TestAuthorityPayloadDigestMatchesReturnedSnapshot(t *testing.T) {
 	authority := AuthorityEnvelope{
 		Authorization: AuthorizationDecision{
