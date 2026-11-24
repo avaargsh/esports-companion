@@ -67,12 +67,12 @@ func TestRecordAdmissionWritesAuthorityAndAdmissionEvidence(t *testing.T) {
 	repository := AuditRepository{tx: tx}
 	authority := referenceAuthority()
 	admission := AuthorityAdmissionDecision{
-		AuthorityDigest: authorityDigestForTest(t, authority),
-		Decision:        "DENY",
-		ReasonCode:      "AUTHORITY_STATE_DRIFT",
-		CurrentState:    map[string]any{"walletVersion": 8},
+		AuthorityDigest:        authorityDigestForTest(t, authority),
+		Decision:               "DENY",
+		ReasonCode:             "AUTHORITY_STATE_DRIFT",
+		CurrentState:           map[string]any{"walletVersion": 8},
 		CurrentResourceVersion: "withdrawal:201:status=PENDING;wallet:401:v8",
-		RequestedWrite:  authority.BoundedWrite,
+		RequestedWrite:         authority.BoundedWrite,
 		StateDiff: map[string]DiffValue{
 			"walletVersion": {Expected: 7, Current: 8},
 		},
