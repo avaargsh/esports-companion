@@ -6,9 +6,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"math"
 	"math/big"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -441,6 +443,11 @@ func numericRat(value any) (*big.Rat, bool) {
 		return new(big.Rat).SetInt64(reflected.Int()), true
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
 		return new(big.Rat).SetInt(new(big.Int).SetUint64(reflected.Uint())), true
+	case reflect.Bool:
+		if reflected.Bool() {
+			return new(big.Rat).SetInt64(1), true
+		}
+		return new(big.Rat).SetInt64(0), true
 	case reflect.Float32, reflect.Float64:
 		rational := new(big.Rat)
 		if rational.SetFloat64(reflected.Float()) == nil {
@@ -453,14 +460,118 @@ func numericRat(value any) (*big.Rat, bool) {
 }
 
 func canonicalJSON(value any) ([]byte, error) {
+	normalized, err := normalizePythonJSONValue(value)
+	if err != nil {
+		return nil, err
+	}
+
 	var buffer bytes.Buffer
 	encoder := json.NewEncoder(&buffer)
 	encoder.SetEscapeHTML(false)
-	if err := encoder.Encode(value); err != nil {
+	if err := encoder.Encode(normalized); err != nil {
 		return nil, err
 	}
 	encoded := bytes.TrimSuffix(buffer.Bytes(), []byte{'\n'})
 	return unescapeJSONLineSeparators(encoded), nil
+}
+
+func normalizePythonJSONValue(value any) (any, error) {
+	switch typed := value.(type) {
+	case json.Number:
+		return typed, nil
+	case json.RawMessage:
+		return typed, nil
+	case []byte:
+		return typed, nil
+	case float64:
+		return pythonFloatJSONNumber(typed)
+	case float32:
+		return pythonFloatJSONNumber(float64(typed))
+	}
+
+	reflected := reflect.ValueOf(value)
+	if !reflected.IsValid() {
+		return nil, nil
+	}
+
+	switch reflected.Kind() {
+	case reflect.Interface, reflect.Pointer:
+		if reflected.IsNil() {
+			return nil, nil
+		}
+		return normalizePythonJSONValue(reflected.Elem().Interface())
+	case reflect.Map:
+		if reflected.IsNil() || reflected.Type().Key().Kind() != reflect.String {
+			return value, nil
+		}
+		normalized := make(map[string]any, reflected.Len())
+		for _, key := range reflected.MapKeys() {
+			item, err := normalizePythonJSONValue(reflected.MapIndex(key).Interface())
+			if err != nil {
+				return nil, err
+			}
+			normalized[key.String()] = item
+		}
+		return normalized, nil
+	case reflect.Slice:
+		if reflected.IsNil() || reflected.Type().Elem().Kind() == reflect.Uint8 {
+			return value, nil
+		}
+		fallthrough
+	case reflect.Array:
+		normalized := make([]any, reflected.Len())
+		for index := 0; index < reflected.Len(); index++ {
+			item, err := normalizePythonJSONValue(reflected.Index(index).Interface())
+			if err != nil {
+				return nil, err
+			}
+			normalized[index] = item
+		}
+		return normalized, nil
+	default:
+		return value, nil
+	}
+}
+
+// pythonFloatJSONNumber preserves Python json.dumps float notation while
+// retaining Go's shortest round-trippable decimal digits.
+func pythonFloatJSONNumber(value float64) (json.Number, error) {
+	if math.IsNaN(value) || math.IsInf(value, 0) {
+		return "", errors.New("non-finite floats are not supported in canonical JSON")
+	}
+
+	scientific := strconv.FormatFloat(value, 'e', -1, 64)
+	parts := strings.SplitN(scientific, "e", 2)
+	if len(parts) != 2 {
+		return "", errors.New("invalid canonical float representation")
+	}
+	exponent, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return "", err
+	}
+	if exponent < -4 || exponent >= 16 {
+		return json.Number(scientific), nil
+	}
+
+	mantissa := parts[0]
+	sign := ""
+	if strings.HasPrefix(mantissa, "-") {
+		sign = "-"
+		mantissa = strings.TrimPrefix(mantissa, "-")
+	}
+	digits := strings.ReplaceAll(mantissa, ".", "")
+	decimalPosition := exponent + 1
+
+	var fixed string
+	switch {
+	case decimalPosition <= 0:
+		fixed = "0." + strings.Repeat("0", -decimalPosition) + digits
+	case decimalPosition >= len(digits):
+		fixed = digits + strings.Repeat("0", decimalPosition-len(digits)) + ".0"
+	default:
+		fixed = digits[:decimalPosition] + "." + digits[decimalPosition:]
+	}
+	return json.Number(sign + fixed), nil
 }
 
 // Python json.dumps(ensure_ascii=false) emits U+2028/U+2029 literally.
