@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 
 	"github.com/jackc/pgx/v5/pgconn"
 
@@ -38,6 +39,9 @@ func (r AuditRepository) RecordDecision(
 ) error {
 	payload := decision.Payload()
 	if authority != nil {
+		if !reflect.DeepEqual(payload, authority.Authorization.Payload()) {
+			return errors.New("authorization audit decision does not match authority envelope")
+		}
 		authorityPayload, err := authority.Payload()
 		if err != nil {
 			return err
@@ -57,6 +61,13 @@ func (r AuditRepository) RecordAdmission(
 	authority AuthorityEnvelope,
 	admission AuthorityAdmissionDecision,
 ) error {
+	digest, err := authority.Digest()
+	if err != nil {
+		return err
+	}
+	if admission.AuthorityDigest != digest {
+		return errors.New("authority admission digest does not match envelope")
+	}
 	authorityPayload, err := authority.Payload()
 	if err != nil {
 		return err
