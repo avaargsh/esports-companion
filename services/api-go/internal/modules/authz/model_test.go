@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"math"
 	"reflect"
 	"testing"
 	"time"
@@ -402,5 +403,37 @@ func TestUTCISOUsesPythonMicrosecondPrecision(t *testing.T) {
 	const expected = "2026-11-24T08:00:00.123456+00:00"
 	if got := utcISO(value); got != expected {
 		t.Fatalf("timestamp precision mismatch: got %s want %s", got, expected)
+	}
+}
+
+func TestCanonicalJSONMatchesPythonFloatFormatting(t *testing.T) {
+	value := map[string]any{
+		"fixedLarge":      float64(1e15),
+		"fixedSmall":      float64(1e-4),
+		"negativeZero":    math.Copysign(0, -1),
+		"scientificLarge": float64(1e16),
+		"scientificSmall": float64(1e-5),
+		"nested": []any{
+			float64(1.0),
+			map[string]any{"small": float64(1e-5)},
+		},
+	}
+	encoded, err := canonicalJSON(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const expected = `{"fixedLarge":1000000000000000.0,"fixedSmall":0.0001,"negativeZero":-0.0,"nested":[1.0,{"small":1e-05}],"scientificLarge":1e+16,"scientificSmall":1e-05}`
+	if string(encoded) != expected {
+		t.Fatalf("Python float JSON mismatch: got %s want %s", encoded, expected)
+	}
+}
+
+func TestDiffMatchesPythonBooleanNumericEquality(t *testing.T) {
+	got := diff(
+		map[string]any{"enabled": true, "disabled": false},
+		map[string]any{"enabled": int64(1), "disabled": float64(0)},
+	)
+	if len(got) != 0 {
+		t.Fatalf("Python bool/numeric-equivalent values should not drift: %#v", got)
 	}
 }
