@@ -175,7 +175,8 @@ writes:
 - `authority-envelope.v1` canonical payload and SHA-256 digest;
 - `authority-admission.v1` exact-state and bounded-write admission;
 - append-only authorization/admission audit records through PostgreSQL
-  `outbox_events`.
+  `outbox_events`, written through the caller's `pgx.Tx` so evidence and the
+  protected business mutation commit or roll back together.
 
 Acceptance:
 
