@@ -1,4 +1,4 @@
-.PHONY: up down logs migrate seed db-reset test smoke sample-product-01 verify miniapp-build miniapp-staging-build admin-build prod-build prod-up prod-down prod-logs prod-backup prod-restore-drill staging-preflight staging-build staging-up staging-down staging-logs staging-check staging-wechat-evidence staging-withdrawal-acceptance
+.PHONY: up down logs migrate seed db-reset test smoke sample-product-01 verify miniapp-build miniapp-staging-build admin-build prod-build prod-up prod-down prod-logs prod-backup prod-restore-drill staging-preflight staging-build staging-up staging-down staging-logs staging-check staging-wechat-evidence staging-withdrawal-acceptance go-parity
 
 up:
 	docker compose up --build -d
@@ -98,3 +98,8 @@ staging-withdrawal-acceptance:
 		python -m app.tools.withdrawal_acceptance \
 		--withdrawal-id "$(WITHDRAWAL_ID)" \
 		--expected-payout-ref "$(PAYOUT_REF)"
+
+go-parity:
+	python3 scripts/go_read_parity.py
+	python3 scripts/go_auth_parity.py
+	python3 scripts/go_offering_parity.py
