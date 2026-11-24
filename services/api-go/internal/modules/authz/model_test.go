@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"testing"
 )
 
@@ -186,40 +187,61 @@ func TestAuthorityAdmissionDeniesWriteMismatchFirst(t *testing.T) {
 }
 
 func TestAuthorityPayloadDigestMatchesReturnedSnapshot(t *testing.T) {
-	authority := AuthorityEnvelope{
-		Authorization: AuthorizationDecision{
-			ActorUserID:   "00000000-0000-0000-0000-000000000101",
-			ActorRoles:    []string{"USER"},
-			Action:        "ORDER_READ",
-			ResourceType:  "ORDER",
-			ResourceID:    "00000000-0000-0000-0000-000000000201",
-			Decision:      "ALLOW",
-			ReasonCode:    "OWNER_MATCH",
-		},
-		ExpectedState:   map[string]any{"status": "MATCHING"},
-		BoundedWrite:    map[string]any{"operation": "ORDER_READ"},
-		ResourceVersion: "order:00000000-0000-0000-0000-000000000201:v1",
+	decision, err := RequireOwner(OwnerPolicyInput{
+		ActorUserID:  "00000000-0000-0000-0000-000000000101",
+		ActorRoles:   []string{"USER"},
+		OwnerUserID:  "00000000-0000-0000-0000-000000000101",
+		Action:       "ORDER_READ",
+		ResourceType: "ORDER",
+		ResourceID:   "00000000-0000-0000-0000-000000000201",
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	for attempt := 0; attempt < 10; attempt++ {
-		payload, err := authority.Payload()
-		if err != nil {
-			t.Fatal(err)
-		}
-		digest, ok := payload["authorityDigest"].(string)
-		if !ok || digest == "" {
-			t.Fatalf("missing authority digest: %#v", payload)
-		}
+	authority := NewAuthorityEnvelope(AuthorityEnvelopeInput{
+		Authorization: decision,
+		ExpectedState: map[string]any{"status": "MATCHING"},
+		BoundedWrite:  map[string]any{"operation": "ORDER_READ"},
+		ResourceVersion: "order:00000000-0000-0000-0000-000000000201:v1",
+	})
 
-		delete(payload, "digestAlgorithm")
-		delete(payload, "authorityDigest")
-		canonical, err := json.Marshal(payload)
-		if err != nil {
-			t.Fatal(err)
-		}
-		sum := sha256.Sum256(canonical)
-		if got := hex.EncodeToString(sum[:]); digest != got {
-			t.Fatalf("payload digest does not match its serialized snapshot: got %s want %s", digest, got)
-		}
+	first, err := authority.Payload()
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := authority.Payload()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(first, second) {
+		t.Fatalf("authority payload changed between reads: first=%#v second=%#v", first, second)
+	}
+
+	digest, err := authority.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first["authorityDigest"] != digest {
+		t.Fatalf("payload digest does not match stable envelope digest: payload=%v digest=%s", first["authorityDigest"], digest)
+	}
+
+	admission, err := Admit(authority, authority.ExpectedState, authority.ResourceVersion, authority.BoundedWrite)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if admission.AuthorityDigest != digest {
+		t.Fatalf("admission digest changed: got %s want %s", admission.AuthorityDigest, digest)
+	}
+
+	delete(first, "digestAlgorithm")
+	delete(first, "authorityDigest")
+	canonical, err := json.Marshal(first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256(canonical)
+	if got := hex.EncodeToString(sum[:]); digest != got {
+		t.Fatalf("payload digest does not match its serialized snapshot: got %s want %s", digest, got)
 	}
 }
