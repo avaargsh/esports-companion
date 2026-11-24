@@ -145,6 +145,11 @@ func TestAuthorityAdmissionExactMatch(t *testing.T) {
 	if len(admission.StateDiff) != 0 || len(admission.WriteDiff) != 0 {
 		t.Fatalf("expected empty diffs: %#v", admission)
 	}
+	firstPayload := admission.Payload()
+	secondPayload := admission.Payload()
+	if !reflect.DeepEqual(firstPayload, secondPayload) {
+		t.Fatalf("admission payload changed between reads: first=%#v second=%#v", firstPayload, secondPayload)
+	}
 }
 
 func TestAuthorityAdmissionDeniesStateDrift(t *testing.T) {
