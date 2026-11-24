@@ -1,4 +1,4 @@
-# Project Status — 2026-09-30
+# Project Status — 2026-11-24
 
 This page records the current engineering state of **esports-companion**. It is intentionally a status snapshot, not a marketing roadmap.
 
@@ -22,6 +22,19 @@ Customer discovery / quick match
 ```
 
 The remaining release risk is no longer basic CRUD or page completeness. The main gate is **real staging acceptance against WeChat and real-money boundaries**, especially the first low-value withdrawal end to end.
+
+## Current engineering baseline — 2026-11-24
+
+Verified against GitHub at this snapshot:
+
+- `main`: `7a02ad9` — Go validation is part of the main Release Checklist Gate; PR #108 added a manual `workflow_dispatch` entry point.
+- `main` branch protection: not enabled (`protected=false`).
+- GitHub Actions: no workflow runs or check-run contexts were observable for the inspected commits. Workflow configuration is not evidence of a successful run.
+- Historical `refactor/go-backend-foundation`: 48 commits ahead / 71 behind `main`; source-only, not an integration target.
+
+The mainline Go milestones already merged are PR #85 (M0 foundation), #86 (M1 catalog/marketplace), #87 (M2 auth/session), #88 (protected offerings), #104 (mainline migration policy), and #105 (Go checks in the release gate).
+
+PR #106 is the in-progress M2.2 authorization/authority kernel slice. It is not merged and must not be treated as part of the current mainline until its Go checks and parity evidence pass.
 
 ## Current milestone
 
@@ -84,25 +97,46 @@ The most important recent merges on `main` are:
 | #50 | Release gate | Product-slice release gate and change freeze |
 | #51 | Withdrawal acceptance | Read-only verifier and staging runbook for first real withdrawal |
 | #52 | Withdrawal traceability | Withdrawal IDs and payout references exposed to Mini Program/Admin |
+| #85 | Go foundation | Minimal Go API runtime and platform foundation merged |
+| #86 | Go M1 | Read-only catalog and marketplace parity merged |
+| #87 | Go M2 | Auth/session parity merged |
+| #88 | Go offerings | Protected provider offerings merged |
+| #104 | Go migration governance | Mainline-only migration policy and legacy branch guard merged |
+| #105 | Go CI gate | Go validation added to the main release checklist gate |
+| #108 | CI manual trigger | Added `workflow_dispatch` to the consolidated release gate |
 
 The current `main` head at the time of this snapshot is:
 
 ```text
-6f8fa9a feat(product): make withdrawal acceptance traceable (#52)
+7a02ad9 ci: add manual release gate trigger and document Go checks (#108)
 ```
 
 ## Go backend migration track
 
-A separate branch, `refactor/go-backend-foundation`, remains an active migration track rather than the production source of truth.
+The Go migration now uses `main` as its only integration line. The historical
+`refactor/go-backend-foundation` branch is frozen and source-only; it is
+currently 48 commits ahead / 72 commits behind and must not be merged wholesale.
 
-Completed work on that track includes:
+Mainline Go slices already merged:
 
-- M1 catalog/marketplace reads;
-- M1 hardening and integration checks;
-- M2 auth/session runtime;
-- protected provider offerings.
+- M0 Go foundation — PR #85;
+- M1 read-only catalog / marketplace parity — PR #86;
+- M2 auth/session parity — PR #87;
+- protected provider offerings — PR #88;
+- mainline-only migration policy — PR #104;
+- Go module, formatting, vet, race-test and build checks in the Release Gate — PR #105.
 
-The FastAPI modular monolith on `main` remains authoritative until the Go track reaches explicit parity and acceptance gates. Avoid dual-source business truth during the migration.
+Current migration state:
+
+- M2.2 authorization / authority / evidence kernel — PR #106, open and not yet
+  accepted into `main`;
+- M3 order read/evidence and subsequent order write paths — not yet on `main`;
+- M4 payment/refund and M5 outbox/realtime/workers — not yet on `main`.
+
+The next sequence is M2.2 authorization/evidence, M3.0 order read/evidence,
+M3.1 order create, M3.2 atomic claim, M3.3 provider lifecycle, M3.4 settlement,
+M3.5 mock payment, then M4 and M5. Keep FastAPI as the executable reference
+until each semantic slice passes cross-runtime PostgreSQL parity.
 
 ## What is still not finished
 
@@ -152,7 +186,7 @@ The next milestone should therefore prioritize **real staging acceptance and ope
 3. Run the first low-value withdrawal end to end.
 4. Record payout reference and verify reconciliation.
 5. Complete backup/restore and alert-routing drills.
-6. Only after the release gate passes, decide whether to continue the Go migration or add product features.
+6. Continue Go migration through separate main-targeting semantic PRs; do not cut traffic over until cross-runtime parity, staging acceptance and rollback evidence pass.
 
 ## Related documents
 

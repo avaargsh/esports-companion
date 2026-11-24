@@ -434,6 +434,22 @@ jobs:
   api-go:
     name: API Go
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: esports
+          POSTGRES_PASSWORD: esports
+          POSTGRES_DB: esports_api_go
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U esports -d esports_api_go"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      TEST_DATABASE_URL: postgres://esports:esports@127.0.0.1:5432/esports_api_go?sslmode=disable
     defaults:
       run:
         working-directory: services/api-go
