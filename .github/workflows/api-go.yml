@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - "refactor/**"
     paths:
       - "services/api-go/**"
       - "scripts/go_read_parity.py"
@@ -20,6 +19,10 @@ on:
       - "scripts/go_offering_parity.py"
       - "docs/go-backend-migration.md"
       - ".github/workflows/api-go.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
   group: api-go-${{ github.event.pull_request.number || github.ref }}
@@ -28,6 +31,7 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: services/api-go
@@ -35,16 +39,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Enforce Go integration target
-        if: ${{ github.event_name == 'pull_request' && (startsWith(github.head_ref, 'feat/go-') || startsWith(github.head_ref, 'fix/go-')) }}
+      - name: Enforce Go mainline migration policy
+        if: ${{ github.event_name == 'pull_request' }}
         working-directory: .
         env:
           BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
         run: |
-          if [ "$BASE_REF" != "main" ]; then
-            echo "Go migration PRs must target main; the long-lived refactor integration branch is retired"
+          if [ "$HEAD_REF" = "refactor/go-backend-foundation" ]; then
+            echo "The legacy Go integration branch is source-only; create a fresh branch from main"
             exit 1
           fi
+
+          case "$HEAD_REF" in
+            feat/go-*|fix/go-*)
+              if [ "$BASE_REF" != "main" ]; then
+                echo "Go migration PRs must target main"
+                exit 1
+              fi
+              ;;
+          esac
 
       - uses: actions/setup-go@v6
         with:
@@ -76,6 +90,7 @@ jobs:
 
   parity:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     needs: test
 
     services:
