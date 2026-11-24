@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/avaargsh/esports-companion/services/api-go/internal/platform/idgen"
@@ -17,6 +18,8 @@ type auditTransaction interface {
 	Commit(context.Context) error
 	Rollback(context.Context) error
 }
+
+var _ auditTransaction = (pgx.Tx)(nil)
 
 type AuditRepository struct {
 	tx auditTransaction

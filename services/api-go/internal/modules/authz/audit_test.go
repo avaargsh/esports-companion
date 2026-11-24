@@ -8,12 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type fakeAuditTx struct {
-	pgx.Tx
 	calls int
 	query string
 	args  []any
