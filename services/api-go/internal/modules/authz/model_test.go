@@ -1,6 +1,9 @@
 package authz
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"testing"
 )
@@ -189,13 +192,13 @@ func TestAuthorityPayloadDigestMatchesReturnedSnapshot(t *testing.T) {
 			ActorUserID:   "00000000-0000-0000-0000-000000000101",
 			ActorRoles:    []string{"USER"},
 			Action:        "ORDER_READ",
-			ResourceType: "ORDER",
-			ResourceID:   "00000000-0000-0000-0000-000000000201",
+			ResourceType:  "ORDER",
+			ResourceID:    "00000000-0000-0000-0000-000000000201",
 			Decision:      "ALLOW",
 			ReasonCode:    "OWNER_MATCH",
 		},
-		ExpectedState: map[string]any{"status": "MATCHING"},
-		BoundedWrite:  map[string]any{"operation": "ORDER_READ"},
+		ExpectedState:   map[string]any{"status": "MATCHING"},
+		BoundedWrite:    map[string]any{"operation": "ORDER_READ"},
 		ResourceVersion: "order:00000000-0000-0000-0000-000000000201:v1",
 	}
 
