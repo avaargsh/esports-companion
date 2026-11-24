@@ -153,8 +153,11 @@ func TestAuditRepositoryWithoutTransactionFailsClosed(t *testing.T) {
 
 func TestRecordDecisionPropagatesTransactionFailure(t *testing.T) {
 	expected := errors.New("database unavailable")
-	repository := AuditRepository{tx: &fakeAuditTx{err: expected}}
-	err := repository.RecordDecision(context.Background(), referenceDecision(), nil)
+	repository, err := NewAuditRepository(&fakeAuditTx{err: expected})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = repository.RecordDecision(context.Background(), referenceDecision(), nil)
 	if !errors.Is(err, expected) {
 		t.Fatalf("expected wrapped transaction error, got %v", err)
 	}
