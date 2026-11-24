@@ -37,9 +37,6 @@ func (d AuthorizationDecision) Payload() map[string]any {
 		policyVersion = PolicyVersion
 	}
 	occurredAt := d.OccurredAt
-	if occurredAt == "" {
-		occurredAt = utcISO(time.Now())
-	}
 	return map[string]any{
 		"actorUserId":         d.ActorUserID,
 		"actorRoles":          append([]string(nil), d.ActorRoles...),
@@ -84,6 +81,10 @@ func RequireOwner(input OwnerPolicyInput) (AuthorizationDecision, error) {
 	if denialCode == "" {
 		denialCode = "RESOURCE_NOT_OWNED"
 	}
+	occurredAt := input.OccurredAt
+	if occurredAt == "" {
+		occurredAt = utcISO(time.Now())
+	}
 	decision := AuthorizationDecision{
 		ActorUserID:         input.ActorUserID,
 		ActorRoles:          append([]string(nil), input.ActorRoles...),
@@ -95,7 +96,7 @@ func RequireOwner(input OwnerPolicyInput) (AuthorizationDecision, error) {
 		SessionID:           input.SessionID,
 		RequestID:           input.RequestID,
 		BusinessEvidenceRef: input.BusinessEvidenceRef,
-		OccurredAt:          input.OccurredAt,
+		OccurredAt:          occurredAt,
 	}
 	if input.ActorUserID != input.OwnerUserID {
 		decision.Decision = "DENY"
@@ -120,6 +121,10 @@ type PlatformPolicyInput struct {
 }
 
 func RequirePlatform(input PlatformPolicyInput) (AuthorizationDecision, error) {
+	occurredAt := input.OccurredAt
+	if occurredAt == "" {
+		occurredAt = utcISO(time.Now())
+	}
 	decision := AuthorizationDecision{
 		ActorUserID:         input.ActorUserID,
 		ActorRoles:          append([]string(nil), input.ActorRoles...),
@@ -131,7 +136,7 @@ func RequirePlatform(input PlatformPolicyInput) (AuthorizationDecision, error) {
 		SessionID:           input.SessionID,
 		RequestID:           input.RequestID,
 		BusinessEvidenceRef: input.BusinessEvidenceRef,
-		OccurredAt:          input.OccurredAt,
+		OccurredAt:          occurredAt,
 	}
 	if !contains(input.ActorRoles, "PLATFORM") {
 		decision.Decision = "DENY"
@@ -153,14 +158,47 @@ type AuthorityEnvelope struct {
 	IssuedAt        string
 }
 
+type AuthorityEnvelopeInput struct {
+	Authorization   AuthorizationDecision
+	ExpectedState   map[string]any
+	BoundedWrite    map[string]any
+	ResourceVersion string
+	ApprovalID      string
+	EnvelopeVersion string
+	IssuedAt        string
+}
+
+// NewAuthorityEnvelope captures Python's dataclass default-factory semantics:
+// generated timestamps are assigned once when the envelope is created, not
+// regenerated every time its payload or digest is read.
+func NewAuthorityEnvelope(input AuthorityEnvelopeInput) AuthorityEnvelope {
+	authorization := input.Authorization
+	if authorization.OccurredAt == "" {
+		authorization.OccurredAt = utcISO(time.Now())
+	}
+	envelopeVersion := input.EnvelopeVersion
+	if envelopeVersion == "" {
+		envelopeVersion = AuthorityEnvelopeVersion
+	}
+	issuedAt := input.IssuedAt
+	if issuedAt == "" {
+		issuedAt = utcISO(time.Now())
+	}
+	return AuthorityEnvelope{
+		Authorization:   authorization,
+		ExpectedState:   cloneMap(input.ExpectedState),
+		BoundedWrite:    cloneMap(input.BoundedWrite),
+		ResourceVersion: input.ResourceVersion,
+		ApprovalID:      input.ApprovalID,
+		EnvelopeVersion: envelopeVersion,
+		IssuedAt:        issuedAt,
+	}
+}
+
 func (a AuthorityEnvelope) CanonicalPayload() map[string]any {
 	version := a.EnvelopeVersion
 	if version == "" {
 		version = AuthorityEnvelopeVersion
-	}
-	issuedAt := a.IssuedAt
-	if issuedAt == "" {
-		issuedAt = utcISO(time.Now())
 	}
 	return map[string]any{
 		"envelopeVersion": version,
@@ -169,7 +207,7 @@ func (a AuthorityEnvelope) CanonicalPayload() map[string]any {
 		"boundedWrite":    cloneMap(a.BoundedWrite),
 		"resourceVersion": a.ResourceVersion,
 		"approvalId":      nullableString(a.ApprovalID),
-		"issuedAt":        issuedAt,
+		"issuedAt":        a.IssuedAt,
 	}
 }
 
