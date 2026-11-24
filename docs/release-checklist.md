@@ -4,7 +4,7 @@ Use this before exposing a production deployment to real users or money.
 
 ## Product gate and change freeze
 
-- [ ] The automated **Release Checklist Gate** is green. It requires API, Mini Program, Admin, API image, HTTP product slice, backup/restore, ingress, metrics and staging configuration jobs to pass.
+- [ ] The automated **Release Checklist Gate** is green. It requires API, API Go, Mini Program, Admin, API image, HTTP product slice, backup/restore, ingress, metrics and staging configuration jobs to pass.
 - [ ] The HTTP product slice proves: login -> order -> payment -> public claim -> start -> finish -> customer confirm -> review.
 - [ ] Admin acceptance proves the dispute queue can resolve a real order path and the withdrawal queue can list, approve and reject requests.
 - [ ] Discovery acceptance proves only approved/available players with active Offerings are returned, and designated booking bypasses the public order pool.
@@ -56,7 +56,7 @@ Use this before exposing a production deployment to real users or money.
 
 ## Acceptance
 
-- [ ] CI API, HTTP Smoke, MiniApp, Admin and API Image jobs are green.
+- [ ] CI API, API Go (format/vet/race-test/build), HTTP Smoke, MiniApp, Admin and API Image jobs are green.
 - [ ] `make smoke` passes in the staging/demo environment.
 - [ ] `make staging-preflight` passes with dedicated staging secrets.
 - [ ] `make staging-check BASE_URL=...` proves dev routes and public metrics are closed.
