@@ -1,16 +1,16 @@
 package authz
 
 import (
-    "bytes"
-    "crypto/sha256"
-    "encoding/hex"
-    "encoding/json"
-    "errors"
-    "math/big"
-    "reflect"
-    "sort"
-    "strings"
-    "time"
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"math/big"
+	"reflect"
+	"sort"
+	"strings"
+	"time"
 )
 
 const (
@@ -226,40 +226,40 @@ func (a AuthorityEnvelope) CanonicalPayload() map[string]any {
 }
 
 func (a AuthorityEnvelope) validate() error {
-    if strings.TrimSpace(a.IssuedAt) == "" {
-        return errors.New("authority envelope issuedAt is required; use NewAuthorityEnvelope")
-    }
-    if strings.TrimSpace(a.Authorization.OccurredAt) == "" {
-        return errors.New("authority authorization occurredAt is required; use NewAuthorityEnvelope")
-    }
-    return nil
+	if strings.TrimSpace(a.IssuedAt) == "" {
+		return errors.New("authority envelope issuedAt is required; use NewAuthorityEnvelope")
+	}
+	if strings.TrimSpace(a.Authorization.OccurredAt) == "" {
+		return errors.New("authority authorization occurredAt is required; use NewAuthorityEnvelope")
+	}
+	return nil
 }
 
 func (a AuthorityEnvelope) Digest() (string, error) {
-    if err := a.validate(); err != nil {
-        return "", err
-    }
-    canonical, err := canonicalJSON(a.CanonicalPayload())
-    if err != nil {
-        return "", err
-    }
-    sum := sha256.Sum256(canonical)
-    return hex.EncodeToString(sum[:]), nil
+	if err := a.validate(); err != nil {
+		return "", err
+	}
+	canonical, err := canonicalJSON(a.CanonicalPayload())
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(canonical)
+	return hex.EncodeToString(sum[:]), nil
 }
 
 func (a AuthorityEnvelope) Payload() (map[string]any, error) {
-    if err := a.validate(); err != nil {
-        return nil, err
-    }
-    payload := a.CanonicalPayload()
-    canonical, err := canonicalJSON(payload)
-    if err != nil {
-        return nil, err
-    }
-    sum := sha256.Sum256(canonical)
-    payload["digestAlgorithm"] = "sha256"
-    payload["authorityDigest"] = hex.EncodeToString(sum[:])
-    return payload, nil
+	if err := a.validate(); err != nil {
+		return nil, err
+	}
+	payload := a.CanonicalPayload()
+	canonical, err := canonicalJSON(payload)
+	if err != nil {
+		return nil, err
+	}
+	sum := sha256.Sum256(canonical)
+	payload["digestAlgorithm"] = "sha256"
+	payload["authorityDigest"] = hex.EncodeToString(sum[:])
+	return payload, nil
 }
 
 type DiffValue struct {
@@ -355,150 +355,150 @@ func Admit(
 }
 
 func diff(expected, current map[string]any) map[string]DiffValue {
-    keys := map[string]struct{}{}
-    for key := range expected {
-        keys[key] = struct{}{}
-    }
-    for key := range current {
-        keys[key] = struct{}{}
-    }
-    ordered := make([]string, 0, len(keys))
-    for key := range keys {
-        ordered = append(ordered, key)
-    }
-    sort.Strings(ordered)
+	keys := map[string]struct{}{}
+	for key := range expected {
+		keys[key] = struct{}{}
+	}
+	for key := range current {
+		keys[key] = struct{}{}
+	}
+	ordered := make([]string, 0, len(keys))
+	for key := range keys {
+		ordered = append(ordered, key)
+	}
+	sort.Strings(ordered)
 
-    result := map[string]DiffValue{}
-    for _, key := range ordered {
-        expectedValue := expected[key]
-        currentValue := current[key]
-        // Match Python dict.get/equality semantics: absent and null compare
-        // equal, and numerics compare by value even when Go types differ.
-        if !valuesEqual(expectedValue, currentValue) {
-            result[key] = DiffValue{Expected: expectedValue, Current: currentValue}
-        }
-    }
-    return result
+	result := map[string]DiffValue{}
+	for _, key := range ordered {
+		expectedValue := expected[key]
+		currentValue := current[key]
+		// Match Python dict.get/equality semantics: absent and null compare
+		// equal, and numerics compare by value even when Go types differ.
+		if !valuesEqual(expectedValue, currentValue) {
+			result[key] = DiffValue{Expected: expectedValue, Current: currentValue}
+		}
+	}
+	return result
 }
 
 func valuesEqual(left, right any) bool {
-    if reflect.DeepEqual(left, right) {
-        return true
-    }
-    if leftNumber, ok := numericRat(left); ok {
-        rightNumber, rightOK := numericRat(right)
-        return rightOK && leftNumber.Cmp(rightNumber) == 0
-    }
+	if reflect.DeepEqual(left, right) {
+		return true
+	}
+	if leftNumber, ok := numericRat(left); ok {
+		rightNumber, rightOK := numericRat(right)
+		return rightOK && leftNumber.Cmp(rightNumber) == 0
+	}
 
-    leftValue := reflect.ValueOf(left)
-    rightValue := reflect.ValueOf(right)
-    if !leftValue.IsValid() || !rightValue.IsValid() {
-        return !leftValue.IsValid() && !rightValue.IsValid()
-    }
+	leftValue := reflect.ValueOf(left)
+	rightValue := reflect.ValueOf(right)
+	if !leftValue.IsValid() || !rightValue.IsValid() {
+		return !leftValue.IsValid() && !rightValue.IsValid()
+	}
 
-    if leftValue.Kind() == reflect.Map && rightValue.Kind() == reflect.Map {
-        if leftValue.Type().Key().Kind() != reflect.String ||
-            rightValue.Type().Key().Kind() != reflect.String ||
-            leftValue.IsNil() != rightValue.IsNil() ||
-            leftValue.Len() != rightValue.Len() {
-            return false
-        }
-        for _, key := range leftValue.MapKeys() {
-            rightKey := reflect.ValueOf(key.String()).Convert(rightValue.Type().Key())
-            rightItem := rightValue.MapIndex(rightKey)
-            if !rightItem.IsValid() ||
-                !valuesEqual(leftValue.MapIndex(key).Interface(), rightItem.Interface()) {
-                return false
-            }
-        }
-        return true
-    }
+	if leftValue.Kind() == reflect.Map && rightValue.Kind() == reflect.Map {
+		if leftValue.Type().Key().Kind() != reflect.String ||
+			rightValue.Type().Key().Kind() != reflect.String ||
+			leftValue.IsNil() != rightValue.IsNil() ||
+			leftValue.Len() != rightValue.Len() {
+			return false
+		}
+		for _, key := range leftValue.MapKeys() {
+			rightKey := reflect.ValueOf(key.String()).Convert(rightValue.Type().Key())
+			rightItem := rightValue.MapIndex(rightKey)
+			if !rightItem.IsValid() ||
+				!valuesEqual(leftValue.MapIndex(key).Interface(), rightItem.Interface()) {
+				return false
+			}
+		}
+		return true
+	}
 
-    if leftValue.Kind() == reflect.Slice && rightValue.Kind() == reflect.Slice {
-        if leftValue.IsNil() != rightValue.IsNil() || leftValue.Len() != rightValue.Len() {
-            return false
-        }
-        for index := 0; index < leftValue.Len(); index++ {
-            if !valuesEqual(leftValue.Index(index).Interface(), rightValue.Index(index).Interface()) {
-                return false
-            }
-        }
-        return true
-    }
-    return false
+	if leftValue.Kind() == reflect.Slice && rightValue.Kind() == reflect.Slice {
+		if leftValue.IsNil() != rightValue.IsNil() || leftValue.Len() != rightValue.Len() {
+			return false
+		}
+		for index := 0; index < leftValue.Len(); index++ {
+			if !valuesEqual(leftValue.Index(index).Interface(), rightValue.Index(index).Interface()) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
 }
 
 func numericRat(value any) (*big.Rat, bool) {
-    if number, ok := value.(json.Number); ok {
-        return new(big.Rat).SetString(number.String())
-    }
-    reflected := reflect.ValueOf(value)
-    if !reflected.IsValid() {
-        return nil, false
-    }
-    switch reflected.Kind() {
-    case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-        return new(big.Rat).SetInt64(reflected.Int()), true
-    case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-        return new(big.Rat).SetInt(new(big.Int).SetUint64(reflected.Uint())), true
-    case reflect.Float32, reflect.Float64:
-        rational := new(big.Rat)
-        if rational.SetFloat64(reflected.Float()) == nil {
-            return nil, false
-        }
-        return rational, true
-    default:
-        return nil, false
-    }
+	if number, ok := value.(json.Number); ok {
+		return new(big.Rat).SetString(number.String())
+	}
+	reflected := reflect.ValueOf(value)
+	if !reflected.IsValid() {
+		return nil, false
+	}
+	switch reflected.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return new(big.Rat).SetInt64(reflected.Int()), true
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return new(big.Rat).SetInt(new(big.Int).SetUint64(reflected.Uint())), true
+	case reflect.Float32, reflect.Float64:
+		rational := new(big.Rat)
+		if rational.SetFloat64(reflected.Float()) == nil {
+			return nil, false
+		}
+		return rational, true
+	default:
+		return nil, false
+	}
 }
 
 func canonicalJSON(value any) ([]byte, error) {
-    var buffer bytes.Buffer
-    encoder := json.NewEncoder(&buffer)
-    encoder.SetEscapeHTML(false)
-    if err := encoder.Encode(value); err != nil {
-        return nil, err
-    }
-    encoded := bytes.TrimSuffix(buffer.Bytes(), []byte{'\n'})
-    return unescapeJSONLineSeparators(encoded), nil
+	var buffer bytes.Buffer
+	encoder := json.NewEncoder(&buffer)
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(value); err != nil {
+		return nil, err
+	}
+	encoded := bytes.TrimSuffix(buffer.Bytes(), []byte{'\n'})
+	return unescapeJSONLineSeparators(encoded), nil
 }
 
 // Python json.dumps(ensure_ascii=false) emits U+2028/U+2029 literally.
 // Go encoding/json always escapes them, so unescape only real JSON unicode
 // escapes while preserving escaped backslash sequences.
 func unescapeJSONLineSeparators(encoded []byte) []byte {
-    result := make([]byte, 0, len(encoded))
-    for index := 0; index < len(encoded); {
-        if encoded[index] == '\\' && index+1 < len(encoded) {
-            if encoded[index+1] == '\\' {
-                result = append(result, encoded[index], encoded[index+1])
-                index += 2
-                continue
-            }
-            if index+5 < len(encoded) &&
-                encoded[index+1] == 'u' &&
-                encoded[index+2] == '2' &&
-                encoded[index+3] == '0' &&
-                encoded[index+4] == '2' {
-                switch encoded[index+5] {
-                case '8':
-                    result = append(result, []byte("\u2028")...)
-                    index += 6
-                    continue
-                case '9':
-                    result = append(result, []byte("\u2029")...)
-                    index += 6
-                    continue
-                }
-            }
-            result = append(result, encoded[index], encoded[index+1])
-            index += 2
-            continue
-        }
-        result = append(result, encoded[index])
-        index++
-    }
-    return result
+	result := make([]byte, 0, len(encoded))
+	for index := 0; index < len(encoded); {
+		if encoded[index] == '\\' && index+1 < len(encoded) {
+			if encoded[index+1] == '\\' {
+				result = append(result, encoded[index], encoded[index+1])
+				index += 2
+				continue
+			}
+			if index+5 < len(encoded) &&
+				encoded[index+1] == 'u' &&
+				encoded[index+2] == '2' &&
+				encoded[index+3] == '0' &&
+				encoded[index+4] == '2' {
+				switch encoded[index+5] {
+				case '8':
+					result = append(result, []byte("\u2028")...)
+					index += 6
+					continue
+				case '9':
+					result = append(result, []byte("\u2029")...)
+					index += 6
+					continue
+				}
+			}
+			result = append(result, encoded[index], encoded[index+1])
+			index += 2
+			continue
+		}
+		result = append(result, encoded[index])
+		index++
+	}
+	return result
 }
 
 func cloneMap(value map[string]any) map[string]any {
