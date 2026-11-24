@@ -255,15 +255,15 @@ func TestAuthorityPayloadDigestMatchesReturnedSnapshot(t *testing.T) {
 func TestAuthorityAdmissionMatchesPythonNumericEquality(t *testing.T) {
 	authority := referenceAuthority()
 	authority.ExpectedState["metadata"] = map[string]any{
-		version: int64(7),
-		counts:  []any{int64(2), int64(3)},
+		"version": int64(7),
+		"counts":  []any{int64(2), int64(3)},
 	}
 	currentState := cloneMap(authority.ExpectedState)
 	currentState["walletVersion"] = float64(7)
 	currentState["walletFrozenBalance"] = float64(2500)
 	currentState["metadata"] = map[string]any{
-		version: float64(7),
-		counts:  []any{float64(2), float64(3)},
+		"version": float64(7),
+		"counts":  []any{float64(2), float64(3)},
 	}
 
 	admission, err := Admit(authority, currentState, authority.ResourceVersion, authority.BoundedWrite)
@@ -371,12 +371,8 @@ func TestDiffMatchesPythonNumericAndMissingNullSemantics(t *testing.T) {
 			"nested":        map[string]any{"amount": int64(2500)},
 		},
 		map[string]any{
-			"walletVersion":       float64(7),
-			"walletFrozenBalance": float64(2500),
-			"metadata": map[string]any{
-				"version": float64(7),
-				"counts":  []any{float64(2), float64(3)},
-			},
+			"walletVersion": float64(7),
+			"nested":        map[string]any{"amount": json.Number("2500")},
 		},
 	)
 	if len(got) != 0 {
