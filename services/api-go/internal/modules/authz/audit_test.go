@@ -27,7 +27,10 @@ func (f *fakeAuditTx) Exec(_ context.Context, query string, args ...any) (pgconn
 
 func TestRecordDecisionWritesAuditOutboxEvent(t *testing.T) {
 	tx := &fakeAuditTx{}
-	repository := AuditRepository{tx: tx}
+	repository, err := NewAuditRepository(tx)
+	if err != nil {
+		t.Fatal(err)
+	}
 	decision := referenceDecision()
 	authority := referenceAuthority()
 
@@ -66,7 +69,10 @@ func TestRecordDecisionWritesAuditOutboxEvent(t *testing.T) {
 
 func TestRecordAdmissionWritesAuthorityAndAdmissionEvidence(t *testing.T) {
 	tx := &fakeAuditTx{}
-	repository := AuditRepository{tx: tx}
+	repository, err := NewAuditRepository(tx)
+	if err != nil {
+		t.Fatal(err)
+	}
 	authority := referenceAuthority()
 	admission := AuthorityAdmissionDecision{
 		AuthorityDigest:        authorityDigestForTest(t, authority),
