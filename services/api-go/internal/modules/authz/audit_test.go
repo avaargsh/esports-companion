@@ -83,7 +83,7 @@ func TestRecordAdmissionWritesAuthorityAndAdmissionEvidence(t *testing.T) {
 		CurrentState:           map[string]any{"walletVersion": 8},
 		CurrentResourceVersion: "withdrawal:201:status=PENDING;wallet:401:v8",
 		RequestedWrite:         authority.BoundedWrite,
-		StateDiff: map[string]DiffValue{
+		StateDiff:              map[string]DiffValue{
 			"walletVersion": {Expected: 7, Current: 8},
 		},
 		WriteDiff:        map[string]DiffValue{},
