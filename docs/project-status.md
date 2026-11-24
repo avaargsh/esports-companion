@@ -36,6 +36,26 @@ The mainline Go milestones already merged are PR #85 (M0 foundation), #86 (M1 ca
 
 PR #106 is the in-progress M2.2 authorization/authority kernel slice. It is not merged and must not be treated as part of the current mainline until its Go checks and parity evidence pass.
 
+### CI recovery — required operator action
+
+PR #108 has already added the manual trigger. Do not add a second
+`workflow_dispatch` key (PR #110 was closed as redundant).
+
+1. Check repository **Settings → Actions → General** and enable the workflows
+   and required actions according to the repository's policy.
+2. From the **Actions** tab, run `ci` on `main` and `API Go` on the M2.2
+   branch. Check the run's actual jobs and conclusion against the intended SHA.
+3. Configure branch protection or a ruleset for `main`: require the Release
+   Checklist Gate and the relevant Go parity checks, disallow force pushes,
+   and require PR review as appropriate.
+4. Do not merge PR #106 until the configured Go toolchain, race/vet/build,
+   PostgreSQL integration and Python-compatible golden evidence pass.
+5. Keep real-money staging acceptance separate from automated test evidence.
+
+A configured YAML workflow or a successful Git merge is not CI evidence.
+At this snapshot the repository Actions API returned zero runs; the root
+cause has not been independently confirmed.
+
 ## Current milestone
 
 **Milestone:** product slice complete enough for staging acceptance.
