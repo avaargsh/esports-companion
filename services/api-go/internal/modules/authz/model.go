@@ -13,9 +13,6 @@ import (
     "time"
 )
 
-const
-)
-
 const (
 	PolicyVersion             = "resource-authz.v2"
 	AuthorityEnvelopeVersion  = "authority-envelope.v1"

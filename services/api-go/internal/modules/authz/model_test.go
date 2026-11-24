@@ -327,7 +327,7 @@ func TestCanonicalJSONMatchesPythonUnicodeContract(t *testing.T) {
     if err != nil {
         t.Fatal(err)
     }
-    expected := `{"literal":"\\u2028","note":"<ready>&` + "\u2028" + String.raw`中"}`
+    expected := "{\"literal\":\"\\\\u2028\",\"note\":\"<ready>&" + "\u2028" + "中\"}"
     if string(encoded) != expected {
         t.Fatalf("canonical JSON mismatch: got %q want %q", string(encoded), expected)
     }
