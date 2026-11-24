@@ -97,8 +97,8 @@ func TestRecordAdmissionWritesAuthorityAndAdmissionEvidence(t *testing.T) {
 			"walletVersion": {Expected: 7, Current: 8},
 		},
 		WriteDiff:              map[string]DiffValue{},
-		AdmissionVersion: AuthorityAdmissionVersion,
-		AdmittedAt:       "2026-09-30T00:00:02+00:00",
+		AdmissionVersion:       AuthorityAdmissionVersion,
+		AdmittedAt:             "2026-09-30T00:00:02+00:00",
 	}
 
 	if err := repository.RecordAdmission(context.Background(), authority, admission); err != nil {
