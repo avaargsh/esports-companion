@@ -256,9 +256,6 @@ func (d AuthorityAdmissionDecision) Payload() map[string]any {
 		version = AuthorityAdmissionVersion
 	}
 	admittedAt := d.AdmittedAt
-	if admittedAt == "" {
-		admittedAt = utcISO(time.Now())
-	}
 	return map[string]any{
 		"admissionVersion":       version,
 		"authorityDigest":        d.AuthorityDigest,
