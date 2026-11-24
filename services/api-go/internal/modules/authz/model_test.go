@@ -250,3 +250,26 @@ func TestAuthorityPayloadDigestMatchesReturnedSnapshot(t *testing.T) {
 		t.Fatalf("payload digest does not match its serialized snapshot: got %s want %s", digest, got)
 	}
 }
+
+func TestAuthorityAdmissionMatchesPythonNumericEquality(t *testing.T) {
+	authority := referenceAuthority()
+	authority.ExpectedState["metadata"] = map[string]any{
+		"version": int64(7),
+		"counts":  []any{int64(2), int64(3)},
+	}
+	currentState := cloneMap(authority.ExpectedState)
+	currentState["walletVersion"] = float64(7)
+	currentState["walletFrozenBalance"] = float64(2500)
+	currentState["metadata"] = map[string]any{
+		"version": float64(7),
+		"counts":  []any{float64(2), float64(3)},
+	}
+
+	admission, err := Admit(authority, currentState, authority.ResourceVersion, authority.BoundedWrite)
+	if err != nil {
+		t.Fatalf("JSON-equivalent numeric values should admit: %v", err)
+	}
+	if admission.Decision != "ADMIT" || len(admission.StateDiff) != 0 {
+		t.Fatalf("unexpected admission for equivalent JSON values: %#v", admission)
+	}
+}
