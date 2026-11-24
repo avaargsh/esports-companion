@@ -334,7 +334,7 @@ func TestCanonicalJSONMatchesPythonUnicodeContract(t *testing.T) {
 
 func TestAuthorityDigestMatchesPythonUnicodeGoldenVector(t *testing.T) {
 	authority := NewAuthorityEnvelope(AuthorityEnvelopeInput{
-		Authorization: AuthorizationDecision{
+		Authorization:   AuthorizationDecision{
 			ActorUserID:         "user-1",
 			ActorRoles:          []string{"USER"},
 			Action:              "ORDER_READ",
