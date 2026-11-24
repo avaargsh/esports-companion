@@ -32,14 +32,14 @@ func referenceAuthority() AuthorityEnvelope {
 	return AuthorityEnvelope{
 		Authorization: referenceDecision(),
 		ExpectedState: map[string]any{
-			"withdrawalStatus":    "PENDING",
-			"walletVersion":       7,
-			"walletFrozenBalance": 2500,
+			withdrawalStatus:    "PENDING",
+			walletVersion:       7,
+			walletFrozenBalance: 2500,
 		},
 		BoundedWrite: map[string]any{
-			"operation":        "WITHDRAWAL_COMPLETE",
-			"providerTxnId":    "payout-1",
-			"withdrawalStatus": "COMPLETED",
+			operation:        "WITHDRAWAL_COMPLETE",
+			providerTxnId:    "payout-1",
+			withdrawalStatus: "COMPLETED",
 		},
 		ResourceVersion: "withdrawal:00000000-0000-0000-0000-000000000201:status=PENDING;wallet:00000000-0000-0000-0000-000000000401:v7",
 		IssuedAt:        "2026-09-30T00:00:01+00:00",
@@ -255,15 +255,15 @@ func TestAuthorityPayloadDigestMatchesReturnedSnapshot(t *testing.T) {
 func TestAuthorityAdmissionMatchesPythonNumericEquality(t *testing.T) {
 	authority := referenceAuthority()
 	authority.ExpectedState["metadata"] = map[string]any{
-		"version": int64(7),
-		"counts":  []any{int64(2), int64(3)},
+		version: int64(7),
+		counts:  []any{int64(2), int64(3)},
 	}
 	currentState := cloneMap(authority.ExpectedState)
 	currentState["walletVersion"] = float64(7)
 	currentState["walletFrozenBalance"] = float64(2500)
 	currentState["metadata"] = map[string]any{
-		"version": float64(7),
-		"counts":  []any{float64(2), float64(3)},
+		version: float64(7),
+		counts:  []any{float64(2), float64(3)},
 	}
 
 	admission, err := Admit(authority, currentState, authority.ResourceVersion, authority.BoundedWrite)
@@ -277,11 +277,11 @@ func TestAuthorityAdmissionMatchesPythonNumericEquality(t *testing.T) {
 
 func TestRequireOwnerRejectsEmptyActorID(t *testing.T) {
 	_, err := RequireOwner(OwnerPolicyInput{
-		ActorUserID: "",
-		OwnerUserID: "",
-		Action: "WALLET_READ",
+		ActorUserID:  "",
+		OwnerUserID:  "",
+		Action:       "WALLET_READ",
 		ResourceType: "WALLET",
-		ResourceID: "wallet-1",
+		ResourceID:   "wallet-1",
 	})
 	var denied *ResourceAuthorizationDenied
 	if !errors.As(err, &denied) || denied.Decision.ReasonCode != "ACTOR_REQUIRED" {
@@ -291,11 +291,11 @@ func TestRequireOwnerRejectsEmptyActorID(t *testing.T) {
 
 func TestRequirePlatformRejectsEmptyActorID(t *testing.T) {
 	_, err := RequirePlatform(PlatformPolicyInput{
-		ActorUserID: "",
-		ActorRoles: []string{"PLATFORM"},
-		Action: "PLAYER_APPROVE",
+		ActorUserID:  "",
+		ActorRoles:   []string{"PLATFORM"},
+		Action:       "PLAYER_APPROVE",
 		ResourceType: "PLAYER_PROFILE",
-		ResourceID: "player-1",
+		ResourceID:   "player-1",
 	})
 	var denied *ResourceAuthorizationDenied
 	if !errors.As(err, &denied) || denied.Decision.ReasonCode != "ACTOR_REQUIRED" {
@@ -319,8 +319,8 @@ func TestAuthorityEnvelopeRejectsMissingRuntimeDefaults(t *testing.T) {
 
 func TestCanonicalJSONMatchesPythonUnicodeContract(t *testing.T) {
 	value := map[string]any{
-		"literal": `\u2028`,
-		"note": "<ready>&\u2028中",
+		literal: `\u2028`,
+		note:    "<ready>&\u2028中",
 	}
 	encoded, err := canonicalJSON(value)
 	if err != nil {
@@ -335,23 +335,23 @@ func TestCanonicalJSONMatchesPythonUnicodeContract(t *testing.T) {
 func TestAuthorityDigestMatchesPythonUnicodeGoldenVector(t *testing.T) {
 	authority := NewAuthorityEnvelope(AuthorityEnvelopeInput{
 		Authorization: AuthorizationDecision{
-			ActorUserID: "user-1",
-			ActorRoles: []string{"USER"},
-			Action: "ORDER_READ",
-			ResourceType: "ORDER",
-			ResourceID: "order-1",
-			Scope: "OWNER",
-			Decision: "ALLOW",
-			ReasonCode: "OWNER_MATCH",
-			PolicyVersion: PolicyVersion,
-			RequestID: "req-1",
+			ActorUserID:         "user-1",
+			ActorRoles:          []string{"USER"},
+			Action:              "ORDER_READ",
+			ResourceType:        "ORDER",
+			ResourceID:          "order-1",
+			Scope:               "OWNER",
+			Decision:            "ALLOW",
+			ReasonCode:          "OWNER_MATCH",
+			PolicyVersion:       PolicyVersion,
+			RequestID:           "req-1",
 			BusinessEvidenceRef: "<order>&\u2028中",
-			OccurredAt: "2026-11-24T08:00:00+00:00",
+			OccurredAt:          "2026-11-24T08:00:00+00:00",
 		},
-		ExpectedState: map[string]any{"note": "<ready>&\u2028中"},
-		BoundedWrite: map[string]any{"operation": "ORDER_READ"},
+		ExpectedState:   map[string]any{"note": "<ready>&\u2028中"},
+		BoundedWrite:    map[string]any{"operation": "ORDER_READ"},
 		ResourceVersion: "order:1:v1",
-		IssuedAt: "2026-11-24T08:00:01+00:00",
+		IssuedAt:        "2026-11-24T08:00:01+00:00",
 	})
 	digest, err := authority.Digest()
 	if err != nil {
@@ -366,13 +366,13 @@ func TestAuthorityDigestMatchesPythonUnicodeGoldenVector(t *testing.T) {
 func TestDiffMatchesPythonNumericAndMissingNullSemantics(t *testing.T) {
 	got := diff(
 		map[string]any{
-			"walletVersion": 7,
-			"optional": nil,
-			"nested": map[string]any{"amount": int64(2500)},
+			walletVersion: 7,
+			optional:      nil,
+			nested:        map[string]any{"amount": int64(2500)},
 		},
 		map[string]any{
-			"walletVersion": float64(7),
-			"nested": map[string]any{"amount": json.Number("2500")},
+			walletVersion: float64(7),
+			nested:        map[string]any{"amount": json.Number("2500")},
 		},
 	)
 	if len(got) != 0 {
@@ -382,14 +382,14 @@ func TestDiffMatchesPythonNumericAndMissingNullSemantics(t *testing.T) {
 
 func TestAuthorizationDecisionPayloadUsesEmptyRolesArray(t *testing.T) {
 	decision := AuthorizationDecision{
-		ActorUserID: "user-1",
-		Action: "ORDER_READ",
+		ActorUserID:  "user-1",
+		Action:       "ORDER_READ",
 		ResourceType: "ORDER",
-		ResourceID: "order-1",
-		Scope: "OWNER",
-		Decision: "ALLOW",
-		ReasonCode: "OWNER_MATCH",
-		OccurredAt: "2026-11-24T08:00:00+00:00",
+		ResourceID:   "order-1",
+		Scope:        "OWNER",
+		Decision:     "ALLOW",
+		ReasonCode:   "OWNER_MATCH",
+		OccurredAt:   "2026-11-24T08:00:00+00:00",
 	}
 	roles, ok := decision.Payload()["actorRoles"].([]string)
 	if !ok || roles == nil || len(roles) != 0 {
