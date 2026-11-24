@@ -3,6 +3,7 @@ package authz
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -14,13 +15,14 @@ type fakeAuditTx struct {
 	calls int
 	query string
 	args  []any
+	err   error
 }
 
 func (f *fakeAuditTx) Exec(_ context.Context, query string, args ...any) (pgconn.CommandTag, error) {
 	f.calls++
 	f.query = query
 	f.args = append([]any(nil), args...)
-	return pgconn.CommandTag{}, nil
+	return pgconn.CommandTag{}, f.err
 }
 
 func TestRecordDecisionWritesAuditOutboxEvent(t *testing.T) {
@@ -116,4 +118,26 @@ func authorityDigestForTest(t *testing.T, authority AuthorityEnvelope) string {
 		t.Fatal(err)
 	}
 	return digest
+}
+
+func TestNewAuditRepositoryRejectsNilTransaction(t *testing.T) {
+	if _, err := NewAuditRepository(nil); err == nil {
+		t.Fatal("expected nil transaction rejection")
+	}
+}
+
+func TestAuditRepositoryWithoutTransactionFailsClosed(t *testing.T) {
+	var repository AuditRepository
+	if err := repository.RecordDecision(context.Background(), referenceDecision(), nil); err == nil {
+		t.Fatal("expected missing transaction error")
+	}
+}
+
+func TestRecordDecisionPropagatesTransactionFailure(t *testing.T) {
+	expected := errors.New("database unavailable")
+	repository := AuditRepository{tx: &fakeAuditTx{err: expected}}
+	err := repository.RecordDecision(context.Background(), referenceDecision(), nil)
+	if !errors.Is(err, expected) {
+		t.Fatalf("expected wrapped transaction error, got %v", err)
+	}
 }
