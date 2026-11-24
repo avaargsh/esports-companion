@@ -36,14 +36,19 @@ func TestAuditRepositorySharesCallerTransaction(t *testing.T) {
 			event_type VARCHAR(80) NOT NULL,
 			payload_json JSON NOT NULL,
 			status VARCHAR(32) NOT NULL
-		);
+		)
+	`)
+	if err != nil {
+		t.Fatalf("create outbox test table: %v", err)
+	}
+	_, err = conn.Exec(ctx, `
 		CREATE TEMP TABLE business_mutations (
 			id INTEGER PRIMARY KEY,
 			status TEXT NOT NULL
-		);
+		)
 	`)
 	if err != nil {
-		t.Fatalf("create transaction test tables: %v", err)
+		t.Fatalf("create business mutation test table: %v", err)
 	}
 
 	rollbackTx, err := conn.Begin(ctx)
