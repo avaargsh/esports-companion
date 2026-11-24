@@ -162,3 +162,44 @@ func TestRecordDecisionPropagatesTransactionFailure(t *testing.T) {
 		t.Fatalf("expected wrapped transaction error, got %v", err)
 	}
 }
+
+func TestRecordDecisionRejectsMismatchedAuthorityAuthorization(t *testing.T) {
+	tx := &fakeAuditTx{}
+	repository, err := NewAuditRepository(tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decision := referenceDecision()
+	authority := referenceAuthority()
+	authority.Authorization.Action = "UNRELATED_ACTION"
+
+	err = repository.RecordDecision(context.Background(), decision, &authority)
+	if err == nil || !strings.Contains(err.Error(), "does not match") {
+		t.Fatalf("expected mismatched authorization to fail closed, got %v", err)
+	}
+	if tx.calls != 0 {
+		t.Fatalf("mismatched authorization must not be persisted, got %d writes", tx.calls)
+	}
+}
+
+func TestRecordAdmissionRejectsMismatchedAuthorityDigest(t *testing.T) {
+	tx := &fakeAuditTx{}
+	repository, err := NewAuditRepository(tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	authority := referenceAuthority()
+	admission := AuthorityAdmissionDecision{
+		AuthorityDigest: "not-the-envelope-digest",
+		Decision:        "ADMIT",
+		ReasonCode:      "AUTHORITY_EXACT_MATCH",
+	}
+
+	err = repository.RecordAdmission(context.Background(), authority, admission)
+	if err == nil || !strings.Contains(err.Error(), "digest does not match") {
+		t.Fatalf("expected mismatched authority digest to fail closed, got %v", err)
+	}
+	if tx.calls != 0 {
+		t.Fatalf("mismatched admission must not be persisted, got %d writes", tx.calls)
+	}
+}
