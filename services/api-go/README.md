@@ -102,8 +102,11 @@ internal/platform/       pgx, redis, metrics, HTTP, state machine
 
 ## Branch rule
 
-All Go child branches target `refactor/go-backend-foundation`. Do not merge
-`feat/go-*` or `fix/go-*` directly into `main`.
+Create every Go migration branch from the latest `main` and target Go pull
+requests at `main`. Use `feat/go-*` for features and `fix/go-*` for fixes,
+keeping each PR to one semantic migration slice. The historical
+`refactor/go-backend-foundation` branch is frozen and source-only; do not
+merge it wholesale.
 
 ## Migration rule
 

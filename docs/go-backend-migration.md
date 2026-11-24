@@ -28,25 +28,39 @@ FastAPI       Go API
 
 ## Branch integration policy
 
-The Go migration has its own integration line:
-
-```text
-refactor/go-backend-foundation
-        ^
-        |
-   PR only from
- feat/go-* / fix/go-*
-```
+The migration now uses `main` as its only integration line. The historical
+`refactor/go-backend-foundation` branch is frozen and may be consulted as a
+source of already-reviewed implementation, but it must not receive new feature
+work or be merged wholesale.
 
 Rules:
 
-- Go feature/fix branches are created from `refactor/go-backend-foundation`;
-- their pull requests target `refactor/go-backend-foundation`, never `main`;
-- do not merge a child Go branch directly into the Python/main line;
-- the Go integration branch is the only place where migration slices are composed;
-- retargeting or merging the Go integration branch outward happens only as an explicit cutover/release action.
+- create every new Go migration branch from the latest `main`;
+- target every Go migration pull request at `main`;
+- use `feat/go-*` for features and `fix/go-*` for fixes;
+- keep each pull request to one semantic migration slice;
+- preserve FastAPI as the executable reference until that slice passes
+  cross-runtime parity;
+- never merge the historical integration branch as a single large pull request;
+- retire the historical branch after all accepted slices have landed on `main`.
 
-This keeps unfinished migration work isolated while still allowing small reviewable Go PRs.
+The `API Go` workflow enforces the legacy-branch rejection and the target
+branch rule for `feat/go-*` and `fix/go-*` pull requests.
+
+## Mainline migration status (2026-11-24)
+
+The following slices are already merged into `main`:
+
+- M0 Go foundation: PR #85;
+- M1 read-only catalog / marketplace parity: PR #86;
+- M2 auth / session parity: PR #87;
+- protected provider offerings: PR #88.
+
+Order/dispatch (M3), payment/refund (M4), and background workers (M5) are not
+yet part of the current `main` Go implementation. The next migration slice is
+M3 order read and evidence parity, followed by bounded write-path slices.
+Implementation present only on the historical branch is not considered
+mainline-complete until its own pull request is merged.
 
 ## Non-negotiable invariants
 
