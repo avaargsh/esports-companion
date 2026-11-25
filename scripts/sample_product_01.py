@@ -38,6 +38,8 @@ def request(base_url, method, path, *, headers=None, payload=None, query=None):
         with urlopen(req, timeout=10) as response:  # nosec B310
             raw = response.read()
             return response.status, json.loads(raw) if raw else None
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise ScenarioError(f"{method} {path} returned invalid JSON") from exc
     except HTTPError as exc:
         raw = exc.read().decode("utf-8", errors="replace")
         raise ScenarioError(
@@ -64,8 +66,9 @@ def wait_ready(base_url):
     while time.time() < deadline:
         try:
             status, body = request(base_url, "GET", "/readyz")
-            if status == 200 and body.get("status") == "ready":
+            if status == 200 and isinstance(body, dict) and body.get("status") == "ready":
                 return body
+            last_error = f"GET /readyz -> {status}: expected a ready JSON object"
         except ScenarioError as exc:
             last_error = exc
         time.sleep(1)
