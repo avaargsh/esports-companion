@@ -437,3 +437,32 @@ func TestDiffMatchesPythonBooleanNumericEquality(t *testing.T) {
 		t.Fatalf("Python bool/numeric-equivalent values should not drift: %#v", got)
 	}
 }
+
+
+func TestAuthorityAdmissionPayloadCanonicalizesNestedDiffValues(t *testing.T) {
+	admission := AuthorityAdmissionDecision{
+		AuthorityDigest:        "digest",
+		Decision:               "DENY",
+		ReasonCode:             "AUTHORITY_STATE_DRIFT",
+		CurrentState:           map[string]any{},
+		CurrentResourceVersion: "resource:v1",
+		RequestedWrite:         map[string]any{},
+		StateDiff: map[string]DiffValue{
+			"ratio": {Expected: float64(1e-5), Current: math.Copysign(0, -1)},
+		},
+		WriteDiff: map[string]DiffValue{
+			"limit": {Expected: float64(1e16), Current: float64(1e-4)},
+		},
+		AdmissionVersion: AuthorityAdmissionVersion,
+		AdmittedAt:       "2026-09-30T00:00:02+00:00",
+	}
+
+	encoded, err := canonicalJSON(admission.Payload())
+	if err != nil {
+		t.Fatal(err)
+	}
+	const expected = `{"admissionVersion":"authority-admission.v1","admittedAt":"2026-09-30T00:00:02+00:00","authorityDigest":"digest","currentResourceVersion":"resource:v1","currentState":{},"decision":"DENY","reasonCode":"AUTHORITY_STATE_DRIFT","requestedWrite":{},"stateDiff":{"ratio":{"current":-0.0,"expected":1e-05}},"writeDiff":{"limit":{"current":0.0001,"expected":1e+16}}}`
+	if string(encoded) != expected {
+		t.Fatalf("Python-compatible admission JSON mismatch: got %s want %s", encoded, expected)
+	}
+}

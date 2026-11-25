@@ -259,3 +259,54 @@ func TestAuditPreservesCanonicalEnvelope(t *testing.T) {
 		})
 	}
 }
+
+
+func TestRecordAdmissionPreservesCanonicalDiffValues(t *testing.T) {
+	tx := &fakeAuditTx{}
+	repository, err := NewAuditRepository(tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	authority := referenceAuthority()
+	admission := AuthorityAdmissionDecision{
+		AuthorityDigest:        authorityDigestForTest(t, authority),
+		Decision:               "DENY",
+		ReasonCode:             "AUTHORITY_STATE_DRIFT",
+		CurrentState:           map[string]any{},
+		CurrentResourceVersion: "resource:v1",
+		RequestedWrite:         map[string]any{},
+		StateDiff: map[string]DiffValue{
+			"ratio": {Expected: float64(1e-5), Current: math.Copysign(0, -1)},
+		},
+		WriteDiff: map[string]DiffValue{
+			"limit": {Expected: float64(1e16), Current: float64(1e-4)},
+		},
+		AdmissionVersion: AuthorityAdmissionVersion,
+		AdmittedAt:       "2026-09-30T00:00:02+00:00",
+	}
+
+	if err := repository.RecordAdmission(context.Background(), authority, admission); err != nil {
+		t.Fatal(err)
+	}
+	var payload map[string]any
+	decoder := json.NewDecoder(strings.NewReader(tx.args[3].(string)))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payload); err != nil {
+		t.Fatal(err)
+	}
+	persisted, ok := payload["admission"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing persisted admission: %#v", payload)
+	}
+	got, err := canonicalJSON(persisted)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := canonicalJSON(admission.Payload())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(want) {
+		t.Fatalf("persisted admission differs from canonical payload: got %s want %s", got, want)
+	}
+}
