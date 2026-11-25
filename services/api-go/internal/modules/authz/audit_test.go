@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"testing"
 
@@ -199,5 +200,62 @@ func TestRecordAdmissionRejectsMismatchedAuthorityDigest(t *testing.T) {
 	}
 	if tx.calls != 0 {
 		t.Fatalf("mismatched admission must not be persisted, got %d writes", tx.calls)
+	}
+}
+
+// A persisted envelope must remain verifiable using its original JSON number
+// representations, rather than losing float identity during the audit write.
+func TestAuditPreservesCanonicalEnvelope(t *testing.T) {
+	authority := referenceAuthority()
+	authority.ExpectedState["ratio"] = float64(1)
+	authority.ExpectedState["tiny"] = float64(1e-5)
+	authority.ExpectedState["negativeZero"] = math.Copysign(0, -1)
+	want, err := canonicalJSON(authority.CanonicalPayload())
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := authorityDigestForTest(t, authority)
+	for _, event := range []string{"decision", "admission"} {
+		t.Run(event, func(t *testing.T) {
+			tx := &fakeAuditTx{}
+			repository, err := NewAuditRepository(tx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			switch event {
+			case "decision":
+				err = repository.RecordDecision(context.Background(), authority.Authorization, &authority)
+			case "admission":
+				err = repository.RecordAdmission(context.Background(), authority, AuthorityAdmissionDecision{
+					AuthorityDigest: digest,
+					Decision:        "ADMIT",
+				})
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tx.calls != 1 {
+				t.Fatalf("expected one audit insert, got %d", tx.calls)
+			}
+			var payload map[string]any
+			decoder := json.NewDecoder(strings.NewReader(tx.args[3].(string)))
+			decoder.UseNumber()
+			if err := decoder.Decode(&payload); err != nil {
+				t.Fatal(err)
+			}
+			envelope, ok := payload["authorityEnvelope"].(map[string]any)
+			if !ok || envelope["authorityDigest"] != digest {
+				t.Fatalf("missing or inconsistent authority envelope: %#v", payload)
+			}
+			delete(envelope, "authorityDigest")
+			delete(envelope, "digestAlgorithm")
+			got, err := canonicalJSON(envelope)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(got) != string(want) {
+				t.Fatalf("persisted canonical envelope differs: got %s want %s", got, want)
+			}
+		})
 	}
 }

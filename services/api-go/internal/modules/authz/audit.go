@@ -2,7 +2,6 @@ package authz
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -105,7 +104,8 @@ func (r AuditRepository) insert(
 	if err != nil {
 		return err
 	}
-	encoded, err := json.Marshal(payload)
+	// Preserve the number representation used by the envelope digest.
+	encoded, err := canonicalJSON(payload)
 	if err != nil {
 		return err
 	}
