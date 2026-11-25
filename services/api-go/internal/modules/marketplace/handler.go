@@ -74,6 +74,9 @@ func (h Handler) listPlayers(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR")
 		return
 	}
+	for i := range items {
+		items[i].setAvailableActions()
+	}
 	httpx.JSONValue(w, http.StatusOK, items)
 }
 
@@ -93,5 +96,6 @@ func (h Handler) getPlayer(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR")
 		return
 	}
+	item.setAvailableActions()
 	httpx.JSONValue(w, http.StatusOK, item)
 }

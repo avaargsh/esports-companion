@@ -27,22 +27,33 @@ type Review struct {
 }
 
 type Player struct {
-	ID            string     `json:"id"`
-	DisplayName   string     `json:"display_name"`
-	AvatarURL     *string    `json:"avatar_url"`
-	Bio           string     `json:"bio"`
-	Gender        *string    `json:"gender"`
-	ServiceStatus string     `json:"service_status"`
-	Rating        float64    `json:"rating"`
-	ReviewCount   int        `json:"review_count"`
-	OrderCount    int        `json:"order_count"`
-	Offerings     []Offering `json:"offerings"`
-	Skills        []Skill    `json:"skills"`
-	Reviews       []Review   `json:"reviews"`
+	ID               string     `json:"id"`
+	DisplayName      string     `json:"display_name"`
+	AvatarURL        *string    `json:"avatar_url"`
+	Bio              string     `json:"bio"`
+	Gender           *string    `json:"gender"`
+	ServiceStatus    string     `json:"service_status"`
+	Rating           float64    `json:"rating"`
+	ReviewCount      int        `json:"review_count"`
+	OrderCount       int        `json:"order_count"`
+	Offerings        []Offering `json:"offerings"`
+	Skills           []Skill    `json:"skills"`
+	Reviews          []Review   `json:"reviews"`
+	AvailableActions []string   `json:"available_actions"`
 }
 
 type ListQuery struct {
 	GameID *string
 	Rank   *string
 	Limit  int
+}
+
+// setAvailableActions mirrors the FastAPI read projection. These are UI hints,
+// not authorization to create an order.
+func (p *Player) setAvailableActions() {
+	if p.ServiceStatus == "AVAILABLE" && len(p.Offerings) > 0 {
+		p.AvailableActions = []string{"CREATE_DESIGNATED_ORDER"}
+		return
+	}
+	p.AvailableActions = []string{}
 }
