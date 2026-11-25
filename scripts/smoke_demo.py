@@ -30,11 +30,18 @@ def request(method, path, *, headers=None, payload=None, query=None):
         with urlopen(req, timeout=10) as response:  # nosec B310
             raw = response.read()
             return response.status, json.loads(raw) if raw else None
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise SmokeError(f"{method} {path} returned invalid JSON") from exc
     except HTTPError as exc:
+        if path == "/readyz":
+            exc.close()
+            raise SmokeError(f"{method} {path} -> {exc.code}") from None
         raw = exc.read().decode("utf-8", errors="replace")
         raise SmokeError(
             f"{method} {path} -> {exc.code}: {raw}"
         ) from exc
+    except TimeoutError as exc:
+        raise SmokeError(f"{method} {path} timed out") from exc
     except URLError as exc:
         raise SmokeError(f"{method} {path} failed: {exc}") from exc
 
@@ -50,8 +57,11 @@ def wait_ready():
     while time.time() < deadline:
         try:
             status, body = request("GET", "/readyz")
-            if status == 200 and body.get("status") == "ready":
+            if (status == 200 and isinstance(body, dict)
+                    and body.get("status") == "ready"
+                    and isinstance(body.get("dependencies"), dict)):
                 return body
+            last_error = f"GET /readyz -> {status}: expected a ready JSON object with dependencies"
         except SmokeError as exc:
             last_error = exc
         time.sleep(1)

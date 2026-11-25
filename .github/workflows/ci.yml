@@ -278,6 +278,8 @@ jobs:
       - name: Install API
         working-directory: services/api
         run: pip install -e .
+      - name: Test smoke readiness regressions
+        run: python3 -m unittest discover -s scripts -p test_smoke_demo.py -v
       - name: Migrate and seed demo
         working-directory: services/api
         run: |
