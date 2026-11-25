@@ -28,7 +28,8 @@ type AuditRepository struct {
 // satisfies this narrow interface; a pgxpool.Pool does not because it cannot
 // commit or roll back a caller-owned transaction.
 func NewAuditRepository(tx auditTransaction) (AuditRepository, error) {
-	if tx == nil {
+	value := reflect.ValueOf(tx)
+	if tx == nil || (value.Kind() == reflect.Ptr && value.IsNil()) {
 		return AuditRepository{}, errors.New("authorization audit requires caller transaction")
 	}
 	return AuditRepository{tx: tx}, nil
