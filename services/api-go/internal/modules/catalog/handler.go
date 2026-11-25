@@ -46,5 +46,8 @@ func (h Handler) listSKUs(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR")
 		return
 	}
+	for i := range items {
+		items[i].AvailableActions = []string{"CREATE_ORDER"}
+	}
 	httpx.JSONValue(w, http.StatusOK, items)
 }
