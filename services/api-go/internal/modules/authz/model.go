@@ -296,8 +296,8 @@ func (d AuthorityAdmissionDecision) Payload() map[string]any {
 		"currentState":           cloneMap(d.CurrentState),
 		"currentResourceVersion": d.CurrentResourceVersion,
 		"requestedWrite":         cloneMap(d.RequestedWrite),
-		"stateDiff":              d.StateDiff,
-		"writeDiff":              d.WriteDiff,
+		"stateDiff":              diffPayload(d.StateDiff),
+		"writeDiff":              diffPayload(d.WriteDiff),
 		"admittedAt":             admittedAt,
 	}
 }
@@ -381,6 +381,17 @@ func diff(expected, current map[string]any) map[string]DiffValue {
 		}
 	}
 	return result
+}
+
+func diffPayload(values map[string]DiffValue) map[string]any {
+	payload := make(map[string]any, len(values))
+	for key, value := range values {
+		payload[key] = map[string]any{
+			"expected": value.Expected,
+			"current":  value.Current,
+		}
+	}
+	return payload
 }
 
 func valuesEqual(left, right any) bool {
