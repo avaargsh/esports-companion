@@ -33,14 +33,14 @@ func referenceAuthority() AuthorityEnvelope {
 	return AuthorityEnvelope{
 		Authorization: referenceDecision(),
 		ExpectedState: map[string]any{
-			withdrawalStatus:    "PENDING",
-			walletVersion:       7,
-			walletFrozenBalance: 2500,
+			"withdrawalStatus":    "PENDING",
+			"walletVersion":       7,
+			"walletFrozenBalance": 2500,
 		},
 		BoundedWrite: map[string]any{
-			operation:        "WITHDRAWAL_COMPLETE",
-			providerTxnId:    "payout-1",
-			withdrawalStatus: "COMPLETED",
+			"operation":        "WITHDRAWAL_COMPLETE",
+			"providerTxnId":    "payout-1",
+			"withdrawalStatus": "COMPLETED",
 		},
 		ResourceVersion: "withdrawal:00000000-0000-0000-0000-000000000201:status=PENDING;wallet:00000000-0000-0000-0000-000000000401:v7",
 		IssuedAt:        "2026-09-30T00:00:01+00:00",
@@ -335,7 +335,7 @@ func TestCanonicalJSONMatchesPythonUnicodeContract(t *testing.T) {
 
 func TestAuthorityDigestMatchesPythonUnicodeGoldenVector(t *testing.T) {
 	authority := NewAuthorityEnvelope(AuthorityEnvelopeInput{
-		Authorization:   AuthorizationDecision{
+		Authorization: AuthorizationDecision{
 			ActorUserID:         "user-1",
 			ActorRoles:          []string{"USER"},
 			Action:              "ORDER_READ",

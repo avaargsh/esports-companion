@@ -92,12 +92,12 @@ func TestRecordAdmissionWritesAuthorityAndAdmissionEvidence(t *testing.T) {
 		CurrentState:           map[string]any{"walletVersion": 8},
 		CurrentResourceVersion: "withdrawal:201:status=PENDING;wallet:401:v8",
 		RequestedWrite:         authority.BoundedWrite,
-		StateDiff:              map[string]DiffValue{
+		StateDiff: map[string]DiffValue{
 			"walletVersion": {Expected: 7, Current: 8},
 		},
-		WriteDiff:              map[string]DiffValue{},
-		AdmissionVersion:       AuthorityAdmissionVersion,
-		AdmittedAt:             "2026-09-30T00:00:02+00:00",
+		WriteDiff:        map[string]DiffValue{},
+		AdmissionVersion: AuthorityAdmissionVersion,
+		AdmittedAt:       "2026-09-30T00:00:02+00:00",
 	}
 
 	if err := repository.RecordAdmission(context.Background(), authority, admission); err != nil {
