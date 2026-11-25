@@ -41,10 +41,15 @@ def request(base_url, method, path, *, headers=None, payload=None, query=None):
     except (json.JSONDecodeError, UnicodeDecodeError) as exc:
         raise ScenarioError(f"{method} {path} returned invalid JSON") from exc
     except HTTPError as exc:
+        if path == "/readyz":
+            exc.close()
+            raise ScenarioError(f"{method} {path} -> {exc.code}") from None
         raw = exc.read().decode("utf-8", errors="replace")
         raise ScenarioError(
             f"{method} {path} -> {exc.code}: {raw}"
         ) from exc
+    except TimeoutError as exc:
+        raise ScenarioError(f"{method} {path} timed out") from exc
     except URLError as exc:
         raise ScenarioError(f"{method} {path} failed: {exc}") from exc
 
