@@ -31,6 +31,8 @@ func (c Checker) Ready(w http.ResponseWriter, r *http.Request) {
 			httpx.JSON(w, http.StatusServiceUnavailable, `{"status":"not_ready","dependency":"redis"}`)
 			return
 		}
+		httpx.JSON(w, http.StatusOK, `{"status":"ready","dependencies":{"postgres":true,"redis":true}}`)
+		return
 	}
-	httpx.JSON(w, http.StatusOK, `{"status":"ready"}`)
+	httpx.JSON(w, http.StatusOK, `{"status":"ready","dependencies":{"postgres":true}}`)
 }
